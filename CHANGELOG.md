@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Stage 6 ablation matrix (``configs/ablation.yaml``), shared-split runner,
+  paired bootstrap / Wilcoxon / Holm / effect-size statistics, automatic
+  tables+figures report, CLI ``biosensor-stage6``
 - Stage 5 prospective wet-lab loop: immutable hashed prediction freeze (5A),
   Stage-0 cleaning importer (5B), prospective validation metrics (5C),
   model-update engine with physics weights-by-round + Gate 3 recalibration (5D),
@@ -32,5 +35,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sphinx documentation site with MyST Markdown and ``sphinx-rtd-theme``
 - Read the Docs config (``.readthedocs.yaml``)
 - Package scaffold under ``src/biosensor_priors`` matching the stage layout
-- YAML configs: ``pipeline``, ``fitness``, ``search``, ``thresholds``
-- Regression tests for Stage 0/3/4/5
+- YAML configs: ``pipeline``, ``fitness``, ``search``, ``thresholds``, ``ablation``
+- Regression tests for Stage 0/3/4/5/6

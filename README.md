@@ -35,7 +35,7 @@ Requires Python 3.11+.
 ## Repository layout
 
 ```text
-configs/          YAML: pipeline, fitness, search, thresholds
+configs/          YAML: pipeline, fitness, search, thresholds, ablation
 data/             experimental, constructs, structures, physics, rounds
 src/biosensor_priors/
   common/         config, IDs, manifests, gates, canonical maps
@@ -64,6 +64,7 @@ py -3.12 -m biosensor_priors.stage3_surrogate.run
 py -3.12 -m biosensor_priors.stage4_search.run
 py -3.12 -m biosensor_priors.stage4_search.campaign
 py -3.12 -m biosensor_priors.stage5_prospective.run --help
+py -3.12 -m biosensor_priors.stage6_ablation.run
 py -3.12 -m pytest tests -q
 ruff check .
 ```
