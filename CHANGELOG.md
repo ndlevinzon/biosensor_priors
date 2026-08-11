@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   come from CHPC **PyRosetta** (``configs/rosetta_physics.yaml``,
   ``wrappers/run_rosetta.py``). Legacy schema columns ``rif_ac`` / ``rif_prop`` /
   ``rpx`` retained for Stage 3. CLI ``biosensor-rosetta`` (``biosensor-rif`` alias).
+- Stage 1 ESMFold: use fair-esm **Python API**
+  (``esm.pretrained.esmfold_v1`` / ``infer_pdb``) via
+  ``stage1_structures/run_esmfold.py`` instead of the ``esm-fold`` CLI.
+- Stage 1/2 SLURM defaults: Granite ``cheatham`` account
+  (CPU ``granite`` / GPU ``granite-gpu`` + matching ``--qos``).
 
 ### Added
 

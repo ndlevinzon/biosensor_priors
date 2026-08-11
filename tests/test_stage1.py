@@ -269,6 +269,9 @@ def test_esmfold_read_fasta(tmp_path: Path):
     fa.write_text(">V2.4_ESMFold_seed1_apo\nACDE\nFGHI\n", encoding="utf-8")
     recs = read_fasta(fa)
     assert recs == [("V2.4_ESMFold_seed1_apo", "ACDEFGHI")]
+
+
+def test_parse_esmfold(tmp_path: Path):
     from biosensor_priors.stage1_structures.adapters import parse_ESMFold
 
     mid = "V2.4_ESMFold_seed1_apo"
