@@ -411,7 +411,8 @@ def parse_ESMFold(
     Parameters
     ----------
     output_dir : str or pathlib.Path
-        Directory passed to ``esm-fold -o``.
+        Directory written by :mod:`biosensor_priors.stage1_structures.run_esmfold`
+        (``{structure_model_id}.pdb``).
     version : str
         Sequence background.
     seed : int

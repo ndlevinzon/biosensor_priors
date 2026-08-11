@@ -84,14 +84,13 @@ af3:
     gres: "gpu:1"
 
 # Single-sequence structure prediction (no MSA). CHPC: module load esmfold/1.0.3
+# Uses fair-esm Python API (esm.pretrained.esmfold_v1), not the esm-fold CLI.
 esmfold:
   module: "esmfold/1.0.3"
-  # fair-esm CLI (typical after loading the module)
-  run: "esm-fold"
+  python: python
+  device: cuda
   num_recycles: 4
-  chunk_size: 128
-  max_tokens_per_batch: null
-  cpu_offload: false
+  chunk_size: 128   # model.set_chunk_size; lower if GPU OOM; 0 disables
   job:
     partition: granite-gpu
     qos: granite-gpu

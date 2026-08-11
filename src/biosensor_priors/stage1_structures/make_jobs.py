@@ -439,7 +439,8 @@ def make_structure_jobs(
                             "status": "scripted",
                             "notes": note
                             or (
-                                "ESMFold is single-sequence (no MSA); "
+                                "ESMFold via fair-esm Python API "
+                                "(esm.pretrained.esmfold_v1); "
                                 "seed is for ensemble bookkeeping only."
                             ),
                         }

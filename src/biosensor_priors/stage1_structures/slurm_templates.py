@@ -291,16 +291,31 @@ def write_esmfold_script(
     fasta_file: Path | str,
     output_dir: Path | str,
     esm_cfg: dict[str, Any],
+    runner_script: Path | str | None = None,
 ) -> Path:
     """
     Write a single-step CHPC ESMFold GPU SLURM script.
 
-    Uses ``module load esmfold/1.0.3`` and the ``esm-fold`` CLI
-    (``esm-fold -i FASTA -o PDB_DIR``).
+    Loads ``esmfold/1.0.3`` and runs the fair-esm **Python API** via
+    :mod:`biosensor_priors.stage1_structures.run_esmfold` (not ``esm-fold`` CLI).
     """
     step = esm_cfg.get("job") or esm_cfg.get("step2") or {}
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    if runner_script is None:
+        # Resolve installed / source path so module Python can exec the file.
+        from biosensor_priors.stage1_structures import run_esmfold as _run_esmfold
+
+        runner = Path(_run_esmfold.__file__).resolve()
+    else:
+        runner = Path(runner_script).resolve()
+
+    chunk = esm_cfg.get("chunk_size", 128)
+    recycles = esm_cfg.get("num_recycles", 4)
+    device = str(esm_cfg.get("device", "cuda"))
+    python_bin = str(esm_cfg.get("python", "python"))
+
     lines = _sbatch_header(
         job_name=path.stem[:64],
         partition=str(step.get("partition", "granite-gpu")),
@@ -320,23 +335,19 @@ def write_esmfold_script(
             "",
             f'FASTA_FILE="{Path(fasta_file).as_posix()}"',
             f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
+            f'ESMFOLD_PY="{runner.as_posix()}"',
             'mkdir -p "$OUTPUT_DIR"',
+            "",
+            "# fair-esm Python API (esm.pretrained.esmfold_v1), not esm-fold CLI",
+            f'{python_bin} "$ESMFOLD_PY" \\',
+            '  --fasta "$FASTA_FILE" \\',
+            '  --out "$OUTPUT_DIR" \\',
+            f"  --chunk-size {int(chunk) if chunk is not None else 0} \\",
+            f"  --num-recycles {int(recycles) if recycles is not None else 4} \\",
+            f"  --device {device}",
             "",
         ]
     )
-    runner = esm_cfg.get("run", "esm-fold")
-    extras: list[str] = []
-    if esm_cfg.get("num_recycles") is not None:
-        extras.append(f"--num-recycles {int(esm_cfg['num_recycles'])}")
-    if esm_cfg.get("chunk_size") is not None:
-        extras.append(f"--chunk-size {int(esm_cfg['chunk_size'])}")
-    if esm_cfg.get("max_tokens_per_batch") is not None:
-        extras.append(f"--max-tokens-per-batch {int(esm_cfg['max_tokens_per_batch'])}")
-    if esm_cfg.get("cpu_offload"):
-        extras.append("--cpu-offload")
-    extra = (" " + " ".join(extras)) if extras else ""
-    lines.append(f'{runner} -i "$FASTA_FILE" -o "$OUTPUT_DIR"{extra}')
-    lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
 

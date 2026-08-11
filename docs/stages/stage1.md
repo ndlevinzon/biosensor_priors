@@ -14,7 +14,7 @@ Stage 1 writes **two-step SLURM scripts** matching CHPC documentation:
 | --- | --- | --- | --- |
 | AF2 | ``alphafold/2.3.2`` | ``db_to_tmp_232.sh`` + ``run_alphafold_full.sh … --run_feature=1`` | ``run_alphafold_full.sh`` (no ``--run_feature``) |
 | AF3 | ``alphafold/3.0.0`` | ``run_alphafold.sh … --norun_inference`` | ``run_alphafold.sh … --norun_data_pipeline`` on ``*_data.json`` |
-| ESMFold | ``esmfold/1.0.3`` | — (single GPU job) | ``esm-fold -i FASTA -o OUT`` |
+| ESMFold | ``esmfold/1.0.3`` | — (single GPU job) | fair-esm Python API ``esmfold_v1().infer_pdb`` |
 | RF2 | ``rosettafold2/1.0`` | — (single GPU job) | ``run_RF2.sh FASTA -o OUT`` |
 
 Alias ``RFAA`` / ``RoseTTAFold2`` maps to method ``RF2`` (CHPC RoseTTAFold2 module).

@@ -250,8 +250,10 @@ gates:
     esm = reg[reg["method"] == "ESMFold"].iloc[0]
     esm_script = (root / esm["step1_script"]).read_text(encoding="utf-8")
     assert "ml esmfold/1.0.3" in esm_script
-    assert "esm-fold -i" in esm_script
+    assert "run_esmfold.py" in esm_script
+    assert "esm-fold -i" not in esm_script
     assert "--chunk-size 128" in esm_script
+    assert "esm.pretrained.esmfold_v1" in esm_script or "fair-esm Python API" in esm_script
 
     rf = reg[reg["method"] == "RF2"].iloc[0]
     rf_script = (root / rf["step1_script"]).read_text(encoding="utf-8")
@@ -260,7 +262,13 @@ gates:
     assert ' -o "$OUTPUT_DIR"' in rf_script
 
 
-def test_parse_esmfold(tmp_path: Path):
+def test_esmfold_read_fasta(tmp_path: Path):
+    from biosensor_priors.stage1_structures.run_esmfold import read_fasta
+
+    fa = tmp_path / "t.fasta"
+    fa.write_text(">V2.4_ESMFold_seed1_apo\nACDE\nFGHI\n", encoding="utf-8")
+    recs = read_fasta(fa)
+    assert recs == [("V2.4_ESMFold_seed1_apo", "ACDEFGHI")]
     from biosensor_priors.stage1_structures.adapters import parse_ESMFold
 
     mid = "V2.4_ESMFold_seed1_apo"
