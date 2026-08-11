@@ -5,13 +5,13 @@
 **biosensor-priors** is a modular pipeline for designing AcCoA-selective
 biosensor variants with a physics-informed Gaussian process (GP) and an
 active-learning loop. Wet-lab measurements are the only ground truth.
-Structural predictors (AF2/AF3/RFAA/…) and physics scores (RIF/RPX) enter only
+Structural predictors (AF2/AF3/RFAA/…) and Rosetta physics scores enter only
 as **priors and uncertainty channels**. The code never treats a physics score
 or a predicted structure as a substitute for experimental fitness.
 
 The operational path is: clean and freeze experimental data and fitness
 (Stage 0); assemble multi-model structures and confidence (Stage 1); generate
-ligand conformers and RIF/RPX mutation landscapes with selectivity
+ligand conformers and Rosetta mutation landscapes with selectivity
 $\Delta\mathrm{RIF}_{\mathrm{sel}}$ (Stage 2); fit a decomposed surrogate
 $\hat F(x)=\hat\mu_0(x)+\hat f_{\mathrm{GP}}(x)$ under cross-validation
 (Stage 3); propose batches with Random / AdaLead / MCMC / BO over a
@@ -127,7 +127,7 @@ the standardized confidence table.
 Score direction is frozen:
 
 $$
-\text{more negative RIF/RPX} \equiv \text{better interaction (Rosetta-like)}.
+\text{more negative Rosetta interface/packing} \equiv \text{better interaction}.
 $$
 
 Parsers and gates **do not infer** this convention.
@@ -150,8 +150,8 @@ content hash + schema version. Catalog:
 #### 4.2 Rosetta interface / packing wrappers (2B)
 
 Stage-2 priors are **PyRosetta** mutate→pack energies (CHPC
-``pyrosetta/4.0.0``), written into legacy schema columns ``rif_ac``,
-``rif_prop``, and ``rpx``. RifDock / rpxdock are not used.
+``pyrosetta/4.0.0``), written into schema columns ``rif_ac``,
+``rif_prop``, and ``rpx``.
 
 For each `structure_model_id` and ligand ensemble the Python layer:
 

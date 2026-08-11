@@ -9,7 +9,7 @@ constants in Python.
 | ``configs/fitness.yaml`` | Preregistered fitness formulation, weights, observation policies, design constraints |
 | ``configs/search.yaml`` | Batch size, UCB/AdaLead/MCMC, uncertainty λs, prefilter, diversification |
 | ``configs/thresholds.yaml`` | Structure predictors/seeds/states, confidence cutoffs, physics score direction, GP defaults |
-| ``configs/physics.yaml`` | Stage 2 backend (mock/external), ligand/RIF/RPX tool paths, job scheduler, mock control deltas |
+| ``configs/physics.yaml`` | Stage 2 backend (mock/external), ligand/Rosetta tool paths, job scheduler, mock control deltas |
 | ``configs/ablation.yaml`` | Stage 6 ablation matrix |
 
 ## Fitness preregistration
@@ -43,7 +43,7 @@ Explicit policies are required for:
 
 **Frozen convention** (``configs/thresholds.yaml``):
 
-> More negative RIF/RPX = better interaction (Rosetta-like).
+> More negative Rosetta interface/packing = better interaction.
 
 Downstream code must not guess sign convention. Derived selectivity is:
 

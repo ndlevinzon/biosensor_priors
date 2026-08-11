@@ -15,7 +15,7 @@ robust.
 ## Second block (plug-in when ready)
 
 5. **Stage 1** — job generation, predictor adapters, confidence tables
-6. **Stage 2** — ligand ensembles, RIF/RPX wrappers, mutation scans, Gate 2 controls
+6. **Stage 2** — ligand ensembles, Rosetta wrappers, mutation scans, Gate 2 controls
    (implemented with ``backend: mock``; point ``configs/physics.yaml`` at HPC
    binaries when deployed)
 
@@ -44,7 +44,7 @@ Random / AdaLead / MCMC / BO
 **Later addition (same machinery):**
 
 ```text
-structure confidence + RIF/RPX
+structure confidence + Rosetta physics
         ↓
    physics prior (μ₀)
         ↓

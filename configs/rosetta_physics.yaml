@@ -1,4 +1,4 @@
-# Stage 2 physics priors via CHPC PyRosetta / Rosetta (not RifDock).
+# Stage 2 physics priors via CHPC PyRosetta / Rosetta.
 #
 # Load on CHPC:
 #   module load pyrosetta/4.0.0

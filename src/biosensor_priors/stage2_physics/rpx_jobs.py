@@ -151,7 +151,7 @@ def build_rpx_job(
 
     jobs_cfg = physics_cfg.get("jobs", {})
 
-    executable = rpx_cfg.get("executable") or "RPX_EXECUTABLE_NOT_SET"
+    executable = rpx_cfg.get("executable") or "ROSETTA_PACK_EXECUTABLE_NOT_SET"
 
     template = rpx_cfg.get("command_template") or "{executable} --out {out_dir}"
 

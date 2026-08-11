@@ -99,7 +99,7 @@ def format_rif_command(
 
 ) -> list[str]:
 
-    """Format a RIF command template into a bash-wrapped argv list.
+    """Format an interface-scoring command template into a bash-wrapped argv list.
 
 
 
@@ -111,7 +111,7 @@ def format_rif_command(
 
     executable : str
 
-        RIF executable path or name.
+        Rosetta wrapper executable path or name.
 
     structure_pdb : pathlib.Path
 
@@ -127,7 +127,7 @@ def format_rif_command(
 
     out_dir : pathlib.Path
 
-        Output directory for RIF scores.
+        Output directory for interface scores.
 
     structure_model_id : str
 
@@ -197,7 +197,7 @@ def build_rif_job(
 
 ) -> PhysicsJob:
 
-    """Construct a RIF job (command + scripts + provenance sidecar).
+    """Construct an interface-scoring job (command + scripts + provenance sidecar).
 
 
 
@@ -221,7 +221,7 @@ def build_rif_job(
 
     out_dir : pathlib.Path
 
-        Output directory for RIF scores.
+        Output directory for interface scores.
 
     physics_scan_id : str
 
@@ -253,7 +253,7 @@ def build_rif_job(
 
     jobs_cfg = physics_cfg.get("jobs", {})
 
-    executable = rif_cfg.get("executable") or "RIF_EXECUTABLE_NOT_SET"
+    executable = rif_cfg.get("executable") or "ROSETTA_EXECUTABLE_NOT_SET"
 
     template = rif_cfg.get("command_template") or "{executable} --out {out_dir}"
 
@@ -391,13 +391,10 @@ def mock_rif_scores_for_mutations(
 
 ) -> list[dict[str, Any]]:
 
-    """Generate deterministic pseudo-RIF scores for orchestration / Gate 2 dry-runs.
+    """Generate deterministic pseudo-physics scores for orchestration / Gate 2 dry-runs.
 
-
-
-    Control mutations use configured ΔRIF_sel favoring AcCoA when
-
-    ``more_negative_is_better`` (RIF_Ac more negative than RIF_Prop).
+    Control mutations use configured Δ(rif_ac − rif_prop) favoring AcCoA when
+    ``more_negative_is_better`` (rif_ac more negative than rif_prop).
 
 
 
@@ -511,7 +508,7 @@ def submit_or_mock_rif_job(
 
 ) -> tuple[PhysicsJob, Path]:
 
-    """Run RIF externally when configured; otherwise write mock scores and mark dry_run.
+    """Run Rosetta scoring externally when configured; otherwise write mock scores and mark dry_run.
 
 
 
@@ -519,7 +516,7 @@ def submit_or_mock_rif_job(
     ----------
     job : PhysicsJob
 
-        Pre-built RIF job record.
+        Pre-built interface-scoring job record.
 
     mutations : list of dict
 
@@ -543,7 +540,7 @@ def submit_or_mock_rif_job(
 
     score_path : pathlib.Path
 
-        Path to the RIF score TSV.
+        Path to the interface score TSV.
 
     """
 
@@ -590,7 +587,7 @@ def submit_or_mock_rif_job(
 
     )
 
-    # One RIF job may cover both ligands; write combined table.
+    # One job may cover both ligands; write combined table.
 
     write_mock_rif_scores(score_path, rows)
 
@@ -642,7 +639,7 @@ def prepare_rif_jobs_for_models(
 
 ) -> dict[str, Any]:
 
-    """Build and run RIF jobs for AcCoA/PropCoA ensembles per structure model.
+    """Build and run Rosetta interface jobs for AcCoA/PropCoA ensembles per structure model.
 
 
 

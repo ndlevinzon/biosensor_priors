@@ -420,7 +420,7 @@ def build_approved_ensemble(
     """Produce approved conformer files and catalog rows with permanent IDs.
 
     When real QM/cluster outputs are absent, writes deterministic placeholders
-    so downstream RIF job construction still has an ensemble to point at.
+    so downstream Rosetta interface job construction still has an ensemble to point at.
 
     Parameters
     ----------

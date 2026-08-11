@@ -1,8 +1,8 @@
 """
-Stage 2 packing scores via CHPC **PyRosetta** (not rpxdock).
+Stage 2 packing scores via CHPC **PyRosetta**.
 
 ``rpx`` is the local packing / total energy after mutate+pack. Same engine as
-``run_rosetta``; this CLI writes the RPX-only TSV expected by ``rpx_jobs``.
+``run_rosetta``; this CLI writes the packing-only TSV expected by ``rpx_jobs``.
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> None:
-    """CLI entry point for Rosetta packing (RPX column) scores."""
+    """CLI entry point for Rosetta packing (rpx column) scores."""
     parser = argparse.ArgumentParser(
         description="PyRosetta packing scores → Stage 2 rpx column"
     )

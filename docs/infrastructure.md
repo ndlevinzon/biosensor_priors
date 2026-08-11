@@ -14,7 +14,7 @@ constants. Typical contents:
 - allowed mutable positions and amino acids
 - maximum mutations per construct
 - structure confidence thresholds
-- RIF/RPX thresholds and score-direction convention
+- Rosetta physics thresholds and score-direction convention
 - GP settings
 - UCB κ, AdaLead ε, MCMC temperature
 - random seed and analysis round

@@ -54,7 +54,6 @@ biosensor-stage2 = "biosensor_priors.stage2_physics.run:main"
 biosensor-ligand-conformers = "biosensor_priors.stage2_physics.conformer_generator:main"
 biosensor-gaussian-qm = "biosensor_priors.stage2_physics.gaussian_qm:main"
 biosensor-rosetta = "biosensor_priors.stage2_physics.wrappers.run_rosetta:main"
-biosensor-rif = "biosensor_priors.stage2_physics.wrappers.run_rosetta:main"
 biosensor-rpx = "biosensor_priors.stage2_physics.wrappers.run_rpx:main"
 
 [project.optional-dependencies]

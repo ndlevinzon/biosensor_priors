@@ -268,10 +268,10 @@ def run_mutation_scan(
     amino_acids: list[str] | None = None,
     physics_scan_id: str | None = None,
 ) -> dict[str, Any]:
-    """Stage 2C — generate specs, score via RIF/RPX, and write long table.
+    """Stage 2C — generate specs, score via Rosetta, and write long table.
 
-    Long-format columns include Version, Position, WT, Mutant, RIF Ac,
-    RIF Prop, RPX, and delta_rif_sel.
+    Long-format columns include Version, Position, WT, Mutant, rif_ac,
+    rif_prop, rpx, and delta_rif_sel (Rosetta interface / packing energies).
 
     Parameters
     ----------
@@ -413,7 +413,7 @@ def run_mutation_scan(
         "backend": backend,
         "score_direction": thresholds.get("physics", {}).get("score_direction"),
         "created_at": datetime.now(tz=UTC).isoformat(),
-        "delta_rif_sel_definition": "RIF_Ac - RIF_Prop",
+        "delta_rif_sel_definition": "rif_ac - rif_prop",
         "note": "Score direction is declared in thresholds.yaml; parsers do not guess.",
     }
     (out_dir / "scan_meta.json").write_text(

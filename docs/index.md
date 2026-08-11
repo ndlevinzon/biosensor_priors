@@ -1,7 +1,7 @@
 # biosensor-priors documentation
 
 Physics-informed Gaussian process pipeline for biosensor design, structural
-uncertainty, RIF/RPX physics landscapes, and active learning.
+uncertainty, Rosetta physics landscapes, and active learning.
 
 ```{toctree}
 :maxdepth: 2

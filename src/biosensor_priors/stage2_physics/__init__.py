@@ -1,4 +1,4 @@
-"""Stage 2 — Physics landscape (RIF/RPX orchestration)."""
+"""Stage 2 — Physics landscape (Rosetta interface / packing orchestration)."""
 
 __all__ = [
     "run_ligand_ensemble",

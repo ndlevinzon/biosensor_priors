@@ -1,4 +1,4 @@
-"""Stage 2 orchestration: ligands → RIF/RPX scan → uncertainty → Gate 2."""
+"""Stage 2 orchestration: ligands → Rosetta scan → uncertainty → Gate 2."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def run_stage2(
 ) -> dict[str, Any]:
     """Run Stage 2 end-to-end under the configured backend (default: mock).
 
-    External RIF/RPX/QM binaries are optional. With ``backend: mock`` the Python
+    External Rosetta / QM tools are optional. With ``backend: mock`` the Python
     orchestration, permanent conformer IDs, long-format scan table, uncertainty
     aggregation, and Gate 2 controls are fully exercised.
 
@@ -93,7 +93,7 @@ def run_stage2(
             "random_seed": seed,
             "score_direction": thresholds.get("physics", {}).get("score_direction"),
             "physics_scan_id": scan["physics_scan_id"],
-            "delta_rif_sel_definition": "RIF_Ac - RIF_Prop",
+            "delta_rif_sel_definition": "rif_ac - rif_prop (Rosetta interface energies)",
         },
         outputs={
             "ligand_conformers": str(ligands.catalog_path.relative_to(root)),

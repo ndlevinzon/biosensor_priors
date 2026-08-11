@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Stage 2 physics backend: **removed RifDock / rpxdock scaffolds**; priors now
-  come from CHPC **PyRosetta** (``configs/rosetta_physics.yaml``,
-  ``wrappers/run_rosetta.py``). Legacy schema columns ``rif_ac`` / ``rif_prop`` /
-  ``rpx`` retained for Stage 3. CLI ``biosensor-rosetta`` (``biosensor-rif`` alias).
+- Stage 2 physics priors use CHPC **PyRosetta** only
+  (``configs/rosetta_physics.yaml``, ``wrappers/run_rosetta.py`` /
+  ``run_rpx.py``). Schema columns ``rif_ac`` / ``rif_prop`` / ``rpx`` retained
+  for Stage 3. CLIs: ``biosensor-rosetta``, ``biosensor-rpx``.
 - Stage 1 ESMFold: use fair-esm **Python API**
   (``esm.pretrained.esmfold_v1`` / ``infer_pdb``) via
   ``stage1_structures/run_esmfold.py`` instead of the ``esm-fold`` CLI.
@@ -29,11 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stage 2 physics landscape orchestration: ligand conformer pipeline with
   permanent ``conformer_id``s, **RDKit ETKDG** conformer generator (OMEGA
   replacement), **Gaussian16** (``gaussian16/SSE4.C01``) GJF/SLURM writers,
-  RIF/RPX job wrappers + provenance, **PyRosetta CLIs**
+  Rosetta job wrappers + provenance, **PyRosetta CLIs**
   (``biosensor-rosetta`` / ``biosensor-rpx``) for CHPC ``pyrosetta/4.0.0``,
   20-AA scan
-  long table with ``ΔRIF_sel = RIF_Ac − RIF_Prop`` (Rosetta energies; legacy
-  column names), uncertainty aggregation
+  long table with ``delta_rif_sel = rif_ac − rif_prop`` (Rosetta energies),
+  uncertainty aggregation
   across structure models, Gate 2 Q324R/A355R directional tests, mock backend
   until HPC tools are deployed, CLI ``biosensor-stage2``
 - Methodology documentation (``docs/methodology.md``) with equations, full

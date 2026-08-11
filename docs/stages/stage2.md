@@ -143,5 +143,4 @@ python -m biosensor_priors.stage2_physics.wrappers.run_rpx \
   --structure model.pdb --mutation Q324R --out /tmp/rpx --scaffold
 ```
 
-Entry points: ``biosensor-rosetta``, ``biosensor-rpx`` (``biosensor-rif`` is an
-alias of ``biosensor-rosetta``).
+Entry points: ``biosensor-rosetta``, ``biosensor-rpx``.

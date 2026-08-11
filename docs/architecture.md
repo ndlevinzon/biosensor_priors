@@ -18,7 +18,7 @@ Stage 0: Ground truth + fitness definition
 Stage 1: Structure ensemble + confidence
       │
       ▼
-Stage 2: RIF/RPX physics landscape
+Stage 2: Rosetta physics landscape
       │
       ▼
 Stage 3: Physics-informed GP
@@ -44,7 +44,7 @@ Across everything:
 | Change… | Must not force re-running… |
 | --- | --- |
 | GP kernel / residual model | Stage 1 structure prediction |
-| BO / AdaLead / MCMC acquisition | Stage 2 RIF/RPX jobs |
+| BO / AdaLead / MCMC acquisition | Stage 2 Rosetta physics jobs |
 | Fitness weights (new *analysis round* only) | Historical manifests (freeze prior rounds) |
 | Search batch size | Stages 0–3 artifacts |
 
