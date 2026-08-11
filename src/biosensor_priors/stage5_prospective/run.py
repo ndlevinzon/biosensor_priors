@@ -31,6 +31,18 @@ from biosensor_priors.stage5_prospective.update_model import (
 
 
 def _load_master(root: Path) -> pd.DataFrame:
+    """Load the processed experiment master table from disk.
+
+    Parameters
+    ----------
+    root : Path
+        Repository root containing ``data/processed/``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Experiment master table preferring pickle over parquet when both exist.
+    """
     pkl = root / "data" / "processed" / "experiment_master.pkl"
     if pkl.exists():
         return pd.read_pickle(pkl)
@@ -43,7 +55,22 @@ def freeze_round_batch(
     round_id: int | str,
     repo_root: Path | None = None,
 ) -> dict[str, Any]:
-    """5A — freeze predictions for a synthesis round."""
+    """Freeze immutable predictions for a synthesis round (Stage 5A).
+
+    Parameters
+    ----------
+    batch : pd.DataFrame
+        Stage-4 proposal batch with predictions and selection metadata.
+    round_id : int or str
+        Prospective round identifier.
+    repo_root : Path or None, optional
+        Repository root; defaults to configured ``REPO_ROOT``.
+
+    Returns
+    -------
+    dict
+        Freeze metadata returned by :func:`freeze_predictions`, including paths and hash.
+    """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")
     rounds_dir = resolve_path(pipeline["paths"]["rounds"], root)
@@ -74,8 +101,38 @@ def ingest_and_validate_round(
     out_dir: Path | None = None,
     rerun_gates: bool = True,
 ) -> dict[str, Any]:
-    """
-    5B–5D: import results via Stage-0 cleaning, validate vs freeze, optionally update model.
+    """Import wet-lab results, validate against freeze, and optionally update model.
+
+    Implements stages 5B–5D: Stage-0 cleaning, prospective validation, Gate 4,
+    master append, surrogate refit, and optional next-batch generation.
+
+    Parameters
+    ----------
+    results_path : Path
+        Path to new plate Excel/CSV export.
+    round_id : int or str
+        Prospective round identifier matching the frozen predictions.
+    repo_root : Path or None, optional
+        Repository root; defaults to configured ``REPO_ROOT``.
+    update_model : bool, optional
+        When True, append to master and refit after Gate 4 (default True).
+    next_strategy : str, optional
+        Search strategy for optional next-batch generation (default ``"bo"``).
+    candidate_pool : pd.DataFrame or None, optional
+        Pool for next-batch generation when ``update_model`` is True.
+    master_path : Path or None, optional
+        Override path to experiment master parquet.
+    rounds_dir : Path or None, optional
+        Override directory containing frozen prediction files.
+    out_dir : Path or None, optional
+        Override Stage-5 output directory.
+    rerun_gates : bool, optional
+        When True, rerun Stage-3 calibration gates after model update (default True).
+
+    Returns
+    -------
+    dict
+        Round summary with validation report, gate outcome, and optional model artifacts.
     """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")
@@ -235,18 +292,17 @@ def ingest_and_validate_round(
 
 
 def main() -> None:
-    """
-    CLI helper.
+    """CLI entry point for Stage 5 freeze and ingest workflows.
 
-    Examples
-    --------
-    Freeze a Stage-4 batch CSV::
+    Parameters
+    ----------
+    None
+        Subcommands and flags are parsed from ``sys.argv`` via ``argparse``.
 
-        python -m biosensor_priors.stage5_prospective.run freeze --round 3 --batch outputs/stage4/batch_design_bo.csv
-
-    Ingest results and update::
-
-        python -m biosensor_priors.stage5_prospective.run ingest --round 3 --results path/to/plate.xlsx
+    Returns
+    -------
+    None
+        Prints JSON metadata or round summary to stdout.
     """
     import argparse
 

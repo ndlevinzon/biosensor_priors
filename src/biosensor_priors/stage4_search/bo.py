@@ -45,6 +45,10 @@ class BOPolicy:
         use_effective_uncertainty : bool, optional
             When True, use :func:`~biosensor_priors.stage4_search.acquisition.sigma_effective`
             instead of GP sigma alone (default False).
+
+        Returns
+        -------
+        None
         """
         self.kappa = kappa
         self.lambda_structure = lambda_structure

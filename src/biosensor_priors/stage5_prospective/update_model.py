@@ -30,13 +30,25 @@ def append_physics_weights_row(
     round_id: int | str,
     weights: dict[str, Any],
 ) -> pd.DataFrame:
-    """
-    Append one round of physics coefficients.
+    """Append one round of fitted physics coefficients to the history CSV.
 
     Columns: Round, w_RIF_Ac, w_RPX, w_ΔRIF (+ intercept/mode extras).
-
     Weights trending toward zero as labeled data accumulates is a legitimate
     outcome and is recorded, not suppressed.
+
+    Parameters
+    ----------
+    history_path : Path
+        CSV path for cumulative physics-weight history.
+    round_id : int or str
+        Prospective round identifier.
+    weights : dict
+        Physics coefficient dict from surrogate metadata.
+
+    Returns
+    -------
+    pd.DataFrame
+        Updated history table including the new row.
     """
     history_path = Path(history_path)
     history_path.parent.mkdir(parents=True, exist_ok=True)
@@ -68,7 +80,31 @@ def refit_surrogate(
     random_seed: int = 42,
     kind: str = "physics_gp",
 ) -> tuple[FusedSurrogate, dict[str, Any]]:
-    """Refit fused surrogate on all constructs with usable fitness."""
+    """Refit fused surrogate on all constructs with usable fitness.
+
+    Parameters
+    ----------
+    master : pd.DataFrame
+        Authoritative experiment master table.
+    encoding : str, optional
+        Feature encoding for the surrogate (default ``"hybrid"``).
+    use_confidence_weighting : bool, optional
+        Whether to discount physics features by structural confidence (default True).
+    random_seed : int, optional
+        Random seed for GP fitting (default 42).
+    kind : str, optional
+        Surrogate kind passed to :class:`FusedSurrogate` (default ``"physics_gp"``).
+
+    Returns
+    -------
+    tuple of (FusedSurrogate, dict)
+        Fitted model and its metadata dict.
+
+    Raises
+    ------
+    RuntimeError
+        If no fitness-labeled constructs are available.
+    """
     fit_df = master[master["fitness"].notna()].copy()
     if fit_df.empty:
         raise RuntimeError("No fitness-labeled constructs available for model update.")
@@ -91,11 +127,27 @@ def rerun_calibration_gates(
     random_seed: int = 42,
     require_hard_gate: bool = False,
 ) -> dict[str, Any]:
-    """
-    Re-run Stage-3 CV + Gate 3 after appending prospective data.
+    """Re-run Stage-3 cross-validation and Gate 3 after appending prospective data.
 
-    Returns Gate 3 report with ``operational_passed`` (soft RMSE allowed when
-    the hard statistical gate is underpowered).
+    Parameters
+    ----------
+    master : pd.DataFrame
+        Updated experiment master with new fitness labels.
+    splits_dir : Path or None, optional
+        Directory for cached CV splits; created on demand when provided.
+    encoding : str, optional
+        Feature encoding for CV evaluation (default ``"hybrid"``).
+    use_confidence_weighting : bool, optional
+        Whether to apply confidence weighting during CV (default True).
+    random_seed : int, optional
+        Random seed for split generation and model fitting (default 42).
+    require_hard_gate : bool, optional
+        When False, allow soft RMSE pass for operational gating (default False).
+
+    Returns
+    -------
+    dict
+        Gate 3 report with ``operational_passed``, ``n_cv_rows``, and ``n_splits``.
     """
     fit_df = master[master["fitness"].notna()].copy()
     splits = ensure_splits_for_fitness(
@@ -127,6 +179,20 @@ def rerun_calibration_gates(
 
 
 def _build_policies(search_cfg: dict[str, Any], seed: int) -> dict[str, Any]:
+    """Instantiate search policies for next-batch generation after model update.
+
+    Parameters
+    ----------
+    search_cfg : dict
+        Parsed ``search.yaml`` configuration.
+    seed : int
+        Random seed passed to stochastic policies.
+
+    Returns
+    -------
+    dict of str to SearchPolicy
+        Mapping from strategy name to policy instance.
+    """
     adalead_cfg = search_cfg.get("adalead", {})
     return {
         "random": RandomSearchPolicy(
@@ -164,7 +230,35 @@ def generate_next_batch(
     batch_size: int | None = None,
     random_seed: int = 42,
 ) -> pd.DataFrame:
-    """Propose the next experimental batch with the updated surrogate."""
+    """Propose the next experimental batch with the updated surrogate.
+
+    Parameters
+    ----------
+    master : pd.DataFrame
+        Authoritative experiment master including all observed fitness rows.
+    candidate_pool : pd.DataFrame
+        Candidates eligible for the next round.
+    surrogate : FusedSurrogate
+        Refitted surrogate model.
+    search_cfg : dict
+        Parsed ``search.yaml`` configuration.
+    strategy : str, optional
+        Search strategy name (default ``"bo"``).
+    batch_size : int or None, optional
+        Batch size; defaults to ``search_cfg["batch_size"]``.
+    random_seed : int, optional
+        Random seed for stochastic policies (default 42).
+
+    Returns
+    -------
+    pd.DataFrame
+        Proposed batch with ``selection_algorithm`` and ``selection_rank`` columns.
+
+    Raises
+    ------
+    ValueError
+        If ``strategy`` is not among configured policies.
+    """
     observed = master[master["fitness"].notna()].copy()
     policies = _build_policies(search_cfg, random_seed)
     if strategy not in policies:
@@ -184,6 +278,26 @@ def save_model_update_artifacts(
     weights_history: pd.DataFrame,
     calibration_gate: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
+    """Write JSON/CSV artifacts documenting a post-round model update.
+
+    Parameters
+    ----------
+    out_dir : Path
+        Output directory for round artifacts.
+    round_id : int or str
+        Prospective round identifier.
+    metadata : dict
+        Surrogate metadata from :func:`refit_surrogate`.
+    weights_history : pd.DataFrame
+        Cumulative physics-weight history table.
+    calibration_gate : dict or None, optional
+        Optional Gate 3 recalibration report to persist.
+
+    Returns
+    -------
+    dict of str to Path
+        Paths to written metadata, weights history, named weights, and optional gate JSON.
+    """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     meta_path = out_dir / f"round_{round_id}_model_metadata.json"

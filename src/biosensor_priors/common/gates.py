@@ -31,6 +31,11 @@ def require_gate(gate: dict[str, Any], *, stage: str) -> None:
     stage : str
         Stage name included in the error message on failure.
 
+    Returns
+    -------
+    None
+        Returns only when the gate passed.
+
     Raises
     ------
     RuntimeError

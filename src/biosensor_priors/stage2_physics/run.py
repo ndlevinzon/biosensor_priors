@@ -20,12 +20,26 @@ def run_stage2(
     n_placeholder_conformers: int = 3,
     skip_gate_enforce: bool = False,
 ) -> dict[str, Any]:
-    """
-    Run Stage 2 end-to-end under the configured backend (default: mock).
+    """Run Stage 2 end-to-end under the configured backend (default: mock).
 
     External RIF/RPX/QM binaries are optional. With ``backend: mock`` the Python
     orchestration, permanent conformer IDs, long-format scan table, uncertainty
     aggregation, and Gate 2 controls are fully exercised.
+
+    Parameters
+    ----------
+    repo_root : pathlib.Path, optional
+        Repository root for config and output paths.
+    n_placeholder_conformers : int, optional
+        Placeholder conformers per ligand in Stage 2A (default 3).
+    skip_gate_enforce : bool, optional
+        When True, do not enforce Gate 2 failure policy (default False).
+
+    Returns
+    -------
+    dict
+        Keys ``ligands``, ``scan``, ``uncertainty``, ``gate``,
+        ``manifest_path``, and ``output_dir``.
     """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")
@@ -107,6 +121,19 @@ def run_stage2(
 
 
 def main() -> None:
+    """CLI entry point for Stage 2 physics landscape orchestration.
+
+    Parameters
+    ----------
+    None
+        Flags are parsed from ``sys.argv`` via ``argparse``.
+
+    Returns
+    -------
+    None
+        Prints scan/gate summary to stdout; may exit with status 1 when
+        ``--require-gate`` is set and Gate 2 fails.
+    """
     import argparse
 
     parser = argparse.ArgumentParser(description="Stage 2 physics landscape orchestration")

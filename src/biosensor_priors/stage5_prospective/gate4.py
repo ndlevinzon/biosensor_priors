@@ -16,11 +16,31 @@ def evaluate_gate4(
     require_finite_rmse: bool = True,
     require_freeze_integrity: bool = True,
 ) -> dict[str, Any]:
-    """
-    Stage-5 gate: freeze integrity + prospective validation sanity.
+    """Evaluate Stage-5 gate before model update after prospective validation.
 
-    Required before model update when ``pipeline.gates.stage5`` is
-    ``required_before_model_update``.
+    Checks freeze integrity, matched observation count, finite RMSE, and the
+    validation report pass flag. Required before model update when
+    ``pipeline.gates.stage5`` is ``required_before_model_update``.
+
+    Parameters
+    ----------
+    validation : dict
+        Output from :func:`prospective_validation`.
+    rounds_dir : Path-like or None, optional
+        Directory containing frozen prediction files for integrity check.
+    round_id : int, str, or None, optional
+        Round identifier for integrity check.
+    min_matched : int, optional
+        Minimum overlapping predictions required (default 1).
+    require_finite_rmse : bool, optional
+        When True, RMSE must be finite (default True).
+    require_freeze_integrity : bool, optional
+        When True, verify SHA-256 sidecar matches parquet (default True).
+
+    Returns
+    -------
+    dict
+        Gate report with ``passed``, ``checks``, ``failed``, and metric summaries.
     """
     checks = []
 

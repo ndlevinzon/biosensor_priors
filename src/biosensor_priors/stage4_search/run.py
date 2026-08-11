@@ -308,6 +308,18 @@ def run_stage4(
 
 
 def main() -> None:
+    """CLI entry point for Stage 4 active-learning proposal generation.
+
+    Parameters
+    ----------
+    None
+        Arguments are parsed from ``sys.argv`` via ``argparse``.
+
+    Returns
+    -------
+    None
+        Prints batch counts and output paths to stdout.
+    """
     import argparse
 
     parser = argparse.ArgumentParser(description="Stage 4 active-learning proposals")

@@ -25,6 +25,20 @@ class PhysicsMeanModel:
     mode_: str = "intercept"
 
     def fit(self, X_physics: np.ndarray, y: np.ndarray) -> PhysicsMeanModel:
+        """Fit μ₀(x) on physics features or intercept-only when absent.
+
+        Parameters
+        ----------
+        X_physics : numpy.ndarray
+            Physics feature matrix of shape ``(n_samples, n_physics_features)``.
+        y : numpy.ndarray
+            Target fitness values.
+
+        Returns
+        -------
+        PhysicsMeanModel
+            Fitted mean model (``self``).
+        """
         y = np.asarray(y, dtype=float)
         X_physics = np.asarray(X_physics, dtype=float)
         self.n_features_ = X_physics.shape[1] if X_physics.ndim == 2 else 0
@@ -47,12 +61,36 @@ class PhysicsMeanModel:
         return self
 
     def predict(self, X_physics: np.ndarray) -> np.ndarray:
+        """Predict physics mean μ₀ for each row.
+
+        Parameters
+        ----------
+        X_physics : numpy.ndarray
+            Physics feature matrix.
+
+        Returns
+        -------
+        numpy.ndarray
+            Predicted mean values, one per row.
+        """
         X_physics = np.asarray(X_physics, dtype=float)
         if self.mode_ == "intercept" or self.n_features_ == 0:
             return np.full(len(X_physics), self.intercept_, dtype=float)
         return self.intercept_ + X_physics @ self.coefficients_
 
     def as_weight_dict(self, names: list[str] | None = None) -> dict[str, float | str]:
+        """Serialize fitted coefficients as a name-to-weight mapping.
+
+        Parameters
+        ----------
+        names : list of str, optional
+            Feature names for coefficients; defaults to ``w0``, ``w1``, ...
+
+        Returns
+        -------
+        dict
+            Intercept, mode, and optional per-feature weights.
+        """
         out: dict[str, float | str] = {"intercept": self.intercept_, "mode": self.mode_}
         if self.coefficients_ is None or len(self.coefficients_) == 0:
             return out

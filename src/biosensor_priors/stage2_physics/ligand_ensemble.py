@@ -23,11 +23,25 @@ def make_conformer_id(
     schema_version: int = 1,
     index: int | None = None,
 ) -> str:
-    """
-    Permanent conformer identity.
+    """Build permanent conformer identity stable across re-runs.
 
-    Stable across re-runs given the same ligand content + schema version.
     Format: ``{ligand}:{schema_version}:{content12}[:{index:03d}]``
+
+    Parameters
+    ----------
+    ligand : str
+        Ligand name, e.g. ``AcCoA``.
+    content_hash : str
+        SHA-256 hex digest of conformer content.
+    schema_version : int, optional
+        Conformer ID schema version (default 1).
+    index : int, optional
+        Conformer index within the ensemble.
+
+    Returns
+    -------
+    str
+        Permanent ``conformer_id`` string.
     """
     base = f"{ligand}:v{schema_version}:{content_hash[:12]}"
     if index is not None:
@@ -36,15 +50,52 @@ def make_conformer_id(
 
 
 def _content_hash_bytes(data: bytes) -> str:
+    """Compute SHA-256 hex digest of raw bytes.
+
+    Parameters
+    ----------
+    data : bytes
+        Payload to hash.
+
+    Returns
+    -------
+    str
+        Lowercase hex digest.
+    """
     return hashlib.sha256(data).hexdigest()
 
 
 def _content_hash_file(path: Path) -> str:
+    """Compute SHA-256 hex digest of a file on disk.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        File to hash.
+
+    Returns
+    -------
+    str
+        Lowercase hex digest from :func:`sha256_file`.
+    """
     return sha256_file(path)
 
 
 def _placeholder_mol_block(ligand: str, index: int) -> str:
-    """Minimal SDF-like stub so directories exist before real chemistry tools."""
+    """Return a minimal SDF-like stub for placeholder conformers.
+
+    Parameters
+    ----------
+    ligand : str
+        Ligand name.
+    index : int
+        Conformer index within the ensemble.
+
+    Returns
+    -------
+    str
+        SDF-like text block.
+    """
     return (
         f"{ligand}_conf_{index:03d}\n"
         f"  biosensor_priors_placeholder\n"
@@ -69,6 +120,20 @@ def prepare_ligand_directories(
     physics_root: Path,
     ligands: list[str],
 ) -> dict[str, Path]:
+    """Create ligand pipeline subdirectories under the physics root.
+
+    Parameters
+    ----------
+    physics_root : pathlib.Path
+        Root directory for physics data.
+    ligands : list of str
+        Ligand names, e.g. ``AcCoA`` and ``PropCoA``.
+
+    Returns
+    -------
+    dict
+        Mapping from ligand name to its root directory path.
+    """
     dirs = {}
     for lig in ligands:
         d = physics_root / "ligands" / lig
@@ -86,6 +151,26 @@ def _stage_tool_command(
     in_dir: Path,
     out_dir: Path,
 ) -> list[str]:
+    """Build argv for a ligand pipeline stage command.
+
+    Parameters
+    ----------
+    tool : str, optional
+        External tool executable; when None, returns a no-op echo command.
+    stage : str
+        Pipeline stage name.
+    ligand : str
+        Ligand identifier.
+    in_dir : pathlib.Path
+        Input directory for the stage.
+    out_dir : pathlib.Path
+        Output directory for the stage.
+
+    Returns
+    -------
+    list of str
+        Command argv for the stage.
+    """
     if tool:
         return [tool, "--ligand", ligand, "--in", str(in_dir), "--out", str(out_dir), "--stage", stage]
     # Placeholder no-op recorded for provenance when tools are undeployed.
@@ -103,7 +188,32 @@ def run_ligand_pipeline_stage(
     logs_dir: Path,
     backend: str = "mock",
 ) -> PhysicsJob:
-    """Orchestrate one ligand pipeline stage (external or dry-run)."""
+    """Orchestrate one ligand pipeline stage (external or dry-run).
+
+    Parameters
+    ----------
+    stage : str
+        Pipeline stage name.
+    ligand : str
+        Ligand identifier.
+    in_dir : pathlib.Path
+        Stage input directory.
+    out_dir : pathlib.Path
+        Stage output directory.
+    tool : str, optional
+        External tool executable for this stage.
+    jobs_dir : pathlib.Path
+        Root directory for job work folders.
+    logs_dir : pathlib.Path
+        Root directory for stdout/stderr logs.
+    backend : str, optional
+        Physics backend; ``external`` runs real tools when configured.
+
+    Returns
+    -------
+    PhysicsJob
+        Completed or dry-run job record.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     job_id = f"ligand_{ligand}_{stage}"
     work = jobs_dir / job_id
@@ -133,11 +243,30 @@ def build_approved_ensemble(
     starting_structure: Path | None = None,
     max_conformers: int = 32,
 ) -> pd.DataFrame:
-    """
-    Produce approved conformer files + catalog rows with permanent IDs.
+    """Produce approved conformer files and catalog rows with permanent IDs.
 
     When real QM/cluster outputs are absent, writes deterministic placeholders
     so downstream RIF job construction still has an ensemble to point at.
+
+    Parameters
+    ----------
+    ligand : str
+        Ligand identifier.
+    ligand_dir : pathlib.Path
+        Ligand root directory with pipeline subfolders.
+    schema_version : int, optional
+        Conformer ID schema version (default 1).
+    n_placeholder : int, optional
+        Number of placeholder conformers to generate (default 3).
+    starting_structure : pathlib.Path, optional
+        Seed structure for conformer generation.
+    max_conformers : int, optional
+        Maximum conformers to retain (default 32).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Catalog rows with ``conformer_id``, ``path``, and metadata.
     """
     approved = ligand_dir / "approved"
     approved.mkdir(parents=True, exist_ok=True)
@@ -213,11 +342,25 @@ def run_ligand_ensemble(
     physics_cfg: dict[str, Any] | None = None,
     n_placeholder: int = 3,
 ) -> LigandPipelineResult:
-    """
-    2A — orchestrate ligand conformer pipeline and write catalog.
+    """Stage 2A — orchestrate ligand conformer pipeline and write catalog.
 
     Outputs under ``data/physics/ligands/{AcCoA,PropCoA}/`` and
     ``data/physics/ligand_conformers.parquet``.
+
+    Parameters
+    ----------
+    repo_root : pathlib.Path, optional
+        Repository root for config resolution.
+    physics_cfg : dict, optional
+        Physics configuration override.
+    n_placeholder : int, optional
+        Placeholder conformers per ligand when real outputs absent (default 3).
+
+    Returns
+    -------
+    LigandPipelineResult
+        Dataclass with ``conformers``, ``ligand_dirs``, ``catalog_path``,
+        and ``jobs``.
     """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")

@@ -85,6 +85,10 @@ def load_version_database(filename: Path, canonical_version: str) -> pd.DataFram
 def build_aligner() -> PairwiseAligner:
     """Create a global BLOSUM62 pairwise aligner with gap penalties.
 
+    Parameters
+    ----------
+    None
+
     Returns
     -------
     Bio.Align.PairwiseAligner
@@ -109,6 +113,11 @@ def validate_sequence_alphabet(sequence: str, version: str, matrix) -> None:
         Version label included in error messages.
     matrix
         Biopython substitution matrix with an ``alphabet`` attribute.
+
+    Returns
+    -------
+    None
+        Returns only when validation succeeds.
 
     Raises
     ------

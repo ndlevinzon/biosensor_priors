@@ -50,6 +50,10 @@ class MCMCPolicy:
             Maximum unique pool candidates to collect before ranking (default 256).
         random_seed : int, optional
             RNG seed for reproducibility (default 42).
+
+        Returns
+        -------
+        None
         """
         self.temperature = temperature
         self.n_steps = n_steps

@@ -262,6 +262,11 @@ def assert_no_overlap(split: dict[str, Any]) -> None:
         Split record with ``train_construct_ids`` and
         ``held_out_construct_ids`` keys.
 
+    Returns
+    -------
+    None
+        Returns only when train and test sets are disjoint.
+
     Raises
     ------
     AssertionError

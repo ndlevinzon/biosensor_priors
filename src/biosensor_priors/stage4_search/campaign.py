@@ -21,6 +21,18 @@ from biosensor_priors.stage4_search.random_search import RandomSearchPolicy
 
 
 def _load_master(root: Path) -> pd.DataFrame:
+    """Load the processed experiment master table from disk.
+
+    Parameters
+    ----------
+    root : Path
+        Repository root containing ``data/processed/``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Experiment master table preferring pickle over parquet when both exist.
+    """
     pkl = root / "data" / "processed" / "experiment_master.pkl"
     if pkl.exists():
         return pd.read_pickle(pkl)
@@ -28,6 +40,20 @@ def _load_master(root: Path) -> pd.DataFrame:
 
 
 def _policies(search_cfg: dict[str, Any], seed: int) -> dict[str, Any]:
+    """Instantiate search policies for retrospective campaign benchmarks.
+
+    Parameters
+    ----------
+    search_cfg : dict
+        Parsed ``search.yaml`` configuration.
+    seed : int
+        Random seed passed to stochastic policies.
+
+    Returns
+    -------
+    dict of str to SearchPolicy
+        Mapping from strategy name to policy instance.
+    """
     adalead_cfg = search_cfg.get("adalead", {})
     return {
         "random": RandomSearchPolicy(
@@ -64,11 +90,31 @@ def choose_starting_indices(
     window: float = 0.2,
     random_seed: int = 0,
 ) -> list[int]:
-    """
-    Approximate paper starting-sequence protocol near WT fitness.
+    """Select diverse starting indices near wild-type fitness for campaigns.
 
-    Filter to (0, window), bin by fitness, diversify by Hamming to the global
-    optimum, then sample.
+    Approximates the paper starting-sequence protocol: filter to a fitness band
+    above zero and below ``window``, bin by fitness, diversify by Hamming
+    distance to the global optimum, then sample.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Measured fitness values for all landscape constructs.
+    sequences : list of str
+        Variable-site sequence strings aligned with ``y``.
+    initial_n : int
+        Number of starting constructs to select.
+    wt_fitness : float, optional
+        Reference wild-type fitness (default 0.1); lower band bound is 0.
+    window : float, optional
+        Upper fitness bound for the starting band (default 0.2).
+    random_seed : int, optional
+        RNG seed for tie-breaking and fill sampling (default 0).
+
+    Returns
+    -------
+    list of int
+        Landscape row indices chosen as round-0 observations.
     """
     rng = np.random.default_rng(random_seed)
     global_opt = int(np.argmax(y))
@@ -123,6 +169,34 @@ def run_single_campaign(
     random_seed: int,
     top_quantile: float = 0.05,
 ) -> CampaignResult:
+    """Simulate one multi-round active-learning campaign on a fixed landscape.
+
+    Parameters
+    ----------
+    algorithm : str
+        Strategy name recorded in output tables.
+    landscape : pd.DataFrame
+        Full measured fitness landscape with ``fitness`` and ``construct_id``.
+    policy
+        Search policy implementing ``propose``.
+    encoding : str
+        Feature encoding passed to the per-round surrogate refit.
+    initial : list of int
+        Landscape indices revealed before round 1.
+    n_rounds : int
+        Number of acquisition rounds after the initial reveal.
+    batch_size : int
+        Constructs proposed and revealed per round.
+    random_seed : int
+        Base seed for surrogate refits across rounds.
+    top_quantile : float, optional
+        Quantile defining campaign success (default 0.05).
+
+    Returns
+    -------
+    CampaignResult
+        Per-round metrics and selected-construct tables for the simulation.
+    """
     work = landscape.reset_index(drop=True).copy()
     y = work["fitness"].to_numpy(dtype=float)
     view = build_landscape_view(work)
@@ -137,6 +211,20 @@ def run_single_campaign(
     selected_rows = []
 
     def _summary(round_no: int, batch_idx: list[int] | None = None) -> dict[str, Any]:
+        """Compute cumulative campaign metrics for one round.
+
+        Parameters
+        ----------
+        round_no : int
+            Round index (0 for initial reveal).
+        batch_idx : list of int or None, optional
+            Landscape indices revealed this round; defaults to all observed.
+
+        Returns
+        -------
+        dict
+            Metric row with batch and cumulative fitness statistics.
+        """
         obs_list = sorted(observed)
         cum = float(np.max(y[obs_list]))
         batch_fit = y[batch_idx] if batch_idx else y[obs_list]
@@ -216,7 +304,19 @@ def run_single_campaign(
 
 
 def summarize_campaigns(round_table: pd.DataFrame) -> pd.DataFrame:
-    """Paper-style summary: success ratio, final cumulative max/mean."""
+    """Summarize multi-repeat campaign results in paper-style aggregate metrics.
+
+    Parameters
+    ----------
+    round_table : pd.DataFrame
+        Per-round metrics from :func:`run_single_campaign`, optionally with a
+        ``Repeat`` column.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per algorithm with success ratio and final cumulative statistics.
+    """
     rows = []
     for algo, group in round_table.groupby("Algorithm"):
         finals = group[group["Round"] == group["Round"].max()]
@@ -243,6 +343,34 @@ def run_campaign_benchmark(
     initial_n: int | None = None,
     encoding: str | None = None,
 ) -> dict[str, Any]:
+    """Run paired multi-round retrospective campaigns across search strategies.
+
+    Parameters
+    ----------
+    repo_root : Path or None, optional
+        Repository root; defaults to configured ``REPO_ROOT``.
+    n_repeats : int or None, optional
+        Number of independent campaign repeats; defaults to ``search.yaml``.
+    n_rounds : int or None, optional
+        Acquisition rounds per campaign; defaults to config.
+    batch_size : int or None, optional
+        Batch size per round; defaults to config.
+    initial_n : int or None, optional
+        Number of starting constructs; defaults to config.
+    encoding : str or None, optional
+        Surrogate feature encoding; defaults to config.
+
+    Returns
+    -------
+    dict
+        Keys include ``round_table``, ``selected_table``, ``summary``,
+        ``manifest_path``, and ``output_dir``.
+
+    Raises
+    ------
+    RuntimeError
+        If the labeled landscape is too small for the requested campaign size.
+    """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")
     search_cfg = load_yaml(root / "configs" / "search.yaml")
@@ -328,6 +456,18 @@ def run_campaign_benchmark(
 
 
 def main() -> None:
+    """CLI entry point for BO-EVO-style campaign benchmarks.
+
+    Parameters
+    ----------
+    None
+        No command-line arguments are accepted.
+
+    Returns
+    -------
+    None
+        Prints campaign summary and output directory to stdout.
+    """
     result = run_campaign_benchmark()
     print(result["summary"].to_string(index=False))
     print(f"Wrote: {result['output_dir']}")

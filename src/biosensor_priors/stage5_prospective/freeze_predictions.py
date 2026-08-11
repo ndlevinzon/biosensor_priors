@@ -27,6 +27,18 @@ REQUIRED_FREEZE_COLUMNS = [
 
 
 def _z_for_coverage(coverage: float = 0.95) -> float:
+    """Return the normal z-score for symmetric interval coverage.
+
+    Parameters
+    ----------
+    coverage : float, optional
+        Target interval coverage probability (default 0.95).
+
+    Returns
+    -------
+    float
+        Two-sided normal critical value for ``coverage``.
+    """
     return float(stats.norm.ppf(0.5 + coverage / 2.0))
 
 
@@ -36,16 +48,43 @@ def build_freeze_table(
     round_id: int | str,
     coverage: float = 0.95,
 ) -> pd.DataFrame:
-    """
-    Normalize a Stage-4 batch into the immutable freeze schema.
+    """Normalize a Stage-4 batch into the immutable freeze schema.
 
     Accepts either already-named freeze columns or Stage-4 prediction columns
     (``pred_fitness_mean``, ``pred_fitness_std``, etc.).
+
+    Parameters
+    ----------
+    batch : pd.DataFrame
+        Proposal batch from Stage 4.
+    round_id : int or str
+        Prospective round identifier.
+    coverage : float, optional
+        Confidence interval coverage for ``ci95_low`` / ``ci95_high`` (default 0.95).
+
+    Returns
+    -------
+    pd.DataFrame
+        Normalized freeze table with required prediction and selection columns.
     """
     df = batch.copy()
     z = _z_for_coverage(coverage)
 
     def col(*names: str, default: Any = np.nan) -> pd.Series:
+        """Return the first present column from ``names``, else a default series.
+
+        Parameters
+        ----------
+        *names : str
+            Candidate column names in priority order.
+        default : Any, optional
+            Fill value when no column is found (default NaN).
+
+        Returns
+        -------
+        pd.Series
+            Selected column or constant default series aligned to ``df``.
+        """
         for name in names:
             if name in df.columns:
                 return df[name]
@@ -94,10 +133,34 @@ def freeze_predictions(
     coverage: float = 0.95,
     overwrite: bool = False,
 ) -> dict[str, Any]:
-    """
-    Write ``round_{id}_predictions.parquet`` once, hash it, and refuse rewrites.
+    """Write immutable round predictions parquet once and record its SHA-256 hash.
 
     Also writes a sidecar ``round_{id}_predictions.sha256`` containing the digest.
+
+    Parameters
+    ----------
+    batch : pd.DataFrame
+        Stage-4 proposal batch to freeze.
+    rounds_dir : Path
+        Directory for round artifacts under ``data/rounds/``.
+    round_id : int or str
+        Prospective round identifier.
+    coverage : float, optional
+        Confidence interval coverage (default 0.95).
+    overwrite : bool, optional
+        Allow rewriting an existing freeze for administrative recovery (default False).
+
+    Returns
+    -------
+    dict
+        Metadata dict with path, sha256, candidate count, and algorithm list.
+
+    Raises
+    ------
+    FileExistsError
+        If the freeze file already exists and ``overwrite`` is False.
+    ValueError
+        If required freeze columns are missing after normalization.
     """
     rounds_dir = Path(rounds_dir)
     rounds_dir.mkdir(parents=True, exist_ok=True)
@@ -145,7 +208,25 @@ def freeze_predictions(
 
 
 def verify_freeze_integrity(rounds_dir: Path, round_id: int | str) -> dict[str, Any]:
-    """Recompute hash and compare to the sidecar digest."""
+    """Recompute parquet SHA-256 and compare to the sidecar digest.
+
+    Parameters
+    ----------
+    rounds_dir : Path
+        Directory containing frozen round artifacts.
+    round_id : int or str
+        Prospective round identifier.
+
+    Returns
+    -------
+    dict
+        Integrity report with ``expected_sha256``, ``actual_sha256``, and ``ok``.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the parquet or sidecar hash file is missing.
+    """
     rounds_dir = Path(rounds_dir)
     round_tag = f"{int(round_id):02d}" if str(round_id).isdigit() else str(round_id)
     path = rounds_dir / f"round_{round_tag}_predictions.parquet"
@@ -165,6 +246,25 @@ def verify_freeze_integrity(rounds_dir: Path, round_id: int | str) -> dict[str, 
 
 
 def load_frozen_predictions(rounds_dir: Path, round_id: int | str) -> pd.DataFrame:
+    """Load immutable frozen predictions for a prospective round.
+
+    Parameters
+    ----------
+    rounds_dir : Path
+        Directory containing frozen round artifacts.
+    round_id : int or str
+        Prospective round identifier.
+
+    Returns
+    -------
+    pd.DataFrame
+        Frozen prediction table preferring pickle over parquet when both exist.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no freeze file exists for the requested round.
+    """
     rounds_dir = Path(rounds_dir)
     round_tag = f"{int(round_id):02d}" if str(round_id).isdigit() else str(round_id)
     pkl = rounds_dir / f"round_{round_tag}_predictions.pkl"

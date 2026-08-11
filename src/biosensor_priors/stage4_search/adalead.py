@@ -40,6 +40,10 @@ class AdaLeadPolicy:
             Absolute fitness margin for ``absolute_epsilon`` parent mode.
         parent_mode : str, optional
             ``"relative_kappa"`` or ``"absolute_epsilon"`` (default ``"relative_kappa"``).
+
+        Returns
+        -------
+        None
         """
         self.kappa = kappa
         self.epsilon = epsilon

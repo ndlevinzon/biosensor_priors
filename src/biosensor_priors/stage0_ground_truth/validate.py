@@ -26,6 +26,19 @@ REQUIRED_FIELDS = [
 
 
 def _check_unique_construct_ids(df: pd.DataFrame) -> dict[str, Any]:
+    """Verify that ``construct_id`` values are unique across the master table.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Stage-0 experiment master table.
+
+    Returns
+    -------
+    dict[str, Any]
+        Gate check result with ``name``, ``passed``, ``n_constructs``, and
+        ``duplicates`` keys.
+    """
     ids = df["construct_id"].astype(str)
     dupes = ids[ids.duplicated()].unique().tolist()
     return {
@@ -37,6 +50,18 @@ def _check_unique_construct_ids(df: pd.DataFrame) -> dict[str, Any]:
 
 
 def _check_required_fields(df: pd.DataFrame) -> dict[str, Any]:
+    """Verify that all required Stage-0 columns are present.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Stage-0 experiment master table.
+
+    Returns
+    -------
+    dict[str, Any]
+        Gate check result with ``name``, ``passed``, and ``missing_columns``.
+    """
     missing_cols = [c for c in REQUIRED_FIELDS if c not in df.columns]
     return {
         "name": "required_fields_present",
@@ -49,6 +74,20 @@ def _check_canonical_mappings(
     versions: pd.DataFrame,
     residue_mapping: pd.DataFrame,
 ) -> dict[str, Any]:
+    """Verify canonical residue mappings pass alignment QC.
+
+    Parameters
+    ----------
+    versions : pandas.DataFrame
+        Version sequence database.
+    residue_mapping : pandas.DataFrame
+        Canonical residue mapping table.
+
+    Returns
+    -------
+    dict[str, Any]
+        Gate check result with mapping validation details.
+    """
     problems = validate_mapping(versions, residue_mapping)
     return {
         "name": "canonical_mappings_valid",
@@ -63,7 +102,24 @@ def _check_fitness_reproducible(
     df: pd.DataFrame,
     fitness_cfg: dict[str, Any],
 ) -> dict[str, Any]:
-    """Recompute fitness twice and require exact agreement on finite values."""
+    """Verify fitness scores are reproducible and match the master table.
+
+    Recomputes fitness twice and requires exact agreement on finite values,
+    and agreement with the stored ``fitness`` column.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Stage-0 experiment master table with phenotype columns.
+    fitness_cfg : dict[str, Any]
+        Fitness configuration (weights, min_components, observations).
+
+    Returns
+    -------
+    dict[str, Any]
+        Gate check result with ``name``, ``passed``, ``n_with_fitness``,
+        and ``weights``.
+    """
     cols_needed = [
         "Affinity AcCoA__uM",
         "Affinity AcCoA__censor_direction",
@@ -106,6 +162,19 @@ def _check_fitness_reproducible(
 
 
 def _check_splits(splits: list[dict[str, Any]]) -> dict[str, Any]:
+    """Verify train/test splits have no overlap and non-empty partitions.
+
+    Parameters
+    ----------
+    splits : list[dict[str, Any]]
+        Split records to validate.
+
+    Returns
+    -------
+    dict[str, Any]
+        Gate check result with ``name``, ``passed``, ``n_splits``, and
+        ``errors``.
+    """
     errors: list[str] = []
     for split in splits:
         try:
@@ -125,6 +194,19 @@ def _check_splits(splits: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _flatten_mutation_codes(df: pd.DataFrame) -> set[str]:
+    """Collect mutation codes from multiple columns and free text.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Stage-0 experiment master table.
+
+    Returns
+    -------
+    set[str]
+        Unique mutation codes found across ``mutation_codes``, construct/
+        description code columns, and Construct/Description text.
+    """
     found: set[str] = set()
     if "mutation_codes" in df.columns:
         for val in df["mutation_codes"]:
@@ -152,6 +234,20 @@ def _flatten_mutation_codes(df: pd.DataFrame) -> set[str]:
 
 
 def _check_controls(df: pd.DataFrame, required: list[str]) -> dict[str, Any]:
+    """Verify required control mutations appear in the dataset.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Stage-0 experiment master table.
+    required : list[str]
+        Mutation codes that must be present (e.g. ``["Q324R", "A355R"]``).
+
+    Returns
+    -------
+    dict[str, Any]
+        Gate check result with ``required``, ``missing``, and ``found`` keys.
+    """
     found = _flatten_mutation_codes(df)
     missing = [m for m in required if m not in found]
     return {
@@ -172,7 +268,29 @@ def run_stage0_gates(
     fitness_cfg: dict[str, Any],
     required_controls: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Run all Stage-0 gates and return a structured pass/fail report."""
+    """Run all Stage-0 validation gates and return a structured report.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Stage-0 experiment master table.
+    versions : pandas.DataFrame
+        Version sequence database.
+    residue_mapping : pandas.DataFrame
+        Canonical residue mapping table.
+    splits : list[dict[str, Any]]
+        Train/test split records.
+    fitness_cfg : dict[str, Any]
+        Fitness configuration for reproducibility checks.
+    required_controls : list[str] | None, optional
+        Control mutation codes that must appear. Defaults to
+        ``["Q324R", "A355R"]``.
+
+    Returns
+    -------
+    dict[str, Any]
+        Overall gate report with ``passed``, ``checks``, and ``failed`` keys.
+    """
     checks = [
         _check_unique_construct_ids(df),
         _check_required_fields(df),

@@ -33,11 +33,19 @@ class AblationConfig:
     def model_kind(self) -> ModelKind:
         """Map physics/GP flags to a fused surrogate kind.
 
+        Parameters
+        ----------
+        None
+
         Returns
         -------
         ModelKind
             One of ``"physics_gp"``, ``"physics_only"``, or ``"gp_zero_mean"``.
-            Raises if both physics and GP are disabled.
+
+        Raises
+        ------
+        ValueError
+            If both physics and GP are disabled.
         """
         if self.physics and self.gp:
             return "physics_gp"
@@ -49,6 +57,10 @@ class AblationConfig:
 
     def use_confidence_weighting(self) -> bool:
         """Whether structural confidence weighting is active for this cell.
+
+        Parameters
+        ----------
+        None
 
         Returns
         -------
@@ -62,6 +74,10 @@ class AblationConfig:
 
     def as_row(self) -> dict[str, Any]:
         """Serialize the config plus derived fields for reporting.
+
+        Parameters
+        ----------
+        None
 
         Returns
         -------
@@ -158,6 +174,10 @@ def load_ablation_matrix(path: Path | None = None) -> tuple[list[AblationConfig]
 
 def default_ablation_matrix() -> list[AblationConfig]:
     """Return the built-in ablation matrix matching the Stage-6 writeup.
+
+    Parameters
+    ----------
+    None
 
     Returns
     -------

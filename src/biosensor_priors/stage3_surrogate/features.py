@@ -61,6 +61,20 @@ GEORGIEV_KEYS = (
 
 
 def _mutation_delta_vector(muts: list[tuple[str, int, str]], aa_props: dict) -> np.ndarray:
+    """Compute mean physicochemical delta vector across a mutation list.
+
+    Parameters
+    ----------
+    muts : list of tuple
+        Parsed mutations as ``(wt_aa, position, mut_aa)`` triples.
+    aa_props : dict
+        Amino acid property lookup table.
+
+    Returns
+    -------
+    numpy.ndarray
+        Mean delta features plus mutation count as final element.
+    """
     if not muts:
         return np.zeros(len(PHYSCHEM_DELTA_KEYS) + 1, dtype=float)
     deltas = []
@@ -76,7 +90,20 @@ def _mutation_delta_vector(muts: list[tuple[str, int, str]], aa_props: dict) -> 
 
 
 def _aa_georgiev_vector(aa: str, aa_props: dict) -> np.ndarray:
-    """19-D physicochemical vector; z-keys fall back to raw values if absent."""
+    """Build 19-D physicochemical vector; z-keys fall back to raw values.
+
+    Parameters
+    ----------
+    aa : str
+        Single-letter amino acid code.
+    aa_props : dict
+        Amino acid property lookup table.
+
+    Returns
+    -------
+    numpy.ndarray
+        19-dimensional Georgiev-like feature vector.
+    """
     if aa not in aa_props:
         return np.zeros(19, dtype=float)
     props = aa_props[aa]
@@ -118,10 +145,34 @@ class FeatureBuilder:
     aa_props: dict[str, dict] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """Load amino acid properties when not provided at construction.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         if not self.aa_props:
             self.aa_props = load_aa_properties()
 
     def _sequences_and_sites(self, df: pd.DataFrame) -> tuple[list[str], list[int]]:
+        """Extract aligned sequences and site positions from construct rows.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            Construct table with mutation lists.
+
+        Returns
+        -------
+        sequences : list of str
+            Per-row sequence strings over site positions.
+        site_positions : list of int
+            Canonical site order used for encoding.
+        """
         view = build_landscape_view(df)
         # Prefer fitted sites when transforming
         if self.site_positions:
@@ -144,6 +195,20 @@ class FeatureBuilder:
         return view.sequences, view.site_positions
 
     def _encode_sequence_modes(self, sequences: list[str]) -> tuple[np.ndarray, list[str]]:
+        """Encode sequences using one-hot and/or Georgiev feature blocks.
+
+        Parameters
+        ----------
+        sequences : list of str
+            Per-construct sequence strings over fitted sites.
+
+        Returns
+        -------
+        X : numpy.ndarray
+            Encoded feature matrix.
+        names : list of str
+            Feature names aligned with columns of ``X``.
+        """
         n = len(sequences)
         n_sites = len(self.site_positions) if self.site_positions else (len(sequences[0]) if sequences else 0)
         parts: list[np.ndarray] = []
@@ -178,6 +243,20 @@ class FeatureBuilder:
         return np.concatenate(parts, axis=1), names
 
     def _encode_mutation_bag(self, df: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
+        """Encode mutation-bag features with physchem deltas and optional one-hots.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            Construct table with mutation lists.
+
+        Returns
+        -------
+        X : numpy.ndarray
+            Encoded feature matrix.
+        names : list of str
+            Feature names aligned with columns of ``X``.
+        """
         rows = []
         base_names = [f"delta_{k}" for k in PHYSCHEM_DELTA_KEYS] + ["n_mutations"]
         mut_names = [f"mut_{code}" for code in self.mutation_vocab] if self.onehot_mutations else []
@@ -194,6 +273,24 @@ class FeatureBuilder:
     def _append_physics_confidence(
         self, df: pd.DataFrame, X: np.ndarray, names: list[str]
     ) -> tuple[np.ndarray, list[str]]:
+        """Append physics scores and structural confidence columns to features.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            Construct table with optional physics columns.
+        X : numpy.ndarray
+            Base encoded feature matrix.
+        names : list of str
+            Base feature names.
+
+        Returns
+        -------
+        X : numpy.ndarray
+            Feature matrix with physics/confidence columns appended.
+        names : list of str
+            Extended feature names.
+        """
         extras = []
         extra_names = []
         physics_present = any(c in df.columns for c in PHYSICS_FEATURE_COLUMNS)
@@ -226,6 +323,20 @@ class FeatureBuilder:
         return X, names
 
     def _raw_matrix(self, df: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
+        """Build unstandardized feature matrix for a construct table.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            Construct table to encode.
+
+        Returns
+        -------
+        X : numpy.ndarray
+            Raw feature matrix before standardization.
+        names : list of str
+            Feature names aligned with columns of ``X``.
+        """
         if self.encoding == "mutation_bag":
             X, names = self._encode_mutation_bag(df)
         else:
@@ -236,6 +347,18 @@ class FeatureBuilder:
         return self._append_physics_confidence(df, X, names)
 
     def fit(self, df: pd.DataFrame) -> FeatureBuilder:
+        """Fit vocabulary, site order, and standardization on training rows.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            Training construct table.
+
+        Returns
+        -------
+        FeatureBuilder
+            Fitted builder (``self``).
+        """
         if self.encoding == "mutation_bag":
             vocab: set[str] = set()
             if self.onehot_mutations:
@@ -262,6 +385,23 @@ class FeatureBuilder:
         return self
 
     def transform(self, df: pd.DataFrame) -> np.ndarray:
+        """Standardize features using statistics fit on training data.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            Construct table to transform.
+
+        Returns
+        -------
+        numpy.ndarray
+            Standardized feature matrix.
+
+        Raises
+        ------
+        RuntimeError
+            When called before :meth:`fit`.
+        """
         if self.means_ is None or self.stds_ is None:
             raise RuntimeError("FeatureBuilder must be fit before transform.")
         X, _ = self._raw_matrix(df)
@@ -275,9 +415,33 @@ class FeatureBuilder:
         return (X - self.means_) / self.stds_
 
     def fit_transform(self, df: pd.DataFrame) -> np.ndarray:
+        """Fit on ``df`` and return standardized features.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            Training construct table.
+
+        Returns
+        -------
+        numpy.ndarray
+            Standardized feature matrix.
+        """
         return self.fit(df).transform(df)
 
     def physics_block(self, X: np.ndarray) -> np.ndarray:
+        """Extract physics feature columns from a standardized matrix.
+
+        Parameters
+        ----------
+        X : numpy.ndarray
+            Standardized feature matrix.
+
+        Returns
+        -------
+        numpy.ndarray
+            Submatrix containing physics columns only.
+        """
         if not self.include_physics or not self.feature_names_:
             return np.zeros((len(X), 0), dtype=float)
         idx = [i for i, n in enumerate(self.feature_names_) if n in PHYSICS_FEATURE_COLUMNS]
@@ -286,6 +450,18 @@ class FeatureBuilder:
         return X[:, idx]
 
     def confidence_vector(self, X: np.ndarray) -> np.ndarray:
+        """Recover per-row structural confidence from standardized features.
+
+        Parameters
+        ----------
+        X : numpy.ndarray
+            Standardized feature matrix.
+
+        Returns
+        -------
+        numpy.ndarray
+            Confidence values clipped to ``[0, 1]``; defaults to ones.
+        """
         if STRUCT_CONF_COLUMN not in self.feature_names_:
             return np.ones(len(X), dtype=float)
         i = self.feature_names_.index(STRUCT_CONF_COLUMN)

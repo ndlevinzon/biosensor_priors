@@ -25,6 +25,24 @@ def make_physics_scan_id(
     seed: int,
     backend: str,
 ) -> str:
+    """Build a stable physics scan identifier from scan parameters.
+
+    Parameters
+    ----------
+    version : str
+        Design background version.
+    positions : list of int
+        Canonical positions included in the scan.
+    seed : int
+        Random seed for reproducibility.
+    backend : str
+        Physics backend name, e.g. ``mock`` or ``external``.
+
+    Returns
+    -------
+    str
+        Scan ID of the form ``scan_{version}_{digest12}``.
+    """
     raw = f"{version}|{','.join(map(str, positions))}|{seed}|{backend}"
     digest = hashlib.sha256(raw.encode()).hexdigest()[:12]
     return f"scan_{version}_{digest}"
@@ -38,10 +56,27 @@ def wildtype_aa_at_canonical(
     canonical_position: int,
     fallback_wt: dict[int, str] | None = None,
 ) -> str:
-    """
-    Resolve WT amino acid at a canonical position for a version background.
+    """Resolve WT amino acid at a canonical position for a version background.
 
     Fallback map defaults to control hotspots Q324 / A355 when mapping is incomplete.
+
+    Parameters
+    ----------
+    versions : pandas.DataFrame
+        Version/sequence table from Stage 0 constructs.
+    residue_mapping : pandas.DataFrame, optional
+        Canonical position to amino acid mapping.
+    version : str
+        Design background version identifier.
+    canonical_position : int
+        Canonical residue position.
+    fallback_wt : dict, optional
+        Position-to-WT map used when mapping is incomplete.
+
+    Returns
+    -------
+    str
+        Single-letter wild-type amino acid code.
     """
     fallback_wt = fallback_wt or {324: "Q", 355: "A"}
     if residue_mapping is not None and not residue_mapping.empty:
@@ -77,10 +112,30 @@ def generate_mutation_specs(
     residue_mapping: pd.DataFrame | None = None,
     include_wt: bool = True,
 ) -> list[dict[str, Any]]:
-    """
-    For every allowed canonical position × amino acid, emit a mutation spec.
+    """Emit mutation specs for every allowed position × amino acid.
 
     Example: position 324 → A,C,D,...,Y (and WT Q retained when include_wt).
+
+    Parameters
+    ----------
+    version : str
+        Design background version identifier.
+    positions : list of int
+        Canonical positions to scan.
+    amino_acids : list of str
+        Allowed mutant amino acids.
+    versions : pandas.DataFrame
+        Version/sequence table for WT resolution.
+    residue_mapping : pandas.DataFrame, optional
+        Canonical position to amino acid mapping.
+    include_wt : bool, optional
+        When True, include wild-type entries (default True).
+
+    Returns
+    -------
+    list of dict
+        Mutation specs with ``version``, ``position``, ``wt``, ``mutant``,
+        and ``mutation`` keys.
     """
     specs = []
     for pos in positions:
@@ -108,7 +163,22 @@ def default_structure_models(
     predictors: list[str] | None = None,
     seeds: list[int] | None = None,
 ) -> pd.DataFrame:
-    """Placeholder structure model registry until Stage 1 tables exist."""
+    """Build placeholder structure model registry until Stage 1 tables exist.
+
+    Parameters
+    ----------
+    version : str
+        Design background version identifier.
+    predictors : list of str, optional
+        Structure prediction methods (default ``AF2``, ``AF3``).
+    seeds : list of int, optional
+        Random seeds per predictor (default ``[1, 2]``).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Registry with ``structure_model_id``, ``pdb_path``, and metadata.
+    """
     predictors = predictors or ["AF2", "AF3"]
     seeds = seeds or [1, 2]
     rows = []
@@ -134,7 +204,22 @@ def merge_rif_rpx_to_long(
     *,
     physics_scan_id: str,
 ) -> pd.DataFrame:
-    """Join RIF + RPX on mutation × structure_model_id; retain raw + ΔRIF_sel."""
+    """Join RIF and RPX on mutation × structure_model_id.
+
+    Parameters
+    ----------
+    rif_scores : pandas.DataFrame
+        RIF score table with ``rif_ac`` and ``rif_prop``.
+    rpx_scores : pandas.DataFrame
+        RPX score table with ``rpx`` column.
+    physics_scan_id : str
+        Scan batch identifier attached to each row.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Long-format table with raw scores and ``delta_rif_sel``.
+    """
     if rif_scores.empty:
         return pd.DataFrame()
     rif = rif_scores.copy()
@@ -183,11 +268,31 @@ def run_mutation_scan(
     amino_acids: list[str] | None = None,
     physics_scan_id: str | None = None,
 ) -> dict[str, Any]:
-    """
-    2C — generate mutation specs, score via RIF/RPX wrappers, write long table.
+    """Stage 2C — generate specs, score via RIF/RPX, and write long table.
 
-    Long-format columns:
-      Version, Position, WT, Mutant, RIF Ac, RIF Prop, RPX, delta_rif_sel, ...
+    Long-format columns include Version, Position, WT, Mutant, RIF Ac,
+    RIF Prop, RPX, and delta_rif_sel.
+
+    Parameters
+    ----------
+    repo_root : pathlib.Path, optional
+        Repository root for config and output paths.
+    version : str, optional
+        Design background version override.
+    structure_models : pandas.DataFrame, optional
+        Structure model registry; built from defaults when omitted.
+    positions : list of int, optional
+        Canonical positions to scan.
+    amino_acids : list of str, optional
+        Allowed mutant amino acids.
+    physics_scan_id : str, optional
+        Pre-assigned scan ID; generated when omitted.
+
+    Returns
+    -------
+    dict
+        Keys ``physics_scan_id``, ``specs``, ``long_table``, ``path``,
+        ``meta``, ``rif_jobs``, ``rpx_jobs``, and ``structure_models``.
     """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")

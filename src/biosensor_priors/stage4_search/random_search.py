@@ -42,6 +42,10 @@ class RandomSearchPolicy:
             Per-site mutation probability; defaults to ``1 / n_sites`` when None.
         random_seed : int, optional
             RNG seed for reproducibility (default 42).
+
+        Returns
+        -------
+        None
         """
         self.candidate_m = candidate_m
         self.mutation_rate = mutation_rate

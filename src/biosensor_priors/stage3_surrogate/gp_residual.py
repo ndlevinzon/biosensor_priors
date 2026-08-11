@@ -20,6 +20,18 @@ class GPResidualModel:
     model_: GaussianProcessRegressor | None = None
 
     def _make_kernel(self, n_features: int):
+        """Build Matérn GP kernel with white noise for residual learning.
+
+        Parameters
+        ----------
+        n_features : int
+            Number of input feature dimensions.
+
+        Returns
+        -------
+        sklearn.gaussian_process.kernels.Kernel
+            Composite kernel for :class:`GaussianProcessRegressor`.
+        """
         length_scale = np.ones(n_features, dtype=float)
         return (
             ConstantKernel(1.0, (1e-2, 1e2))
@@ -28,6 +40,20 @@ class GPResidualModel:
         )
 
     def fit(self, X: np.ndarray, residual: np.ndarray) -> GPResidualModel:
+        """Fit GP to residuals y − μ₀(x).
+
+        Parameters
+        ----------
+        X : numpy.ndarray
+            Full feature matrix used for residual learning.
+        residual : numpy.ndarray
+            Target residuals after subtracting physics mean.
+
+        Returns
+        -------
+        GPResidualModel
+            Fitted GP model (``self``).
+        """
         X = np.asarray(X, dtype=float)
         residual = np.asarray(residual, dtype=float)
         kernel = self._make_kernel(X.shape[1])
@@ -44,6 +70,25 @@ class GPResidualModel:
         return self
 
     def predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Predict GP residual mean and standard deviation.
+
+        Parameters
+        ----------
+        X : numpy.ndarray
+            Feature matrix for prediction.
+
+        Returns
+        -------
+        mean : numpy.ndarray
+            Predicted residual mean per row.
+        std : numpy.ndarray
+            Predicted residual standard deviation per row.
+
+        Raises
+        ------
+        RuntimeError
+            When called before :meth:`fit`.
+        """
         if self.model_ is None:
             raise RuntimeError("GPResidualModel must be fit before predict.")
         mean, std = self.model_.predict(np.asarray(X, dtype=float), return_std=True)

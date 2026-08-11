@@ -15,11 +15,42 @@ from biosensor_priors.stage3_surrogate.surrogate import FusedSurrogate, ModelKin
 
 
 def _subset(df: pd.DataFrame, ids: Iterable[str]) -> pd.DataFrame:
+    """Filter construct table to a set of construct IDs.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Full construct table.
+    ids : iterable of str
+        Construct IDs to retain.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Filtered copy of ``df``.
+    """
     id_set = {str(x) for x in ids}
     return df[df["construct_id"].astype(str).isin(id_set)].copy()
 
 
 def load_frozen_splits(splits_dir: Path) -> list[dict[str, Any]]:
+    """Load all frozen split JSON files from a directory.
+
+    Parameters
+    ----------
+    splits_dir : pathlib.Path
+        Directory containing ``split_*.json`` files.
+
+    Returns
+    -------
+    list of dict
+        Parsed split records from Stage 0.
+
+    Raises
+    ------
+    FileNotFoundError
+        When no split files are found.
+    """
     paths = sorted(splits_dir.glob("split_*.json"))
     if not paths:
         raise FileNotFoundError(f"No split_*.json files in {splits_dir}")
@@ -33,7 +64,24 @@ def ensure_splits_for_fitness(
     prefer_loco: bool = True,
     random_seed: int = 42,
 ) -> list[dict[str, Any]]:
-    """Load Stage-0 splits filtered to fitness rows, or build LOCO splits."""
+    """Load Stage-0 splits filtered to fitness rows, or build LOCO splits.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Experiment master table with ``fitness`` and ``construct_id``.
+    splits_dir : pathlib.Path, optional
+        Directory of frozen split JSON files.
+    prefer_loco : bool, optional
+        When True, generate leave-one-construct-out splits if none load.
+    random_seed : int, optional
+        Random seed for generated splits (default 42).
+
+    Returns
+    -------
+    list of dict
+        Split records with ``train_construct_ids`` and ``held_out_construct_ids``.
+    """
     eligible = df.loc[df["fitness"].notna(), "construct_id"].astype(str)
     eligible_set = set(eligible)
 
@@ -70,8 +118,27 @@ def run_split_evaluation(
     random_seed: int = 42,
     encoding: str = "hybrid",
 ) -> pd.DataFrame:
-    """
-    For each split and model kind: fit on train, predict held-out, store rows.
+    """Fit and evaluate each model kind across all CV splits.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Experiment master with fitness labels.
+    splits : list of dict
+        Cross-validation split specifications.
+    kinds : list of str, optional
+        Model kinds to evaluate; defaults to all three baselines.
+    use_confidence_weighting : bool, optional
+        Apply structural confidence weighting to physics features.
+    random_seed : int, optional
+        Random seed for GP fitting (default 42).
+    encoding : str, optional
+        Feature encoding mode (default ``hybrid``).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Long-format prediction rows with errors and metadata.
     """
     kinds = kinds or ["physics_only", "gp_zero_mean", "physics_gp"]
     work = df[df["fitness"].notna()].copy()
@@ -120,6 +187,20 @@ def run_split_evaluation(
 
 
 def save_cv_predictions(predictions: pd.DataFrame, path: Path) -> Path:
+    """Write cross-validation predictions to a parquet file.
+
+    Parameters
+    ----------
+    predictions : pandas.DataFrame
+        CV prediction table from :func:`run_split_evaluation`.
+    path : pathlib.Path
+        Output parquet path.
+
+    Returns
+    -------
+    pathlib.Path
+        ``path`` after writing.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     predictions.to_parquet(path, index=False)
     return path

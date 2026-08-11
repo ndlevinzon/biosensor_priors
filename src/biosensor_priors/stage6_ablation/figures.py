@@ -11,6 +11,10 @@ import pandas as pd
 def _try_matplotlib():
     """Import matplotlib with a non-interactive backend when available.
 
+    Parameters
+    ----------
+    None
+
     Returns
     -------
     module or None

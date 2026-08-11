@@ -60,6 +60,11 @@ class LandscapeView:
     def n_sites(self) -> int:
         """Number of variable sites in the landscape representation.
 
+        Parameters
+        ----------
+        None
+            This is a read-only property.
+
         Returns
         -------
         int

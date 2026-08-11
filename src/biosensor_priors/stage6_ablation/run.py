@@ -201,7 +201,18 @@ def run_stage6(
 
 
 def main() -> None:
-    """CLI entry point for Stage-6 ablation and scientific reporting."""
+    """CLI entry point for Stage-6 ablation and scientific reporting.
+
+    Parameters
+    ----------
+    None
+        Flags are parsed from ``sys.argv`` via ``argparse``.
+
+    Returns
+    -------
+    None
+        Prints config/comparison counts and artifact paths to stdout.
+    """
     import argparse
 
     parser = argparse.ArgumentParser(description="Stage 6 ablation + scientific reporting")

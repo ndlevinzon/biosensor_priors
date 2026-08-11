@@ -20,6 +20,23 @@ from biosensor_priors.stage3_surrogate.surrogate import FusedSurrogate
 
 
 def _load_master(root: Path) -> pd.DataFrame:
+    """Load experiment master table from processed data directory.
+
+    Parameters
+    ----------
+    root : pathlib.Path
+        Repository root path.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Experiment master table.
+
+    Raises
+    ------
+    FileNotFoundError
+        When neither pickle nor parquet master file exists.
+    """
     processed = root / "data" / "processed"
     pkl = processed / "experiment_master.pkl"
     parquet = processed / "experiment_master.parquet"
@@ -40,6 +57,25 @@ def run_stage3(
     prefer_loco: bool = True,
     require_hard_gate: bool = False,
 ) -> dict[str, Any]:
+    """Run Stage 3 end-to-end: CV evaluation, Gate 3, and final fused model fit.
+
+    Parameters
+    ----------
+    repo_root : pathlib.Path, optional
+        Repository root for config and output paths.
+    use_confidence_weighting : bool, optional
+        Apply structural confidence weighting to physics features.
+    prefer_loco : bool, optional
+        Prefer leave-one-construct-out splits when loading/generating.
+    require_hard_gate : bool, optional
+        When True, only hard Gate 3 pass counts as operational pass.
+
+    Returns
+    -------
+    dict
+        Keys ``predictions``, ``summary``, ``gate``, ``fused``,
+        ``manifest_path``, and ``output_dir``.
+    """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")
     thresholds = load_yaml(root / "configs" / "thresholds.yaml")
@@ -160,6 +196,17 @@ def run_stage3(
 
 
 def main() -> None:
+    """CLI entry point for Stage 3 surrogate training and evaluation.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+        Prints metrics and gate status to stdout.
+    """
     result = run_stage3()
     print("Stage 3 metrics:")
     print(result["summary"].to_string(index=False))

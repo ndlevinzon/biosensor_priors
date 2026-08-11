@@ -10,6 +10,23 @@ from scipy import stats
 
 
 def _safe_corr(y_true: np.ndarray, y_pred: np.ndarray, method: str) -> float:
+    """Compute Pearson or Spearman correlation with safe fallbacks.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+        Observed values.
+    y_pred : np.ndarray
+        Predicted values.
+    method : str
+        ``"pearson"`` or ``"spearman"``.
+
+    Returns
+    -------
+    float
+        Correlation coefficient, or NaN when undefined (fewer than 3 finite pairs
+        or zero variance).
+    """
     mask = np.isfinite(y_true) & np.isfinite(y_pred)
     if mask.sum() < 3:
         return float("nan")
@@ -22,6 +39,22 @@ def _safe_corr(y_true: np.ndarray, y_pred: np.ndarray, method: str) -> float:
 
 
 def ranking_precision_at_k(y_true: np.ndarray, y_pred: np.ndarray, k: int = 3) -> float:
+    """Fraction of true top-k constructs recovered by predicted top-k ranking.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+        Observed fitness values.
+    y_pred : np.ndarray
+        Predicted fitness values.
+    k : int, optional
+        Rank cutoff (default 3).
+
+    Returns
+    -------
+    float
+        Intersection size divided by ``k``, or NaN when fewer than ``k`` pairs.
+    """
     mask = np.isfinite(y_true) & np.isfinite(y_pred)
     yt, yp = y_true[mask], y_pred[mask]
     if len(yt) < k:
@@ -36,6 +69,23 @@ def interval_coverage(
     ci_low: np.ndarray,
     ci_high: np.ndarray,
 ) -> float:
+    """Empirical coverage of prediction intervals against observations.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+        Observed fitness values.
+    ci_low : np.ndarray
+        Lower interval bounds.
+    ci_high : np.ndarray
+        Upper interval bounds.
+
+    Returns
+    -------
+    float
+        Fraction of finite observations falling inside ``[ci_low, ci_high]``,
+        or NaN when no valid pairs exist.
+    """
     mask = np.isfinite(y_true) & np.isfinite(ci_low) & np.isfinite(ci_high)
     if mask.sum() == 0:
         return float("nan")
@@ -51,7 +101,26 @@ def join_predictions_and_observations(
     id_col_obs: str = "construct_id",
     fitness_col: str = "fitness",
 ) -> pd.DataFrame:
-    """Inner-join frozen predictions with measured fitness on candidate/construct ID."""
+    """Inner-join frozen predictions with measured fitness on construct ID.
+
+    Parameters
+    ----------
+    frozen : pd.DataFrame
+        Immutable freeze table from Stage 5A.
+    observations : pd.DataFrame
+        Cleaned wet-lab results with measured fitness.
+    id_col_frozen : str, optional
+        Identifier column in ``frozen`` (default ``"candidate_id"``).
+    id_col_obs : str, optional
+        Identifier column in ``observations`` (default ``"construct_id"``).
+    fitness_col : str, optional
+        Measured fitness column in ``observations`` (default ``"fitness"``).
+
+    Returns
+    -------
+    pd.DataFrame
+        Inner join with ``observed_fitness`` appended from observations.
+    """
     left = frozen.copy()
     right = observations.copy()
     left["_join_id"] = left[id_col_frozen].astype(str)
@@ -71,12 +140,27 @@ def prospective_validation(
     prior_best_fitness: float | None = None,
     top_k: int = 3,
 ) -> dict[str, Any]:
-    """
-    Compute prospective metrics and per-algorithm breakdowns.
+    """Compute prospective validation metrics and per-algorithm breakdowns.
 
-    Metrics:
-      Pearson, Spearman, RMSE, MAE, ranking precision@k,
-      95% interval coverage, fitness improvement rate, best fitness found.
+    Metrics include Pearson, Spearman, RMSE, MAE, ranking precision@k,
+    95% interval coverage, fitness improvement rate, and best fitness found.
+
+    Parameters
+    ----------
+    frozen : pd.DataFrame
+        Immutable prediction freeze from before synthesis.
+    observations : pd.DataFrame
+        Cleaned measured results for the same round.
+    prior_best_fitness : float or None, optional
+        Best fitness in the master table before this round; enables improvement stats.
+    top_k : int, optional
+        Rank cutoff for precision@k (default 3).
+
+    Returns
+    -------
+    dict
+        Validation report with ``passed``, ``overall``, ``by_algorithm``,
+        ``physics_revalidation``, and ``joined`` tables when matches exist.
     """
     joined = join_predictions_and_observations(frozen, observations)
     if joined.empty:

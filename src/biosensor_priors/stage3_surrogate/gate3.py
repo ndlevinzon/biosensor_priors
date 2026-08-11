@@ -10,6 +10,22 @@ from scipy import stats
 
 
 def _safe_corr(y_true: np.ndarray, y_pred: np.ndarray, method: str) -> float:
+    """Compute Pearson or Spearman correlation with safe fallbacks.
+
+    Parameters
+    ----------
+    y_true : numpy.ndarray
+        Observed target values.
+    y_pred : numpy.ndarray
+        Predicted values.
+    method : str
+        ``pearson`` or ``spearman``.
+
+    Returns
+    -------
+    float
+        Correlation coefficient, or NaN when undefined.
+    """
     if len(y_true) < 3 or np.nanstd(y_true) == 0 or np.nanstd(y_pred) == 0:
         return float("nan")
     if method == "pearson":
@@ -18,6 +34,22 @@ def _safe_corr(y_true: np.ndarray, y_pred: np.ndarray, method: str) -> float:
 
 
 def _topk_accuracy(y_true: np.ndarray, y_pred: np.ndarray, k: int = 3) -> float:
+    """Fraction of true top-k constructs recovered by predicted ranking.
+
+    Parameters
+    ----------
+    y_true : numpy.ndarray
+        Observed fitness values.
+    y_pred : numpy.ndarray
+        Predicted fitness values.
+    k : int, optional
+        Top-k set size (default 3).
+
+    Returns
+    -------
+    float
+        Overlap fraction in ``[0, 1]``, or NaN when ``len(y_true) < k``.
+    """
     if len(y_true) < k:
         return float("nan")
     true_top = set(np.argsort(y_true)[-k:])
@@ -26,6 +58,20 @@ def _topk_accuracy(y_true: np.ndarray, y_pred: np.ndarray, k: int = 3) -> float:
 
 
 def metrics_for_predictions(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
+    """Compute regression metrics for paired true/predicted values.
+
+    Parameters
+    ----------
+    y_true : numpy.ndarray
+        Observed fitness values.
+    y_pred : numpy.ndarray
+        Predicted fitness values.
+
+    Returns
+    -------
+    dict
+        Keys ``rmse``, ``mae``, ``pearson``, ``spearman``, and ``topk3``.
+    """
     err = y_true - y_pred
     return {
         "rmse": float(np.sqrt(np.mean(err**2))),
@@ -37,6 +83,18 @@ def metrics_for_predictions(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str,
 
 
 def _holm_adjust(pvalues: list[float]) -> list[float]:
+    """Apply Holm step-down correction to a list of p-values.
+
+    Parameters
+    ----------
+    pvalues : list of float
+        Raw p-values to adjust.
+
+    Returns
+    -------
+    list of float
+        Holm-adjusted p-values in original order.
+    """
     m = len(pvalues)
     order = np.argsort(pvalues)
     adj = np.zeros(m, dtype=float)
@@ -56,7 +114,26 @@ def _bootstrap_rmse_delta(
     n_boot: int = 1000,
     seed: int = 42,
 ) -> dict[str, float]:
-    """Bootstrap CI for RMSE(a) - RMSE(b). Negative favors a."""
+    """Bootstrap confidence interval for RMSE(a) − RMSE(b).
+
+    Negative delta favors model ``a``.
+
+    Parameters
+    ----------
+    err_a : numpy.ndarray
+        Signed errors for model ``a``.
+    err_b : numpy.ndarray
+        Signed errors for model ``b``.
+    n_boot : int, optional
+        Number of bootstrap resamples (default 1000).
+    seed : int, optional
+        Random seed (default 42).
+
+    Returns
+    -------
+    dict
+        Bootstrap mean and 95% CI for the RMSE difference.
+    """
     rng = np.random.default_rng(seed)
     n = len(err_a)
     deltas = []
@@ -74,6 +151,19 @@ def _bootstrap_rmse_delta(
 
 
 def summarize_by_model(predictions: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate CV metrics grouped by ``model_kind``.
+
+    Parameters
+    ----------
+    predictions : pandas.DataFrame
+        Cross-validation prediction rows with ``model_kind``, ``y_true``,
+        and ``fitness_mean``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per model kind with regression metrics.
+    """
     rows = []
     for kind, group in predictions.groupby("model_kind"):
         y_true = group["y_true"].to_numpy(dtype=float)
@@ -91,14 +181,32 @@ def evaluate_gate3(
     n_boot: int = 1000,
     random_seed: int = 42,
 ) -> dict[str, Any]:
-    """
-    Gate 3 passes if the fused model shows evidence of improvement over baselines.
+    """Evaluate Gate 3: fused model must improve over baseline models.
 
     Criteria (all required):
       1. Point-estimate RMSE(fused) <= RMSE(each baseline)
-      2. For each baseline, either Wilcoxon signed-rank on |error| favors fused
-         after Holm correction (p < alpha), or bootstrap CI for RMSE delta
-         is entirely <= 0.
+      2. For each baseline, either Holm-corrected Wilcoxon on |error| favors
+         fused, or bootstrap CI for RMSE delta is entirely <= 0.
+
+    Parameters
+    ----------
+    predictions : pandas.DataFrame
+        Cross-validation predictions for all model kinds.
+    fused_kind : str, optional
+        Fused model identifier (default ``physics_gp``).
+    baselines : tuple of str, optional
+        Baseline model kinds to compare against.
+    alpha : float, optional
+        Significance level for Holm correction (default 0.05).
+    n_boot : int, optional
+        Bootstrap resamples for RMSE delta CI (default 1000).
+    random_seed : int, optional
+        Random seed for bootstrap (default 42).
+
+    Returns
+    -------
+    dict
+        Gate verdict with ``passed``, ``comparisons``, and ``summary``.
     """
     summary = summarize_by_model(predictions)
     summary_map = summary.set_index("model_kind").to_dict(orient="index")

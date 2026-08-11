@@ -133,6 +133,10 @@ def diversify_batch(
         ----------
         i : int
             Row index in ``work`` to add.
+
+        Returns
+        -------
+        None
         """
         selected_idx.append(i)
         for p in _mutation_positions(work.iloc[i]):

@@ -92,7 +92,18 @@ def paired_bootstrap_delta(
         }
 
     def _stat(x: np.ndarray) -> float:
-        """Compute the configured statistic on a 1-D array."""
+        """Compute the configured statistic on a 1-D array.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Resampled values (residuals for RMSE, absolute errors for MAE/mean).
+
+        Returns
+        -------
+        float
+            Statistic value under the enclosing ``statistic`` setting.
+        """
         if statistic == "rmse":
             return float(np.sqrt(np.mean(x**2)))
         if statistic == "mae":

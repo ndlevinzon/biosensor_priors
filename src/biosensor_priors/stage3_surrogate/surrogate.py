@@ -46,10 +46,34 @@ class FusedSurrogate:
     fitted_: bool = False
 
     def __post_init__(self) -> None:
+        """Initialize default feature builder when none is provided.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         if self.feature_builder is None:
             self.feature_builder = FeatureBuilder(encoding=self.encoding)  # type: ignore[arg-type]
 
     def fit(self, df: pd.DataFrame, y: np.ndarray) -> FusedSurrogate:
+        """Fit physics mean and GP residual models on training data.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            Training construct table with features and metadata.
+        y : numpy.ndarray
+            Observed fitness values aligned with ``df`` rows.
+
+        Returns
+        -------
+        FusedSurrogate
+            Fitted surrogate (``self``).
+        """
         assert self.feature_builder is not None
         y = np.asarray(y, dtype=float)
         X = self.feature_builder.fit_transform(df)
@@ -82,6 +106,23 @@ class FusedSurrogate:
         return self
 
     def predict(self, df: pd.DataFrame) -> SurrogatePrediction:
+        """Predict fitness with decomposed physics and GP components.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            Construct table to predict.
+
+        Returns
+        -------
+        SurrogatePrediction
+            Dataclass with mean/std predictions and component breakdown.
+
+        Raises
+        ------
+        RuntimeError
+            When called before :meth:`fit`.
+        """
         if not self.fitted_:
             raise RuntimeError("Surrogate must be fit before predict.")
         assert self.feature_builder is not None
@@ -124,6 +165,17 @@ class FusedSurrogate:
         )
 
     def metadata(self) -> dict[str, Any]:
+        """Return fitted model metadata for provenance and inspection.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        dict
+            Model kind, encoding, physics weights, and feature summary.
+        """
         assert self.feature_builder is not None
         return {
             "kind": self.kind,

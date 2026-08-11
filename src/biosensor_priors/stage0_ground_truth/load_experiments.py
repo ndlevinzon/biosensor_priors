@@ -40,6 +40,23 @@ from biosensor_priors.stage0_ground_truth.version_resolve import (
 
 
 def _read_table(path: Path) -> pd.DataFrame:
+    """Load a persisted table from pickle, parquet, or Excel.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        Path to the table file.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Loaded table contents.
+
+    Raises
+    ------
+    ValueError
+        If the file suffix is not supported.
+    """
     if path.suffix.lower() == ".pkl":
         return pd.read_pickle(path)
     if path.suffix.lower() in {".parquet"}:
@@ -60,6 +77,38 @@ def _ensure_construct_artifacts(
     canonical_reference: str,
     rebuild_from_epochs: bool,
 ) -> dict[str, Path]:
+    """Ensure construct-database artifacts exist, rebuilding when requested.
+
+    Parameters
+    ----------
+    constructs_dir : pathlib.Path
+        Directory for version, mapping, and physicochemical artifacts.
+    epochs_workbook : str
+        Filename of the epochs Excel workbook within ``constructs_dir``.
+    versions_pickle : str
+        Filename for the serialized version database.
+    residue_mapping_pickle : str
+        Filename for the serialized residue mapping.
+    physchem_pickle : str
+        Filename for the serialized physicochemical residue database.
+    aa_lookup_pickle : str
+        Filename for the serialized amino-acid property lookup.
+    canonical_reference : str
+        Canonical version label for alignment.
+    rebuild_from_epochs : bool
+        When ``True``, force rebuild from the epochs workbook.
+
+    Returns
+    -------
+    dict[str, pathlib.Path]
+        Paths to ``versions``, ``residue_mapping``, ``physchem``, ``aa_lookup``,
+        and ``epochs`` artifacts.
+
+    Raises
+    ------
+    ValueError
+        If canonical mapping QC fails during rebuild.
+    """
     versions_path = constructs_dir / versions_pickle
     mapping_path = constructs_dir / residue_mapping_pickle
     physchem_path = constructs_dir / physchem_pickle
@@ -99,6 +148,18 @@ def _ensure_construct_artifacts(
 
 
 def _attach_mutation_codes(df: pd.DataFrame) -> pd.DataFrame:
+    """Attach standardized mutation code lists to each experimental row.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Table with rows processable by :func:`get_row_mutations`.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of ``df`` with a ``mutation_codes`` column (list or ``None``).
+    """
     out = df.copy()
     codes = []
     for _, row in out.iterrows():
@@ -112,7 +173,21 @@ def _attach_mutation_codes(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _dataframe_for_parquet(df: pd.DataFrame) -> pd.DataFrame:
-    """Coerce object columns to strings so pyarrow can serialize mixed cells."""
+    """Coerce object columns to strings for pyarrow parquet serialization.
+
+    Mixed-type object columns (lists, dicts, scalars) are stringified so
+    parquet writers do not fail on heterogeneous cells.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame with potentially mixed object-dtype columns.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy safe for ``to_parquet`` export.
+    """
     out = df.copy()
     for col in out.columns:
         if out[col].dtype != object:
@@ -132,10 +207,35 @@ def build_experiment_master(
     repo_root: Path | None = None,
     rebuild_constructs: bool | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """
-    Load experimental + construct databases, apply fitness, and return master table.
+    """Load experimental and construct data and build the master table.
 
-    Writes artifacts under ``data/processed`` and a Stage-0 manifest.
+    Applies cleaning, version resolution, fitness scoring, split generation,
+    and Stage-0 gate validation. Writes artifacts under ``data/processed``
+    and a Stage-0 manifest.
+
+    Parameters
+    ----------
+    config_dir : pathlib.Path | None, optional
+        Directory containing ``pipeline.yaml`` and ``fitness.yaml``.
+    repo_root : pathlib.Path | None, optional
+        Repository root for resolving configured paths. Defaults to
+        ``REPO_ROOT``.
+    rebuild_constructs : bool | None, optional
+        When set, overrides the ``rebuild_from_epochs`` pipeline flag.
+
+    Returns
+    -------
+    master : pandas.DataFrame
+        Authoritative experiment master table with fitness and metadata.
+    meta : dict[str, Any]
+        Run metadata including paths, gate report, and row counts.
+
+    Raises
+    ------
+    ValueError
+        If construct artifact rebuild fails canonical mapping QC.
+    RuntimeError
+        If Stage-0 validation gates do not pass.
     """
     root = repo_root or REPO_ROOT
     pipeline_cfg, fitness_cfg = load_stage0_configs(config_dir)
@@ -287,6 +387,17 @@ def build_experiment_master(
 
 
 def main() -> None:
+    """Run Stage-0 master build from default configs and print summary paths.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+        Prints row counts and artifact paths to stdout.
+    """
     master, meta = build_experiment_master()
     print(f"experiment_master rows: {meta['n_rows']}")
     print(f"wrote: {meta['master_path']}")
