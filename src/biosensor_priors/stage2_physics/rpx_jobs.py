@@ -457,6 +457,12 @@ def submit_or_mock_rpx_batch(
 
     if backend == "external" and executable:
 
+        mut_path = out_dir / "mutations.json"
+        mut_path.write_text(
+            json.dumps({"mutations": mutations}, indent=2, default=str) + "\n",
+            encoding="utf-8",
+        )
+        job.metadata["mutations_json"] = str(mut_path)
         job = run_local_job(job, dry_run=False)
 
         scores = pd.read_csv(score_path, sep="\t") if score_path.exists() else pd.DataFrame()

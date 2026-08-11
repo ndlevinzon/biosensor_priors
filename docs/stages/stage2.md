@@ -122,3 +122,28 @@ python -m biosensor_priors.stage2_physics.run --require-gate
 4. Point ``rif.executable`` / ``rpx.executable`` when those tools are ready;
    optionally ``jobs.scheduler: slurm`` and ``jobs.submit: true``.
 5. Gate 2 must still pass on real scores before Stage 3 trusts physics weights.
+
+## RIF / RPX wrapper scaffolds
+
+While ``willsheffler/rif`` and ``rpxdock`` are being installed on CHPC, use the
+in-repo scaffolds (already set in ``physics.yaml``):
+
+```bash
+# Writes parser-compatible TSV + wrapper_status.json (NaN scores)
+python -m biosensor_priors.stage2_physics.wrappers.run_rif \
+  --structure model.pdb --ligands data/physics/ligands \
+  --ligand-name 'AcCoA+PropCoA' --out /tmp/rif --scaffold
+
+python -m biosensor_priors.stage2_physics.wrappers.run_rpx \
+  --structure model.pdb --mutation Q324R --out /tmp/rpx --scaffold
+```
+
+CLIs: ``biosensor-rif``, ``biosensor-rpx``.
+
+**After install:**
+
+1. Activate the conda env where ``import rif`` / ``import rpxdock`` works.
+2. Implement ``score_with_rif`` / ``score_with_rpx`` in
+   ``stage2_physics/wrappers/run_*.py``.
+3. Remove ``--scaffold`` from ``rif.command_template`` / ``rpx.command_template``.
+4. Set ``backend: external`` and re-run Gate 2 controls.

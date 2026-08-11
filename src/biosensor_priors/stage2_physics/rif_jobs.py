@@ -559,6 +559,13 @@ def submit_or_mock_rif_job(
 
     if backend == "external" and executable:
 
+        # Provide mutation list for wrapper scaffolds (and live runners).
+        mut_path = out_dir / "mutations.json"
+        mut_path.write_text(
+            json.dumps({"mutations": mutations}, indent=2, default=str) + "\n",
+            encoding="utf-8",
+        )
+        job.metadata["mutations_json"] = str(mut_path)
         job = run_local_job(job, dry_run=False)
 
         return job, score_path

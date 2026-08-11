@@ -71,8 +71,9 @@ ligands:
   conformer_id_schema_version: 1
 
 rif:
-  # External RIF executable / script. null → mock backend only.
-  executable: null
+  # Scaffold CLI (replace body of score_with_rif after installing willsheffler/rif).
+  # Keep backend: mock until the live API returns real numbers.
+  executable: "python -m biosensor_priors.stage2_physics.wrappers.run_rif"
   # Command template; available keys: {executable}, {structure_pdb},
   # {ligand_dir}, {ligand_name}, {out_dir}, {structure_model_id}, {scan_id}
   command_template: >-
@@ -81,19 +82,30 @@ rif:
     --ligands {ligand_dir}
     --ligand-name {ligand_name}
     --out {out_dir}
+    --structure-model-id {structure_model_id}
+    --scaffold
   output_score_filename: rif_scores.tsv
   ligands:
     - AcCoA
     - PropCoA
 
 rpx:
-  executable: null
+  # Scaffold CLI (replace score_with_rpx after: pip install git+…/rpxdock.git).
+  executable: "python -m biosensor_priors.stage2_physics.wrappers.run_rpx"
   command_template: >-
     {executable}
     --structure {structure_pdb}
     --mutation {mutation}
     --out {out_dir}
+    --structure-model-id {structure_model_id}
+    --scaffold
   output_score_filename: rpx_scores.tsv
+
+# When rif/rpxdock envs are ready on CHPC:
+# 1. Remove --scaffold from the templates above
+# 2. Point jobs.module_loads / activate the conda env that has rif & rpxdock
+# 3. Set backend: external
+# 4. Implement score_with_rif / score_with_rpx in the wrapper modules
 
 scan:
   # Canonical positions / AAs come from fitness.yaml design block by default.

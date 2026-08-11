@@ -17,7 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stage 2 physics landscape orchestration: ligand conformer pipeline with
   permanent ``conformer_id``s, **RDKit ETKDG** conformer generator (OMEGA
   replacement), **Gaussian16** (``gaussian16/SSE4.C01``) GJF/SLURM writers,
-  RIF/RPX job wrappers + provenance, 20-AA scan
+  RIF/RPX job wrappers + provenance, **scaffold CLIs**
+  (``biosensor-rif`` / ``biosensor-rpx``) for CHPC install-in-progress,
+  20-AA scan
   long table with ``ΔRIF_sel = RIF_Ac − RIF_Prop``, uncertainty aggregation
   across structure models, Gate 2 Q324R/A355R directional tests, mock backend
   until HPC tools are deployed, CLI ``biosensor-stage2``
