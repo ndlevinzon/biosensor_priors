@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Stage 1 CHPC AlphaFold 2.3.2 / 3.0.0 two-step SLURM job generator
+  (``configs/structures.yaml``, FASTA/JSON inputs, ``parse_AF2`` / ``parse_AF3``,
+  structural confidence + Gate 1, CLI ``biosensor-stage1``); ESMFold
+  (``esmfold/1.0.3``) and RoseTTAFold2 (``rosettafold2/1.0``, method ``RF2``)
+  single-GPU job templates + adapters
 - Stage 2 physics landscape orchestration: ligand conformer pipeline with
   permanent ``conformer_id``s, RIF/RPX job wrappers + provenance, 20-AA scan
   long table with ``ΔRIF_sel = RIF_Ac − RIF_Prop``, uncertainty aggregation

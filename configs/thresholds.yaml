@@ -3,8 +3,8 @@ structure:
   predictors:
     - AF2
     - AF3
-    - RFAA
     - ESMFold
+    - RF2
   seeds: [1, 2, 3]
   states:
     - apo

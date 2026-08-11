@@ -128,7 +128,17 @@ descriptions via ``sphinx-autodoc-typehints``.
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: biosensor_priors.stage1_structures.slurm_templates
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: biosensor_priors.stage1_structures.adapters
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: biosensor_priors.stage1_structures.adapters.af_parsers
    :members:
    :undoc-members:
    :show-inheritance:
@@ -144,6 +154,11 @@ descriptions via ``sphinx-autodoc-typehints``.
    :show-inheritance:
 
 .. automodule:: biosensor_priors.stage1_structures.gate1
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: biosensor_priors.stage1_structures.run
    :members:
    :undoc-members:
    :show-inheritance:

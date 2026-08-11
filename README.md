@@ -79,6 +79,9 @@ Optional extras:
 # Ground truth + frozen splits
 biosensor-stage0
 
+# CHPC AF2/AF3 two-step SLURM scripts (+ ingest after HPC)
+biosensor-stage1 --jobs-only
+
 # Physics landscape (mock backend by default; see configs/physics.yaml)
 biosensor-stage2
 
@@ -103,6 +106,7 @@ Equivalent module entry points:
 
 ```bash
 python -m biosensor_priors.stage0_ground_truth.load_experiments
+python -m biosensor_priors.stage1_structures.run --jobs-only
 python -m biosensor_priors.stage2_physics.run
 python -m biosensor_priors.stage3_surrogate.run
 python -m biosensor_priors.stage4_search.run
@@ -112,8 +116,8 @@ python -m biosensor_priors.stage6_ablation.run
 ```
 
 Configuration lives under [`configs/`](configs/) (`pipeline`, `fitness`,
-`search`, `thresholds`, `physics`, `ablation`). Do not hard-code analysis
-constants in Python.
+`search`, `thresholds`, `structures`, `physics`, `ablation`). Do not hard-code
+analysis constants in Python.
 
 ---
 
@@ -125,7 +129,7 @@ data/                    experimental, constructs, structures, physics, rounds
 src/biosensor_priors/
   common/                config, IDs, manifests, gates
   stage0_ground_truth/   cleaning, fitness, splits, Gate 0
-  stage1_structures/     structure job adapters (stubs → HPC)
+  stage1_structures/     CHPC AF2/AF3 SLURM jobs, adapters, confidence, Gate 1
   stage2_physics/        ligands, RIF/RPX, scans, Gate 2
   stage3_surrogate/      features, μ₀, GP residual, Gate 3
   stage4_search/         design space, policies, campaigns
@@ -179,7 +183,7 @@ documentation. A formal paper citation will be added here when available.
 ```bibtex
 @software{biosensor_priors,
   title        = {biosensor-priors: Physics-informed GPs for biosensor design},
-  author       = {ndlev},
+  author       = {Nathan D. Levinzon},
   year         = {2026},
   url          = {https://github.com/ndlev/biosensor-priors},
   note         = {Documentation: https://biosensor-priors.readthedocs.io}
@@ -212,3 +216,7 @@ AcCoA-selective biosensor engineering, with search policies aligned to the
 BO-EVO style interface (Random, AdaLead, MCMC, enumerative UCB). External
 structure and RIF/RPX executables remain user-deployed; the Python layer
 provides orchestration, provenance, and gates.
+
+This project was inspired by the following papers:
+ - https://doi.org/10.1093/bib/bbac570
+ - https://doi.org/10.64898/2026.07.13.738243
