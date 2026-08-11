@@ -1,26 +1,14 @@
 """
-Scaffold CLI for RPX / rpxdock (willsheffler/rpxdock).
+Stage 2 packing scores via CHPC **PyRosetta** (not rpxdock).
 
-Matches ``configs/physics.yaml`` → ``rpx.command_template``:
-
-    {executable} --structure … --mutation … --out …
-
-Install hint::
-
-    pip install git+ssh://git@github.com/willsheffler/rpxdock.git
-
-Fill :func:`score_with_rpx` once ``import rpxdock`` works on CHPC.
+``rpx`` is the local packing / total energy after mutate+pack. Same engine as
+``run_rosetta``; this CLI writes the RPX-only TSV expected by ``rpx_jobs``.
 """
 
 from __future__ import annotations
 
 import argparse
-import math
-import re
 from pathlib import Path
-from typing import Any
-
-import pandas as pd
 
 from biosensor_priors.stage2_physics.wrappers._io import (
     load_mutations_json,
@@ -28,86 +16,13 @@ from biosensor_priors.stage2_physics.wrappers._io import (
     try_import,
     write_status,
 )
-
-
-_MUT_RE = re.compile(r"^([A-Z])(\d+)([A-Z])$")
-
-
-def parse_mutation_string(mutation: str) -> dict[str, Any]:
-    """Parse ``Q324R`` → wt/position/mutant dict."""
-    m = _MUT_RE.match(str(mutation).strip())
-    if not m:
-        return {"mutation": mutation, "wt": None, "position": None, "mutant": None}
-    return {
-        "mutation": mutation,
-        "wt": m.group(1),
-        "position": int(m.group(2)),
-        "mutant": m.group(3),
-    }
-
-
-def score_with_rpx(
-    *,
-    structure_pdb: Path,
-    mutation: str,
-    structure_model_id: str | None = None,
-) -> dict[str, Any]:
-    """
-    Call rpxdock / RPX packing for one mutation (implement after install).
-
-    Notes
-    -----
-    After ``pip install git+…/rpxdock.git``::
-
-        import rpxdock
-        # score packing for mutated structure; return float rpx
-    """
-    raise NotImplementedError(
-        "score_with_rpx is a scaffold. Install willsheffler/rpxdock, then implement "
-        "this function. See docs/stages/stage2.md."
-    )
-
-
-def scaffold_row(
-    mutation: str,
-    *,
-    structure_model_id: str | None,
-    structure_pdb: Path,
-) -> dict[str, Any]:
-    """Emit one NaN RPX row for wiring tests."""
-    parsed = parse_mutation_string(mutation)
-    return {
-        "mutation": parsed["mutation"],
-        "position": parsed["position"],
-        "wt": parsed["wt"],
-        "mutant": parsed["mutant"],
-        "structure_model_id": structure_model_id,
-        "structure_pdb": str(structure_pdb),
-        "rpx": math.nan,
-        "backend": "scaffold",
-    }
-
-
-def write_rpx_scores_tsv(path: Path, rows: list[dict[str, Any]]) -> Path:
-    """Write ``rpx_scores.tsv`` for ``score_parser.parse_rpx_score_table``."""
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    cols = [
-        "mutation",
-        "position",
-        "wt",
-        "mutant",
-        "structure_model_id",
-        "rpx",
-        "backend",
-        "structure_pdb",
-    ]
-    df = pd.DataFrame(rows)
-    for c in cols:
-        if c not in df.columns:
-            df[c] = None
-    df[cols].to_csv(path, sep="\t", index=False)
-    return path
+from biosensor_priors.stage2_physics.wrappers.run_rosetta import (
+    load_rosetta_cfg,
+    parse_mutation_string,
+    scaffold_rows,
+    score_mutation_rosetta,
+    write_rpx_only_tsv,
+)
 
 
 def run(
@@ -120,37 +35,32 @@ def run(
     force_scaffold: bool = False,
     score_filename: str = "rpx_scores.tsv",
 ) -> Path:
-    """Score one mutation or a mutations.json list; write RPX TSV."""
+    """Score packing for one mutation or a mutations.json list."""
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
 
     mut_path = resolve_mutations_path(out, mutations_json)
     batch = load_mutations_json(mut_path)
     if mutation and str(mutation).upper() != "BATCH":
-        targets = [mutation]
+        targets: list[dict] = [parse_mutation_string(mutation)]
     elif batch:
-        targets = [str(m.get("mutation", m)) if isinstance(m, dict) else str(m) for m in batch]
+        targets = [
+            m if isinstance(m, dict) else parse_mutation_string(str(m)) for m in batch
+        ]
     else:
-        targets = ["WT"]
+        targets = [parse_mutation_string("WT")]
 
-    ok, msg = try_import("rpxdock")
-    # Some installs may expose a top-level name other than rpxdock
-    if not ok:
-        ok2, msg2 = try_import("rpx")
-        ok = ok or ok2
-        msg = msg if not ok2 else msg2
-
+    ok, msg = try_import("pyrosetta")
     use_scaffold = force_scaffold or not ok
-    rows: list[dict[str, Any]] = []
+    cfg = load_rosetta_cfg()
 
     if use_scaffold:
-        for mut in targets:
-            rows.append(
-                scaffold_row(mut, structure_model_id=structure_model_id, structure_pdb=structure)
-            )
+        rows = scaffold_rows(
+            targets, structure_model_id=structure_model_id, structure_pdb=structure
+        )
         write_status(
             out,
-            tool="rpx",
+            tool="pyrosetta_pack",
             mode="scaffold",
             detail={
                 "import_ok": ok,
@@ -158,47 +68,48 @@ def run(
                 "n_mutations": len(targets),
                 "structure": str(structure),
                 "next_step": (
-                    "pip install git+ssh://git@github.com/willsheffler/rpxdock.git "
-                    "then implement score_with_rpx() in wrappers/run_rpx.py"
+                    "module load pyrosetta/4.0.0; drop --scaffold; "
+                    "set physics.yaml backend: external."
                 ),
             },
         )
     else:
+        rows = []
+        errors: list[str] = []
         for mut in targets:
             try:
-                row = score_with_rpx(
-                    structure_pdb=structure,
-                    mutation=mut,
-                    structure_model_id=structure_model_id,
-                )
-                rows.append(row)
-            except NotImplementedError as exc:
                 rows.append(
-                    scaffold_row(
-                        mut, structure_model_id=structure_model_id, structure_pdb=structure
+                    score_mutation_rosetta(
+                        structure_pdb=structure,
+                        mutation=mut,
+                        cfg=cfg,
+                        structure_model_id=structure_model_id,
                     )
                 )
-                write_status(
-                    out,
-                    tool="rpx",
-                    mode="scaffold_api_pending",
-                    detail={"import_ok": True, "error": str(exc)},
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{mut}: {type(exc).__name__}: {exc}")
+                rows.extend(
+                    scaffold_rows(
+                        [mut],
+                        structure_model_id=structure_model_id,
+                        structure_pdb=structure,
+                    )
                 )
+        write_status(
+            out,
+            tool="pyrosetta_pack",
+            mode="live" if not errors else "live_partial",
+            detail={"n_rows": len(rows), "errors": errors[:20]},
+        )
 
-        if all(r.get("backend") != "scaffold" for r in rows):
-            write_status(
-                out,
-                tool="rpx",
-                mode="live",
-                detail={"import_ok": True, "n_rows": len(rows)},
-            )
-
-    return write_rpx_scores_tsv(out / score_filename, rows)
+    return write_rpx_only_tsv(out / score_filename, rows)
 
 
 def main(argv: list[str] | None = None) -> None:
-    """CLI entry point for the RPX / rpxdock wrapper scaffold."""
-    parser = argparse.ArgumentParser(description="RPX / rpxdock wrapper (scaffold → live)")
+    """CLI entry point for Rosetta packing (RPX column) scores."""
+    parser = argparse.ArgumentParser(
+        description="PyRosetta packing scores → Stage 2 rpx column"
+    )
     parser.add_argument("--structure", type=Path, required=True)
     parser.add_argument(
         "--mutation",

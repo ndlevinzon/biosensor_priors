@@ -9,7 +9,8 @@
 `biosensor-priors` is a research software package for ranking and proposing
 protein biosensor variants under limited wet-lab budgets. Experimental
 measurements are treated as the only ground truth. Structural models (e.g.
-AlphaFold2/3) and physics scores (RIF/RPX) enter as **priors and uncertainty
+AlphaFold2/3) and physics scores (Rosetta / PyRosetta interface + packing)
+enter as **priors and uncertainty
 channels**, not as substitutes for fitness. The pipeline supports
 leave-one-construct-out evaluation, BO-EVO–style search policies (Random,
 AdaLead, MCMC, enumerative UCB), prospective prediction freezes before
@@ -26,7 +27,7 @@ The intended workflow is:
 
 1. **Stage 0** — clean experimental data; preregister scalar fitness; freeze splits  
 2. **Stage 1** — multi-predictor structure ensembles and confidence (HPC)  
-3. **Stage 2** — ligand ensembles, RIF/RPX scans, $\Delta\mathrm{RIF}_{\mathrm{sel}}$, Gate 2  
+3. **Stage 2** — ligand ensembles, Rosetta interface/packing scans, $\Delta\mathrm{RIF}_{\mathrm{sel}}$, Gate 2  
 4. **Stage 3** — physics mean $\mu_0$ + GP residual; Gate 3 vs baselines  
 5. **Stage 4** — constrained design space + Random / AdaLead / MCMC / BO  
 6. **Stage 5** — immutable prediction freeze → plate import → prospective validation → refit  
@@ -45,7 +46,7 @@ For equations, gates, and the architecture diagram, see
 
 - Preregistered fitness $F = 0.40S + 0.25A + 0.20\mathrm{FC} + 0.15B$ with explicit censoring policies  
 - Canonical numbering across biosensor versions (e.g. V1.0 → V2.4)  
-- Physics-informed GP with confidence-weighted RIF/RPX features  
+- Physics-informed GP with confidence-weighted Rosetta energy features  
 - Paper-faithful search policies and multi-round campaign benchmarks  
 - Prospective anti-leakage freezes (`round_NN_predictions.parquet` + SHA-256)  
 - Ablation statistics (paired bootstrap, Wilcoxon, Holm, effect sizes)  
@@ -130,7 +131,7 @@ src/biosensor_priors/
   common/                config, IDs, manifests, gates
   stage0_ground_truth/   cleaning, fitness, splits, Gate 0
   stage1_structures/     CHPC AF2/AF3 SLURM jobs, adapters, confidence, Gate 1
-  stage2_physics/        ligands, RIF/RPX, scans, Gate 2
+  stage2_physics/        ligands, Rosetta scores, scans, Gate 2
   stage3_surrogate/      features, μ₀, GP residual, Gate 3
   stage4_search/         design space, policies, campaigns
   stage5_prospective/    freeze, import, validate, update
@@ -214,7 +215,7 @@ This project is released under the [MIT License](LICENSE).
 Pipeline design follows a physics-informed GP + active-learning framing for
 AcCoA-selective biosensor engineering, with search policies aligned to the
 BO-EVO style interface (Random, AdaLead, MCMC, enumerative UCB). External
-structure and RIF/RPX executables remain user-deployed; the Python layer
+structure and PyRosetta remain user-deployed; the Python layer
 provides orchestration, provenance, and gates.
 
 This project was inspired by the following papers:

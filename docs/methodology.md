@@ -147,7 +147,11 @@ Each approved structure receives a permanent `conformer_id` derived from
 content hash + schema version. Catalog:
 `data/physics/ligand_conformers.parquet`.
 
-#### 4.2 RIF / RPX wrappers (2B)
+#### 4.2 Rosetta interface / packing wrappers (2B)
+
+Stage-2 priors are **PyRosetta** mutate→pack energies (CHPC
+``pyrosetta/4.0.0``), written into legacy schema columns ``rif_ac``,
+``rif_prop``, and ``rpx``. RifDock / rpxdock are not used.
 
 For each `structure_model_id` and ligand ensemble the Python layer:
 

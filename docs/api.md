@@ -208,7 +208,7 @@ descriptions via ``sphinx-autodoc-typehints``.
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: biosensor_priors.stage2_physics.wrappers.run_rif
+.. automodule:: biosensor_priors.stage2_physics.wrappers.run_rosetta
    :members:
    :undoc-members:
    :show-inheritance:

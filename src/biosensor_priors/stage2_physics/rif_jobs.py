@@ -1,4 +1,4 @@
-"""Programmatic wrapper around the external RIF toolchain."""
+"""Programmatic wrapper around Stage-2 Rosetta (PyRosetta) interface scoring."""
 
 
 

@@ -70,12 +70,11 @@ ligands:
   # Bump only when the *definition* of conformer_id content changes.
   conformer_id_schema_version: 1
 
+# Interface + packing priors via CHPC PyRosetta (configs/rosetta_physics.yaml).
+# Schema columns keep legacy names: rif_ac / rif_prop / rpx / delta_rif_sel.
+# Keep backend: mock until Gate 2 passes on real pyrosetta scores.
 rif:
-  # Scaffold CLI (replace body of score_with_rif after installing willsheffler/rif).
-  # Keep backend: mock until the live API returns real numbers.
-  executable: "python -m biosensor_priors.stage2_physics.wrappers.run_rif"
-  # Command template; available keys: {executable}, {structure_pdb},
-  # {ligand_dir}, {ligand_name}, {out_dir}, {structure_model_id}, {scan_id}
+  executable: "python -m biosensor_priors.stage2_physics.wrappers.run_rosetta"
   command_template: >-
     {executable}
     --structure {structure_pdb}
@@ -90,7 +89,7 @@ rif:
     - PropCoA
 
 rpx:
-  # Scaffold CLI (replace score_with_rpx after: pip install git+…/rpxdock.git).
+  # Same PyRosetta mutate+pack total energy → rpx column.
   executable: "python -m biosensor_priors.stage2_physics.wrappers.run_rpx"
   command_template: >-
     {executable}
@@ -101,11 +100,11 @@ rpx:
     --scaffold
   output_score_filename: rpx_scores.tsv
 
-# When rif/rpxdock envs are ready on CHPC:
-# 1. Remove --scaffold from the templates above
-# 2. Point jobs.module_loads / activate the conda env that has rif & rpxdock
-# 3. Set backend: external
-# 4. Implement score_with_rif / score_with_rpx in the wrapper modules
+# CHPC PyRosetta next steps:
+# 1. module load pyrosetta/4.0.0
+# 2. Set configs/rosetta_physics.yaml complexes.AcCoA / PropCoA to holo PDBs
+# 3. Drop --scaffold from command_templates above; set backend: external
+# 4. jobs.module_loads: [pyrosetta/4.0.0]; Gate 2 on Q324R / A355R
 
 scan:
   # Canonical positions / AAs come from fitness.yaml design block by default.
@@ -124,7 +123,8 @@ jobs:
   account: null
   cpus: 4
   mem_gb: 16
-  module_loads: []
+  # Enable when backend: external on CHPC
+  module_loads: []   # e.g. [pyrosetta/4.0.0]
   # Relative to data/physics
   jobs_subdir: jobs
   logs_subdir: logs
@@ -136,7 +136,7 @@ uncertainty:
 
 # Mock backend (deterministic pseudo-physics for orchestration tests)
 mock:
-  # Favorable AcCoA controls get more-negative RIF_Ac than RIF_Prop when
+  # Favorable AcCoA controls get more-negative rif_ac than rif_prop when
   # thresholds.physics.score_direction is more_negative_is_better.
   control_delta_rif_sel:
     Q324R: -2.5

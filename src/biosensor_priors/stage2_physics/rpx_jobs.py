@@ -1,4 +1,4 @@
-"""Programmatic wrapper around RPX packing score jobs."""
+"""Programmatic wrapper around Rosetta packing (rpx column) jobs."""
 
 
 

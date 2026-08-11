@@ -1,4 +1,7 @@
-"""Parse and standardize RIF/RPX score outputs; retain raw terms."""
+"""Parse and standardize Rosetta interface/packing score outputs; retain raw terms.
+
+Legacy column names ``rif_ac`` / ``rif_prop`` / ``rpx`` are kept for Stage 3.
+"""
 
 
 

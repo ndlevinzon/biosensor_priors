@@ -1,13 +1,13 @@
 # Stage 2 — Physics landscape
 
-External scientific-computing orchestration plus standardized scoring.
-Ligand conformers, separate RIFs for AcCoA and PropCoA, 20-AA scans, RPX
-packing, selectivity term, and uncertainty across structural models.
+Ligand conformers, Rosetta (PyRosetta) interface + packing scores for AcCoA
+and PropCoA, 20-AA scans, selectivity term, and uncertainty across structural
+models.
 
-**HPC note:** External RIF/RPX binaries are optional. Default
-``configs/physics.yaml`` uses ``backend: mock`` so the Python orchestration,
-permanent IDs, long tables, uncertainty aggregation, and Gate 2 all run
-locally.
+**HPC note:** External scoring is optional. Default ``configs/physics.yaml``
+uses ``backend: mock`` so the Python orchestration, permanent IDs, long tables,
+uncertainty aggregation, and Gate 2 all run locally. On CHPC use
+``module load pyrosetta/4.0.0``.
 
 **Ligands on CHPC (no OMEGA):** conformers via built-in **RDKit ETKDG**
 (``builtin:rdkit``); QM via **Gaussian16** (``module load gaussian16/SSE4.C01``,
@@ -35,30 +35,37 @@ Outputs: ``data/physics/ligands/AcCoA/``, ``.../PropCoA/``,
 
 Modules: ``ligand_ensemble.py``, ``conformer_generator.py``, ``gaussian_qm.py``
 
-### 2B. RIF generation wrapper
+### 2B. Rosetta interface + packing wrapper
 
-Programmatic wrapper around the external RIF toolchain:
+Programmatic wrapper around **PyRosetta** (CHPC ``pyrosetta/4.0.0``):
 
-- construct command, write shell/sbatch scripts
-- submit locally (opt-in) or leave for scheduler
-- capture stdout/stderr, verify completion, parse scores, store ``job.json``
+- mutate → local pack → total energy (``rpx``)
+- optional holo complexes → interface ΔE for AcCoA / PropCoA (``rif_ac`` /
+  ``rif_prop``; legacy column names kept for Stage 3)
+- write shell/sbatch scripts, capture logs, parse scores, store ``job.json``
 
-Inputs: ``structure_model_id`` + ligand conformer ensemble  
-Outputs: ``data/physics/rif/.../rif_scores.tsv``
+Config: ``configs/rosetta_physics.yaml`` (complex PDB paths, pack radius,
+score function).
 
-Modules: ``rif_jobs.py``, ``jobs.py``, ``score_parser.py``
+Inputs: ``structure_model_id`` + optional holo complexes  
+Outputs: ``data/physics/rif/.../rif_scores.tsv``, ``data/physics/rpx/...``
+
+Modules: ``rif_jobs.py``, ``rpx_jobs.py``, ``wrappers/run_rosetta.py``,
+``score_parser.py``
 
 ### 2C. 20-AA scan engine
 
 For every allowed canonical position × amino acid, generate a mutation
-specification and score through RIF/RPX.
+specification and score through Rosetta interface / packing.
 
 Long-format table:
 
 | Version | Position | WT | Mutant | RIF_Ac | RIF_Prop | RPX | delta_RIF_sel |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 
-Derived selectivity (definition only — direction is separate):
+(Column names are legacy; values are Rosetta energies.)
+
+Derived selectivity:
 
 $$
 \Delta\mathrm{RIF}_{\mathrm{sel}} = \mathrm{RIF}_{\mathrm{Ac}} - \mathrm{RIF}_{\mathrm{Prop}}
@@ -111,39 +118,30 @@ biosensor-stage2
 python -m biosensor_priors.stage2_physics.run --require-gate
 ```
 
-## Deploying external tools later
+## Deploying PyRosetta on CHPC
 
 1. Install RDKit (``pip install 'biosensor-priors[chem]'``) for conformers;
    Gaussian16 is provided by CHPC (``gaussian16/SSE4.C01``).
-2. Confirm ``ligands.tools`` uses ``builtin:rdkit`` / ``builtin:gaussian16``
-   (or point at your own wrappers). Set ``ligands.qm.job.account`` / partition.
-3. Set ``backend: external``, run Stage 2A (or full ``biosensor-stage2``), then
-   ``bash data/physics/ligands/*/qm/submit_all.sh`` for Opt jobs.
-4. Point ``rif.executable`` / ``rpx.executable`` when those tools are ready;
-   optionally ``jobs.scheduler: slurm`` and ``jobs.submit: true``.
+2. ``module load pyrosetta/4.0.0`` and confirm ``import pyrosetta``.
+3. Set ``configs/rosetta_physics.yaml`` → ``complexes.AcCoA`` / ``PropCoA`` to
+   holo PDBs (protein + ligand). Apo-only runs still fill ``rpx``.
+4. In ``configs/physics.yaml``: drop ``--scaffold`` from ``rif`` / ``rpx``
+   command templates; set ``jobs.module_loads: [pyrosetta/4.0.0]``;
+   set ``backend: external``.
 5. Gate 2 must still pass on real scores before Stage 3 trusts physics weights.
 
-## RIF / RPX wrapper scaffolds
-
-While ``willsheffler/rif`` and ``rpxdock`` are being installed on CHPC, use the
-in-repo scaffolds (already set in ``physics.yaml``):
+## Wrapper CLIs
 
 ```bash
-# Writes parser-compatible TSV + wrapper_status.json (NaN scores)
-python -m biosensor_priors.stage2_physics.wrappers.run_rif \
+# Interface + packing (writes rif_scores.tsv; optional --write-rpx)
+python -m biosensor_priors.stage2_physics.wrappers.run_rosetta \
   --structure model.pdb --ligands data/physics/ligands \
-  --ligand-name 'AcCoA+PropCoA' --out /tmp/rif --scaffold
+  --ligand-name 'AcCoA+PropCoA' --out /tmp/rosetta --scaffold
 
+# Packing only → rpx_scores.tsv
 python -m biosensor_priors.stage2_physics.wrappers.run_rpx \
   --structure model.pdb --mutation Q324R --out /tmp/rpx --scaffold
 ```
 
-CLIs: ``biosensor-rif``, ``biosensor-rpx``.
-
-**After install:**
-
-1. Activate the conda env where ``import rif`` / ``import rpxdock`` works.
-2. Implement ``score_with_rif`` / ``score_with_rpx`` in
-   ``stage2_physics/wrappers/run_*.py``.
-3. Remove ``--scaffold`` from ``rif.command_template`` / ``rpx.command_template``.
-4. Set ``backend: external`` and re-run Gate 2 controls.
+Entry points: ``biosensor-rosetta``, ``biosensor-rpx`` (``biosensor-rif`` is an
+alias of ``biosensor-rosetta``).

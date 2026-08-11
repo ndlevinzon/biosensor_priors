@@ -1,4 +1,4 @@
-"""Shared helpers for RIF / RPX external wrapper scaffolds."""
+"""Shared helpers for Stage 2 Rosetta / packing wrapper CLIs."""
 
 from __future__ import annotations
 

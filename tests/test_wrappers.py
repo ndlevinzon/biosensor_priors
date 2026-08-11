@@ -1,4 +1,4 @@
-"""Tests for RIF / RPX wrapper scaffolds."""
+"""Tests for PyRosetta wrapper scaffolds (interface + packing)."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ from pathlib import Path
 import pandas as pd
 
 from biosensor_priors.stage2_physics.score_parser import parse_rif_score_table, parse_rpx_score_table
-from biosensor_priors.stage2_physics.wrappers.run_rif import run as run_rif
+from biosensor_priors.stage2_physics.wrappers.run_rosetta import run as run_rosetta
 from biosensor_priors.stage2_physics.wrappers.run_rpx import run as run_rpx
 
 
-def test_rif_scaffold_writes_parsable_tsv(tmp_path: Path) -> None:
+def test_rosetta_scaffold_writes_parsable_tsv(tmp_path: Path) -> None:
     muts = tmp_path / "mutations.json"
     muts.write_text(
         '{"mutations": [{"mutation": "Q324R", "position": 324, "wt": "Q", "mutant": "R"}]}',
@@ -19,8 +19,8 @@ def test_rif_scaffold_writes_parsable_tsv(tmp_path: Path) -> None:
     )
     pdb = tmp_path / "model.pdb"
     pdb.write_text("ATOM\n", encoding="utf-8")
-    out = tmp_path / "rif_out"
-    path = run_rif(
+    out = tmp_path / "rosetta_out"
+    path = run_rosetta(
         structure=pdb,
         ligands=tmp_path / "ligands",
         ligand_name="AcCoA+PropCoA",
@@ -41,7 +41,7 @@ def test_rpx_scaffold_batch_and_single(tmp_path: Path) -> None:
     pdb = tmp_path / "model.pdb"
     pdb.write_text("ATOM\n", encoding="utf-8")
     out = tmp_path / "rpx_out"
-    (out).mkdir()
+    out.mkdir()
     (out / "mutations.json").write_text(
         '[{"mutation": "Q324R"}, {"mutation": "A355R"}]',
         encoding="utf-8",

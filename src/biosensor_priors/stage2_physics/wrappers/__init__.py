@@ -1,5 +1,8 @@
-"""External RIF / RPX (rpxdock) wrapper scaffolds for CHPC install-in-progress."""
+"""External PyRosetta wrappers for Stage 2 interface + packing scores."""
 
-from biosensor_priors.stage2_physics.wrappers import run_rif, run_rpx
+from biosensor_priors.stage2_physics.wrappers import run_rosetta, run_rpx
 
-__all__ = ["run_rif", "run_rpx"]
+# Legacy name kept for imports that still say run_rif
+from biosensor_priors.stage2_physics.wrappers import run_rif  # noqa: F401
+
+__all__ = ["run_rosetta", "run_rpx", "run_rif"]

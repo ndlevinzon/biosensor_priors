@@ -19,7 +19,7 @@ structure:
 # Physics landscape thresholds (Stage 2)
 physics:
   # Freeze score direction before coding. Downstream must not guess.
-  # Convention: more negative RIF/RPX = better interaction (Rosetta-like).
+  # Convention: more negative Rosetta interface/packing = better (ref2015-like).
   score_direction: more_negative_is_better
   rif:
     accoa_threshold: null  # set from calibration
