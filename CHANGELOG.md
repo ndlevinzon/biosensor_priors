@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   until HPC tools are deployed, CLI ``biosensor-stage2``
 - Methodology documentation (``docs/methodology.md``) with equations, full
   stage-by-stage procedure, and architecture-flow figure
+- Expanded Read the Docs API reference (``docs/api.md``) covering all
+  implemented modules with Napoleon/NumPy autodoc; academic-style README
 - Stage 6 ablation matrix (``configs/ablation.yaml``), shared-split runner,
   paired bootstrap / Wilcoxon / Holm / effect-size statistics, automatic
   tables+figures report, CLI ``biosensor-stage6``

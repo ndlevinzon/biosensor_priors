@@ -1,75 +1,214 @@
 # biosensor-priors
 
-Physics-informed Gaussian process pipeline for biosensor design: wet-lab ground
-truth → structural confidence → RIF/RPX physics → GP residual → active learning
-→ prospective wet-lab rounds → ablations.
+[![Documentation Status](https://readthedocs.org/projects/biosensor-priors/badge/?version=latest)](https://biosensor-priors.readthedocs.io/en/latest/?badge=latest)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Each stage is independently runnable. Artifacts are versioned tables plus
-``manifest.json`` provenance—not a single monolithic script.
+**Physics-informed Gaussian processes for biosensor design and active learning.**
+
+`biosensor-priors` is a research software package for ranking and proposing
+protein biosensor variants under limited wet-lab budgets. Experimental
+measurements are treated as the only ground truth. Structural models (e.g.
+AlphaFold2/3) and physics scores (RIF/RPX) enter as **priors and uncertainty
+channels**, not as substitutes for fitness. The pipeline supports
+leave-one-construct-out evaluation, BO-EVO–style search policies (Random,
+AdaLead, MCMC, enumerative UCB), prospective prediction freezes before
+synthesis, and a full ablation / statistics reporting layer.
+
+Documentation (methodology, stage contracts, and full API):  
+**https://biosensor-priors.readthedocs.io**
+
+---
+
+## Scientific overview
+
+The intended workflow is:
+
+1. **Stage 0** — clean experimental data; preregister scalar fitness; freeze splits  
+2. **Stage 1** — multi-predictor structure ensembles and confidence (HPC)  
+3. **Stage 2** — ligand ensembles, RIF/RPX scans, $\Delta\mathrm{RIF}_{\mathrm{sel}}$, Gate 2  
+4. **Stage 3** — physics mean $\mu_0$ + GP residual; Gate 3 vs baselines  
+5. **Stage 4** — constrained design space + Random / AdaLead / MCMC / BO  
+6. **Stage 5** — immutable prediction freeze → plate import → prospective validation → refit  
+7. **Stage 6** — ablation matrix on shared splits; bootstrap / Wilcoxon / Holm  
+
+Each stage is independently runnable and communicates through versioned tables
+plus `manifest.json` provenance (hashes, parameters, seeds, gate status).
+
+For equations, gates, and the architecture diagram, see
+[Methodology](https://biosensor-priors.readthedocs.io/en/latest/methodology.html)
+(source: [`docs/methodology.md`](docs/methodology.md)).
+
+---
+
+## Features
+
+- Preregistered fitness $F = 0.40S + 0.25A + 0.20\mathrm{FC} + 0.15B$ with explicit censoring policies  
+- Canonical numbering across biosensor versions (e.g. V1.0 → V2.4)  
+- Physics-informed GP with confidence-weighted RIF/RPX features  
+- Paper-faithful search policies and multi-round campaign benchmarks  
+- Prospective anti-leakage freezes (`round_NN_predictions.parquet` + SHA-256)  
+- Ablation statistics (paired bootstrap, Wilcoxon, Holm, effect sizes)  
+- Mock Stage-2 backend so orchestration and Gate 2 run before HPC tools are deployed  
+
+---
+
+## Installation
+
+Requires **Python 3.11+**.
+
+```bash
+git clone https://github.com/ndlev/biosensor-priors.git
+cd biosensor-priors
+pip install -e ".[dev,docs]"
+```
+
+Optional extras:
+
+| Extra | Purpose |
+| --- | --- |
+| `dev` | pytest, ruff, matplotlib |
+| `docs` | Sphinx + Read the Docs theme |
+| `ml` | optional GPyTorch / Torch stack |
+
+---
+
+## Quick start
+
+```bash
+# Ground truth + frozen splits
+biosensor-stage0
+
+# Physics landscape (mock backend by default; see configs/physics.yaml)
+biosensor-stage2
+
+# Surrogate CV + fused model
+biosensor-stage3
+
+# Propose design batches
+biosensor-stage4
+
+# Campaign benchmark (Random / AdaLead / MCMC / BO)
+biosensor-stage4-campaign
+
+# Prospective freeze / ingest
+biosensor-stage5 freeze --round 3 --batch outputs/stage4/batch_design_bo.csv
+biosensor-stage5 ingest --round 3 --results path/to/plate.xlsx
+
+# Ablations + report
+biosensor-stage6
+```
+
+Equivalent module entry points:
+
+```bash
+python -m biosensor_priors.stage0_ground_truth.load_experiments
+python -m biosensor_priors.stage2_physics.run
+python -m biosensor_priors.stage3_surrogate.run
+python -m biosensor_priors.stage4_search.run
+python -m biosensor_priors.stage4_search.campaign
+python -m biosensor_priors.stage5_prospective.run --help
+python -m biosensor_priors.stage6_ablation.run
+```
+
+Configuration lives under [`configs/`](configs/) (`pipeline`, `fitness`,
+`search`, `thresholds`, `physics`, `ablation`). Do not hard-code analysis
+constants in Python.
+
+---
+
+## Repository layout
+
+```text
+configs/                 YAML analysis contracts (preregistered)
+data/                    experimental, constructs, structures, physics, rounds
+src/biosensor_priors/
+  common/                config, IDs, manifests, gates
+  stage0_ground_truth/   cleaning, fitness, splits, Gate 0
+  stage1_structures/     structure job adapters (stubs → HPC)
+  stage2_physics/        ligands, RIF/RPX, scans, Gate 2
+  stage3_surrogate/      features, μ₀, GP residual, Gate 3
+  stage4_search/         design space, policies, campaigns
+  stage5_prospective/    freeze, import, validate, update
+  stage6_ablation/       matrix, statistics, figures, report
+tests/                   regression + gate controls (Q324R / A355R)
+docs/                    Sphinx / Read the Docs source
+manifests/               per-stage provenance
+outputs/                 derived reports and figures
+```
+
+---
 
 ## Documentation
 
-- **Hosted (Read the Docs):** https://biosensor-priors.readthedocs.io  
-  (activate the project on [readthedocs.org](https://readthedocs.org/) and point
-  it at this repository; build config is ``.readthedocs.yaml``)
-- **Local:**
+| Resource | Location |
+| --- | --- |
+| Hosted docs | https://biosensor-priors.readthedocs.io |
+| Methodology | [`docs/methodology.md`](docs/methodology.md) |
+| Architecture | [`docs/architecture.md`](docs/architecture.md) |
+| API reference | [`docs/api.md`](docs/api.md) (autodoc from package docstrings) |
+
+Build locally:
 
 ```bash
 pip install -e ".[docs]"
 sphinx-build -b html docs docs/_build/html
 ```
 
-Architecture, stage contracts, configuration, identifiers, and build order are
-documented under ``docs/``.
+---
 
-## Installation
+## Tests
 
 ```bash
 pip install -e ".[dev]"
-# optional ML / docs extras:
-pip install -e ".[ml,docs]"
-```
-
-Requires Python 3.11+.
-
-## Repository layout
-
-```text
-configs/          YAML: pipeline, fitness, search, thresholds, ablation, physics
-data/             experimental, constructs, structures, physics, rounds
-src/biosensor_priors/
-  common/         config, IDs, manifests, gates, canonical maps
-  stage0_…6/      independently runnable stages
-tests/            numbering, controls Q324R/A355R, leakage, reproducibility
-manifests/        per-stage provenance
-outputs/          reports and derived artifacts
-docs/             Sphinx source (Read the Docs)
-```
-
-## Build order (implementation)
-
-1. Shared infrastructure + Stage 0  
-2. Stage 3 skeleton (GP-only path) + Stage 4 search benchmark  
-3. Plug in Stage 1 (structures) and Stage 2 (physics) when available  
-4. Stage 5 prospective loop + Stage 6 ablations  
-
-See [docs/build_order.md](docs/build_order.md).
-
-## Development
-
-```bash
-py -3.12 -m pip install -e ".[dev,docs]"
-py -3.12 -m biosensor_priors.stage0_ground_truth.load_experiments
-py -3.12 -m biosensor_priors.stage3_surrogate.run
-py -3.12 -m biosensor_priors.stage4_search.run
-py -3.12 -m biosensor_priors.stage4_search.campaign
-py -3.12 -m biosensor_priors.stage2_physics.run
-py -3.12 -m biosensor_priors.stage5_prospective.run --help
-py -3.12 -m biosensor_priors.stage6_ablation.run
-py -3.12 -m pytest tests -q
+pytest tests -q
 ruff check .
 ```
 
+Gate-oriented checks include Stage-0 controls, Stage-2 directional physics
+tests for `Q324R` / `A355R`, Stage-5 freeze immutability, and Stage-6 ablation
+smoke tests.
+
+---
+
+## Citation
+
+If you use this software in academic work, please cite the repository and
+documentation. A formal paper citation will be added here when available.
+
+```bibtex
+@software{biosensor_priors,
+  title        = {biosensor-priors: Physics-informed GPs for biosensor design},
+  author       = {ndlev},
+  year         = {2026},
+  url          = {https://github.com/ndlev/biosensor-priors},
+  note         = {Documentation: https://biosensor-priors.readthedocs.io}
+}
+```
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome. Please:
+
+1. Keep analysis constants in YAML, not in source.  
+2. Preserve stage independence (file + manifest contracts).  
+3. Add or update tests for gate-sensitive behavior.  
+4. Prefer NumPy-style docstrings so the API reference on Read the Docs stays complete.  
+
+---
+
 ## License
 
-MIT
+This project is released under the [MIT License](LICENSE).
+
+---
+
+## Acknowledgments
+
+Pipeline design follows a physics-informed GP + active-learning framing for
+AcCoA-selective biosensor engineering, with search policies aligned to the
+BO-EVO style interface (Random, AdaLead, MCMC, enumerative UCB). External
+structure and RIF/RPX executables remain user-deployed; the Python layer
+provides orchestration, provenance, and gates.

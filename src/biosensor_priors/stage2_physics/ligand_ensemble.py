@@ -1,4 +1,4 @@
-"""Ligand conformer ensemble generation with permanent ``conformer_id``s."""
+"""Ligand conformer ensemble generation with permanent conformer IDs."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def make_conformer_id(
 ) -> str:
     """Build permanent conformer identity stable across re-runs.
 
-    Format: ``{ligand}:{schema_version}:{content12}[:{index:03d}]``
+    Format: ``{ligand}:v{schema}:{hash12}`` or with index suffix.
 
     Parameters
     ----------

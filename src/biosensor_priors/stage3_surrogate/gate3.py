@@ -185,7 +185,7 @@ def evaluate_gate3(
 
     Criteria (all required):
       1. Point-estimate RMSE(fused) <= RMSE(each baseline)
-      2. For each baseline, either Holm-corrected Wilcoxon on |error| favors
+      2. For each baseline, either Holm-corrected Wilcoxon on absolute error favors
          fused, or bootstrap CI for RMSE delta is entirely <= 0.
 
     Parameters

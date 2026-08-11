@@ -180,7 +180,7 @@ def figure_effect_sizes(
     comparisons: pd.DataFrame,
     path: Path,
     *,
-    title: str = "Effect sizes (paired Cohen's d on |error|)",
+    title: str = "Effect sizes (paired Cohen's d on absolute error)",
 ) -> Path | None:
     """Horizontal bar chart of paired Cohen's d effect sizes on absolute error.
 
@@ -210,7 +210,7 @@ def figure_effect_sizes(
     labels = [f"{a} vs {b}" for a, b in zip(df["config_a"], df["config_b"], strict=True)]
     ax.barh(labels, df["cohens_d_abs_error"].to_numpy(dtype=float), color="#4A6FA5")
     ax.axvline(0.0, color="#888888", lw=1, linestyle="--")
-    ax.set_xlabel("Cohen's d (paired |error|)")
+    ax.set_xlabel("Cohen's d (paired absolute error)")
     ax.set_title(title)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
