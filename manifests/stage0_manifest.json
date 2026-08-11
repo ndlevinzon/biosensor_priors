@@ -1,0 +1,227 @@
+{
+  "stage": "stage0_ground_truth",
+  "created_at": "2026-08-11T19:11:48.378877+00:00",
+  "inputs": {
+    "experimental_workbook": {
+      "path": "data\\experimental\\AllmutantsTested.xlsx",
+      "sha256": "06f37aa0f27827b6f13c6a1b04f9dc371c4ebcc7dca721a385da81be550a07a0"
+    },
+    "versions": {
+      "path": "data\\constructs\\biosensor_versions_clean.pkl",
+      "sha256": "111e4cc13ab99751ee5c60ac4d20735ca529d2a3e55b417fe70276cc11901b1a"
+    },
+    "residue_mapping": {
+      "path": "data\\constructs\\biosensor_residue_mapping.pkl",
+      "sha256": "b7bcbc38d6dbebd22be0a138ea3b722ee7a05df37c03614926959c7dfffcd05c"
+    },
+    "physchem": {
+      "path": "data\\constructs\\biosensor_physchem_residue_database.pkl",
+      "sha256": "f197c4fb8598df63b65d53491ed793716eaf9c28aa795291f64d3a7add6cf3c4"
+    }
+  },
+  "parameters": {
+    "pipeline": {
+      "canonical_reference": "V1.0",
+      "active_design_background": "V2.4",
+      "random_seed": 42,
+      "analysis_round": 0,
+      "paths": {
+        "experimental": "data/experimental",
+        "constructs": "data/constructs",
+        "structures": "data/structures",
+        "physics": "data/physics",
+        "rounds": "data/rounds",
+        "processed": "data/processed",
+        "splits": "data/processed/splits",
+        "manifests": "manifests",
+        "outputs": "outputs"
+      },
+      "experimental": {
+        "workbook": "AllmutantsTested.xlsx",
+        "assume_unitless_affinity_um": false
+      },
+      "constructs": {
+        "epochs_workbook": "construct_epochs.xlsx",
+        "versions_pickle": "biosensor_versions_clean.pkl",
+        "residue_mapping_pickle": "biosensor_residue_mapping.pkl",
+        "physchem_pickle": "biosensor_physchem_residue_database.pkl",
+        "aa_lookup_pickle": "amino_acid_physchem_lookup.pkl",
+        "rebuild_from_epochs": true
+      },
+      "splits": {
+        "n_splits": 10,
+        "test_fraction": 0.2,
+        "strategy": "random_holdout",
+        "test_size": null
+      },
+      "gates": {
+        "stage0": "required",
+        "stage1": "advisory",
+        "stage2": "required_for_physics_weight",
+        "stage3": "required",
+        "stage4": "advisory",
+        "stage5": "required_before_model_update"
+      },
+      "version_aliases": {}
+    },
+    "fitness": {
+      "formulation": "weighted_scalar",
+      "weights": {
+        "selectivity": 0.4,
+        "affinity": 0.25,
+        "fc": 0.2,
+        "brightness": 0.15
+      },
+      "min_components": 2,
+      "observations": {
+        "affinity": {
+          "exact": "use_as_is",
+          "left_censored": "use_bound_conservative",
+          "right_censored": "omit"
+        },
+        "fc": {
+          "exact": "use_as_is",
+          "right_censored": "use_bound_conservative",
+          "left_censored": "omit"
+        },
+        "selectivity": {
+          "exact": "use_lower_bound",
+          "interval": "use_lower_bound",
+          "left_censored": "omit"
+        },
+        "brightness": {
+          "qualitative": "map_to_ordinal_then_normalize"
+        },
+        "missing_phenotype": "redistribute_weights"
+      },
+      "design": {
+        "allowed_mutable_positions": [],
+        "allowed_amino_acids": [
+          "A",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "K",
+          "L",
+          "M",
+          "N",
+          "P",
+          "Q",
+          "R",
+          "S",
+          "T",
+          "V",
+          "W",
+          "Y"
+        ],
+        "maximum_mutations_per_construct": 3
+      },
+      "required_control_mutations": [
+        "Q324R",
+        "A355R"
+      ]
+    },
+    "n_physchem_residues": 3442
+  },
+  "software": {
+    "python": "3.12.3 (tags/v3.12.3:f6650f9, Apr  9 2024, 14:05:25) [MSC v.1938 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "packages": {
+      "biosensor-priors": "0.1.0",
+      "numpy": "1.26.4",
+      "pandas": "3.0.5",
+      "pyarrow": "25.0.1",
+      "pyyaml": "6.0.3",
+      "scipy": "1.17.1",
+      "biopython": "1.88",
+      "openpyxl": "3.1.5"
+    }
+  },
+  "random_seed": 42,
+  "outputs": {
+    "experiment_master": {
+      "path": "data\\processed\\experiment_master.parquet",
+      "sha256": "5470a95ad8dbe99063d36822c88894d027fd6b06b033b3c1cd1caa413b146709",
+      "n_rows": 68,
+      "n_with_fitness": 29
+    },
+    "experiment_master_pickle": {
+      "path": "data\\processed\\experiment_master.pkl",
+      "sha256": "6685c5d2e8a9bcd2bc6b7a083d05226578bb6475246800942ddf7445009ebb1d"
+    },
+    "splits": {
+      "dir": "data\\processed\\splits",
+      "files": [
+        "split_001.json",
+        "split_002.json",
+        "split_003.json",
+        "split_004.json",
+        "split_005.json",
+        "split_006.json",
+        "split_007.json",
+        "split_008.json",
+        "split_009.json",
+        "split_010.json"
+      ]
+    }
+  },
+  "gate": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "unique_construct_ids",
+        "passed": true,
+        "n_constructs": 68,
+        "duplicates": []
+      },
+      {
+        "name": "required_fields_present",
+        "passed": true,
+        "missing_columns": []
+      },
+      {
+        "name": "canonical_mappings_valid",
+        "passed": true,
+        "problems": [],
+        "n_versions": 6,
+        "n_mapped_residues": 3442
+      },
+      {
+        "name": "fitness_reproducible",
+        "passed": true,
+        "n_with_fitness": 29,
+        "weights": {
+          "selectivity": 0.4,
+          "affinity": 0.25,
+          "fc": 0.2,
+          "brightness": 0.15
+        }
+      },
+      {
+        "name": "no_train_test_overlap",
+        "passed": true,
+        "n_splits": 10,
+        "errors": []
+      },
+      {
+        "name": "required_control_mutations",
+        "passed": true,
+        "required": [
+          "Q324R",
+          "A355R"
+        ],
+        "missing": [],
+        "found": [
+          "A355R",
+          "Q324R"
+        ]
+      }
+    ],
+    "failed": []
+  },
+  "notes": "Authoritative experimental+fitness dataset for paired Stage 3/6 comparisons."
+}

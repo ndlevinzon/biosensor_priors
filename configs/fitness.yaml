@@ -1,28 +1,41 @@
 # Fitness definition — preregistered before any modeling or search.
 # Changing weights after seeing results is not allowed for a given analysis round.
 
-# Scalar weighted fitness (default for first pipeline):
-#   F = 0.40*S + 0.25*A + 0.20*FC + 0.15*B
-# where components are normalized phenotype scores in [0, 1].
 formulation: weighted_scalar
 
+# F = 0.40*S + 0.25*A + 0.20*FC + 0.15*B on percentile-normalized components.
+# Missing components are not imputed; weights are redistributed over available
+# phenotypes (see observations.missing_phenotype).
 weights:
-  S: 0.40   # selectivity / related phenotype slot
-  A: 0.25   # affinity / related phenotype slot
-  FC: 0.20  # fold-change / related phenotype slot
-  B: 0.15   # brightness / related phenotype slot
+  selectivity: 0.40
+  affinity: 0.25
+  fc: 0.20
+  brightness: 0.15
 
-# Observation handling policies
+min_components: 2
+
+# Observation handling policies (must match fitness implementation).
 observations:
-  exact: use_as_is
-  left_censored: interval_aware  # do not treat LOD as point estimate
-  right_censored: interval_aware
-  missing_phenotype: exclude_from_fitness  # or impute — freeze policy per round
-  qualitative: map_to_ordinal_then_normalize
+  affinity:
+    exact: use_as_is                    # -log10(Kd_uM); higher is better
+    left_censored: use_bound_conservative  # <x → use x (conservative)
+    right_censored: omit                # >x would be optimistic for tighter binding
+  fc:
+    exact: use_as_is                    # log10(FC); higher is better
+    right_censored: use_bound_conservative  # >x → use x
+    left_censored: omit
+  selectivity:
+    # Use positive lower bound of Kd(Prop)/Kd(Ac) interval (conservative).
+    exact: use_lower_bound
+    interval: use_lower_bound
+    left_censored: omit                 # lower bound 0 is uninformative
+  brightness:
+    qualitative: map_to_ordinal_then_normalize
+  missing_phenotype: redistribute_weights
 
 # Design constraints used by Stage 0 validation and Stage 4 design space
 design:
-  allowed_mutable_positions: []  # canonical positions; fill from campaign config
+  allowed_mutable_positions: []
   allowed_amino_acids:
     - A
     - C
@@ -45,3 +58,8 @@ design:
     - W
     - Y
   maximum_mutations_per_construct: 3
+
+# Control mutations that must appear in the experimental database
+required_control_mutations:
+  - Q324R
+  - A355R

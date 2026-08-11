@@ -21,9 +21,13 @@ htmlcov/
 docs/_build/
 docs/api/_autosummary/
 
-# Data / runtime artifacts (keep directory placeholders via .gitkeep)
-data/experimental/*
-!data/experimental/.gitkeep
+# Data / runtime artifacts
+# Keep raw experimental + construct reference inputs tracked.
+data/processed/*
+!data/processed/.gitkeep
+!data/processed/splits/
+data/processed/splits/*
+!data/processed/splits/.gitkeep
 data/structures/*
 !data/structures/.gitkeep
 data/physics/*
@@ -32,6 +36,7 @@ data/rounds/*
 !data/rounds/.gitkeep
 manifests/*
 !manifests/.gitkeep
+!manifests/stage0_manifest.json
 outputs/*
 !outputs/.gitkeep
 

@@ -14,8 +14,30 @@ paths:
   structures: "data/structures"
   physics: "data/physics"
   rounds: "data/rounds"
+  processed: "data/processed"
+  splits: "data/processed/splits"
   manifests: "manifests"
   outputs: "outputs"
+
+experimental:
+  workbook: "AllmutantsTested.xlsx"
+  assume_unitless_affinity_um: false
+
+constructs:
+  epochs_workbook: "construct_epochs.xlsx"
+  versions_pickle: "biosensor_versions_clean.pkl"
+  residue_mapping_pickle: "biosensor_residue_mapping.pkl"
+  physchem_pickle: "biosensor_physchem_residue_database.pkl"
+  aa_lookup_pickle: "amino_acid_physchem_lookup.pkl"
+  # If true, rebuild alignment/physchem from construct_epochs.xlsx.
+  rebuild_from_epochs: false
+
+splits:
+  n_splits: 10
+  test_fraction: 0.20
+  strategy: random_holdout
+  # Optional fixed hold-out size (overrides test_fraction when set)
+  test_size: null
 
 # Stage gate defaults: a failed gate blocks silent use of that stage's outputs.
 gates:
@@ -25,3 +47,6 @@ gates:
   stage3: required
   stage4: advisory
   stage5: required_before_model_update
+
+# Optional manual version aliases (keys appear in Base construct / Construct).
+version_aliases: {}

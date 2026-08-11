@@ -1,0 +1,277 @@
+================================================================================
+V1.0 vs V1.0
+Score: 1968.00
+================================================================================
+target            0 MKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSGTE
+                  0 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query             0 MKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSGTE
+
+target           60 GALDSLRVRGANVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLLPD
+                 60 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query            60 GALDSLRVRGANVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLLPD
+
+target          120 NHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTGVV
+                120 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           120 NHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTGVV
+
+target          180 PILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQCFS
+                180 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           180 PILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQCFS
+
+target          240 RYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKE
+                240 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           240 RYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKE
+
+target          300 DGNILGHKLEYNGAEVTRRRGVGQYLLEEVLRNNPGVSCWWMADAGVEDRGVMTAFMQAL
+                300 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           300 DGNILGHKLEYNGAEVTRRRGVGQYLLEEVLRNNPGVSCWWMADAGVEDRGVMTAFMQAL
+
+target          360 GFTAQQGGWEKC 372
+                360 |||||||||||| 372
+query           360 GFTAQQGGWEKC 372
+
+
+================================================================================
+V2.0 vs V1.0
+Score: 1833.50
+================================================================================
+target            0 ------------------------------------------------------------
+                  0 ------------------------------------------------------------
+query             0 MVSKGEEDNMAIIKEFMRFKVHMEGSVNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLP
+
+target            0 ------------------------------------------------------------
+                 60 ------------------------------------------------------------
+query            60 FAWDILSPQFMYGSKAYVKHPADIPDYLKLSFPEGFKWERVMNFEDGGVVTVTQDSSLQD
+
+target            0 ------------------------------------------------------------
+                120 ------------------------------------------------------------
+query           120 GEFIYKVKLRGTNFPSDGPVMQKKTMGWEASSERMYPEDGALKGEIKQRLKLKDGGHYDA
+
+target            0 ------------------------------------------------------------
+                180 ------------------------------------------------------------
+query           180 EVKTTYKAKKPVQLPGAYNVNIKLDITSHNEDYTIVEQYERAEGRHSTGGMDELYKGGSG
+
+target            0 --MKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSG
+                240 --||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           240 GSMKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSG
+
+target           58 TEGALDSLRVRGANVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLL
+                300 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           300 TEGALDSLRVRGANVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLL
+
+target          118 PDNHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTG
+                360 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           360 PDNHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTG
+
+target          178 VVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQC
+                420 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           420 VVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQC
+
+target          238 FSRYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDF
+                480 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           480 FSRYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDF
+
+target          298 KEDGNILGHKLEYNGAEVTRRRGVGQYLLEEVLRNNPGVSCWWMADAGVEDRGVMTAFMQ
+                540 |||||||||||||||||||||||||.||||||||||||||||||||||||||||||||||
+query           540 KEDGNILGHKLEYNGAEVTRRRGVGRYLLEEVLRNNPGVSCWWMADAGVEDRGVMTAFMQ
+
+target          358 ALGFTAQQGGWEKC 372
+                600 |||||||||||||| 614
+query           600 ALGFTAQQGGWEKC 614
+
+
+================================================================================
+V2.1 vs V1.0
+Score: 1821.50
+================================================================================
+target            0 ------------------------------------------------------------
+                  0 ------------------------------------------------------------
+query             0 MVSKGEEDNMAIIKEFMRFKVHMEGSVNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLP
+
+target            0 ------------------------------------------------------------
+                 60 ------------------------------------------------------------
+query            60 FAWDILSPQFMYGSKAYVKHPADIPDYLKLSFPEGFKWERVMNFEDGGVVTVTQDSSLQD
+
+target            0 ------------------------------------------------------------
+                120 ------------------------------------------------------------
+query           120 GEFIYKVKLRGTNFPSDGPVMQKKTMGWEASSERMYPEDGALKGEIKQRLKLKDGGHYDA
+
+target            0 ------------------------------------------------------------
+                180 ------------------------------------------------------------
+query           180 EVKTTYKAKKPVQLPGAYNVNIKLDITSHNEDYTIVEQYERAEGRHSTGGMDELYKGGSG
+
+target            0 --MKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSG
+                240 --||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           240 GSMKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSG
+
+target           58 TEGALDSLRVRGANVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLL
+                300 |||||||||||..|||||||||||||||||||||||||||||||||||||||||||||||
+query           300 TEGALDSLRVRNNNVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLL
+
+target          118 PDNHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTG
+                360 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           360 PDNHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTG
+
+target          178 VVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQC
+                420 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           420 VVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQC
+
+target          238 FSRYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDF
+                480 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           480 FSRYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDF
+
+target          298 KEDGNILGHKLEYNGAEVTRRRGVGQYLLEEVLRNNPGVSCWWMADAGVEDRGVMTAFMQ
+                540 |||||||||||||||||||||||||.||||||||||||||||||||||||||||||||||
+query           540 KEDGNILGHKLEYNGAEVTRRRGVGRYLLEEVLRNNPGVSCWWMADAGVEDRGVMTAFMQ
+
+target          358 ALGFTAQQGGWEKC 372
+                600 |||||||||||||| 614
+query           600 ALGFTAQQGGWEKC 614
+
+
+================================================================================
+V2.2 vs V1.0
+Score: 1810.50
+================================================================================
+target            0 ------------------------------------------------------------
+                  0 ------------------------------------------------------------
+query             0 MVSKGEEDNMAIIKEFMRFKVHMEGSVNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLP
+
+target            0 ------------------------------------------------------------
+                 60 ------------------------------------------------------------
+query            60 FAWDILSPQFMYGSKAYVKHPADIPDYLKLSFPEGFKWERVMNFEDGGVVTVTQDSSLQD
+
+target            0 ------------------------------------------------------------
+                120 ------------------------------------------------------------
+query           120 GEFIYKVKLRGTNFPSDGPVMQKKTMGWEASSERMYPEDGALKGEIKQRLKLKDGGHYDA
+
+target            0 ------------------------------------------------------------
+                180 ------------------------------------------------------------
+query           180 EVKTTYKAKKPVQLPGAYNVNIKLDITSHNEDYTIVEQYERAEGRHSTGGMDELYKGGSG
+
+target            0 --MKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSG
+                240 --||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           240 GSMKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSG
+
+target           58 TEGALDSLRVRGANVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLL
+                300 |||||||||||..|||||||||||||||||||||||||||||||||||||||||||||||
+query           300 TEGALDSLRVRNNNVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLL
+
+target          118 PDNHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTG
+                360 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           360 PDNHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTG
+
+target          178 VVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQC
+                420 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           420 VVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQC
+
+target          238 FSRYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDF
+                480 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           480 FSRYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDF
+
+target          298 KEDGNILGHKLEYNGAEVTRRRGVGQYLLEEVLRNNPGVSCWWMADAGVEDRGVMTAFMQ
+                540 ||||||||||||||..|||||||||.||||||||||||||||||||||||||||||||||
+query           540 KEDGNILGHKLEYNSPEVTRRRGVGRYLLEEVLRNNPGVSCWWMADAGVEDRGVMTAFMQ
+
+target          358 ALGFTAQQGGWEKC 372
+                600 |||||||||||||| 614
+query           600 ALGFTAQQGGWEKC 614
+
+
+================================================================================
+V2.3 vs V1.0
+Score: 1797.50
+================================================================================
+target            0 ------------------------------------------------------------
+                  0 ------------------------------------------------------------
+query             0 MVSKGEEDNMAIIKEFMRFKVHMEGSVNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLP
+
+target            0 ------------------------------------------------------------
+                 60 ------------------------------------------------------------
+query            60 FAWDILSPQFMYGSKAYVKHPADIPDYLKLSFPEGFKWERVMNFEDGGVVTVTQDSSLQD
+
+target            0 ------------------------------------------------------------
+                120 ------------------------------------------------------------
+query           120 GEFIYKVKLRGTNFPSDGPVMQKKTMGWEASSERMYPEDGALKGEIKQRLKLKDGGHYDA
+
+target            0 ------------------------------------------------------------
+                180 ------------------------------------------------------------
+query           180 EVKTTYKAKKPVQLPGAYNVNIKLDITSHNEDYTIVEQYERAEGRHSTGGMDELYKGGSG
+
+target            0 --MKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSG
+                240 --||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           240 GSMKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSG
+
+target           58 TEGALDSLRVRGANVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLL
+                300 |||||||||||..|||||||||||||||||||||||||||||||||||||||||||||||
+query           300 TEGALDSLRVRNQNVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLL
+
+target          118 PDNHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTG
+                360 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           360 PDNHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTG
+
+target          178 VVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQC
+                420 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           420 VVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQC
+
+target          238 FSRYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDF
+                480 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           480 FSRYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDF
+
+target          298 KEDGNILGHKLEYNGAEVTRRRGVGQYLLEEVLRNNPGVSCWWMADAGVEDRGVMTAFMQ
+                540 ||||||||||||||..|||||||||.||||||||||||||||.|||||||||||||||||
+query           540 KEDGNILGHKLEYNSPEVTRRRGVGRYLLEEVLRNNPGVSCWRMADAGVEDRGVMTAFMQ
+
+target          358 ALGFTAQQGGWEKC 372
+                600 |||||||||||||| 614
+query           600 ALGFTAQQGGWEKC 614
+
+
+================================================================================
+V2.4 vs V1.0
+Score: 1782.50
+================================================================================
+target            0 ------------------------------------------------------------
+                  0 ------------------------------------------------------------
+query             0 MVSKGEEDNMAIIKEFMRFKVHMEGSVNGHEFEIEGEGEGRPYEGTQTAKLKVTKGGPLP
+
+target            0 ------------------------------------------------------------
+                 60 ------------------------------------------------------------
+query            60 FAWDILSPQFMYGSKAYVKHPADIPDYLKLSFPEGFKWERVMNFEDGGVVTVTQDSSLQD
+
+target            0 ------------------------------------------------------------
+                120 ------------------------------------------------------------
+query           120 GEFIYKVKLRGTNFPSDGPVMQKKTMGWEASSERMYPEDGALKGEIKQRLKLKDGGHYDA
+
+target            0 ------------------------------------------------------------
+                180 ------------------------------------------------------------
+query           180 EVKTTYKAKKPVQLPGAYNVNIKLDITSHNEDYTIVEQYERAEGRHSTGGMDELYKGGSG
+
+target            0 --MKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFNERLLAAVRVTLSG
+                240 --||||||||||||||||||||||||||||||||||||||||||||.|||||||||||||
+query           240 GSMKLTIIRLEKFSDQDRIDLQKIWPEYSPSSLQVDDNHRIYAARFDERLLAAVRVTLSG
+
+target           58 TEGALDSLRVRGANVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLL
+                300 |||||||||||..|||||||||||||||||||||||||||||||||||||||||||||||
+query           300 TEGALDSLRVRNQNVYIKADKQKNGIKANFKIRHNIEDGGVQLAYHYQQNTPIGDGPVLL
+
+target          118 PDNHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVSKGEELFTG
+                360 |||||||||||||||||||||||||||||||||||||||||||||||||||.||||||||
+query           360 PDNHYLSVQSKLSKDPNEKRDHMVLLEFVTAAGITLGMDELYKGGTGGSMVCKGEELFTG
+
+target          178 VVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQC
+                420 |||||||||||||||||.||||||||||||||||||||||||||||||||||||||||||
+query           420 VVPILVELDGDVNGHKFCVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTLTYGVQC
+
+target          238 FSRYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDF
+                480 ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+query           480 FSRYPDHMKQHDFFKSAMPEGYIQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDF
+
+target          298 KEDGNILGHKLEYNGAEVTRRRGVGQYLLEEVLRNNPGVSCWWMADAGVEDRGVMTAFMQ
+                540 ||||||||||||||..|||||||||.||||||||||||||||.|||||||||||||||||
+query           540 KEDGNILGHKLEYNSPEVTRRRGVGRYLLEEVLRNNPGVSCWRMADAGVEDRGVMTAFMQ
+
+target          358 ALGFTAQQGGWEKC 372
+                600 |||||||||||||| 614
+query           600 ALGFTAQQGGWEKC 614
+

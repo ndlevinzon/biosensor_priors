@@ -75,6 +75,19 @@ Automated tests must verify:
 
 Module: ``biosensor_priors.stage0_ground_truth.validate``
 
+Run:
+
+```bash
+py -3.12 -m biosensor_priors.stage0_ground_truth.load_experiments
+py -3.12 -m pytest tests -q
+```
+
+Artifacts:
+
+- ``data/processed/experiment_master.parquet`` (+ ``.pkl`` with full Python objects)
+- ``data/processed/splits/split_XXX.json``
+- ``manifests/stage0_manifest.json``
+
 ## Primary scientific criterion
 
 Stage 0 exists so Stage 3 / Stage 6 can compare the **fused model** against
