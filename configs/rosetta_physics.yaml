@@ -26,8 +26,9 @@ rosetta:
     AcCoA: ["ACO", "ACoA", "ACCOA"]
     PropCoA: ["PCO", "PCoA", "PROP"]
   job:
-    partition: notchpeak
-    account: null
+    partition: granite
+    qos: granite
+    account: cheatham
     ntasks: 4
     mem: 16G
     time: "04:00:00"

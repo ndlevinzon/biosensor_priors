@@ -130,6 +130,7 @@ def write_sbatch_script(
     mem_gb: int = 16,
     partition: str | None = None,
     account: str | None = None,
+    qos: str | None = None,
     module_loads: list[str] | None = None,
     stdout_path: Path | None = None,
     stderr_path: Path | None = None,
@@ -154,6 +155,8 @@ def write_sbatch_script(
         Slurm partition name.
     account : str, optional
         Slurm account string.
+    qos : str, optional
+        Slurm quality-of-service (required on Granite).
     module_loads : list of str, optional
         Environment modules to load.
     stdout_path : pathlib.Path, optional
@@ -178,6 +181,8 @@ def write_sbatch_script(
         lines.append(f"#SBATCH --partition={partition}")
     if account:
         lines.append(f"#SBATCH --account={account}")
+    if qos:
+        lines.append(f"#SBATCH --qos={qos}")
     if stdout_path:
         lines.append(f"#SBATCH --output={stdout_path}")
     if stderr_path:

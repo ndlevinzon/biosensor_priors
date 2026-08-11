@@ -58,8 +58,9 @@ ligands:
     # Always write .gjf/.slurm under ligands/*/qm/ (even under mock)
     write_scripts: true
     job:
-      partition: notchpeak
-      account: null   # set to your CHPC account
+      partition: granite
+      qos: granite
+      account: cheatham
       nodes: 1
       ntasks: 8
       mem: 32G
@@ -119,8 +120,9 @@ jobs:
   scheduler: local
   submit: false
   walltime: "04:00:00"
-  partition: null
-  account: null
+  partition: granite
+  qos: granite
+  account: cheatham
   cpus: 4
   mem_gb: 16
   # Enable when backend: external on CHPC

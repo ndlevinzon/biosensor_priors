@@ -16,6 +16,7 @@ def _sbatch_header(
     mem: str,
     time: str,
     gres: str | None = None,
+    qos: str | None = None,
     export_all: bool = False,
 ) -> list[str]:
     lines = [
@@ -28,6 +29,8 @@ def _sbatch_header(
         f"#SBATCH -A {account}",
         f"#SBATCH --mem={mem}",
     ]
+    if qos:
+        lines.append(f"#SBATCH --qos={qos}")
     if gres:
         lines.append(f"#SBATCH --gres={gres}")
     if export_all:
@@ -63,6 +66,7 @@ def write_af2_step1_script(
         mem=str(step["mem"]),
         time=str(step["time"]),
         gres=step.get("gres"),
+        qos=step.get("qos"),
     )
     lines.extend(
         [
@@ -133,6 +137,7 @@ def write_af2_step2_script(
         mem=str(step["mem"]),
         time=str(step["time"]),
         gres=step.get("gres"),
+        qos=step.get("qos"),
         export_all=True,
     )
     lines.extend(
@@ -199,6 +204,7 @@ def write_af3_step1_script(
         mem=str(step.get("mem", "64G")),
         time=str(step["time"]),
         gres=step.get("gres"),
+        qos=step.get("qos"),
     )
     lines.extend(
         [
@@ -252,6 +258,7 @@ def write_af3_step2_script(
         mem=str(step["mem"]),
         time=str(step["time"]),
         gres=step.get("gres"),
+        qos=step.get("qos"),
     )
     lines.extend(
         [
@@ -296,13 +303,14 @@ def write_esmfold_script(
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = _sbatch_header(
         job_name=path.stem[:64],
-        partition=str(step.get("partition", "notchpeak-gpu")),
-        account=str(step.get("account", "notchpeak-gpu")),
+        partition=str(step.get("partition", "granite-gpu")),
+        account=str(step.get("account", "cheatham")),
         ntasks=int(step.get("ntasks", 4)),
         nodes=int(step.get("nodes", 1)),
         mem=str(step.get("mem", "32G")),
         time=str(step.get("time", "4:00:00")),
-        gres=step.get("gres", "gpu:3090:1"),
+        gres=step.get("gres", "gpu:1"),
+        qos=step.get("qos", "granite-gpu"),
     )
     lines.extend(
         [
@@ -350,13 +358,14 @@ def write_rosettafold2_script(
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = _sbatch_header(
         job_name=path.stem[:64],
-        partition=str(step.get("partition", "notchpeak-gpu")),
-        account=str(step.get("account", "notchpeak-gpu")),
+        partition=str(step.get("partition", "granite-gpu")),
+        account=str(step.get("account", "cheatham")),
         ntasks=int(step.get("ntasks", 8)),
         nodes=int(step.get("nodes", 1)),
         mem=str(step.get("mem", "64G")),
         time=str(step.get("time", "12:00:00")),
-        gres=step.get("gres", "gpu:3090:1"),
+        gres=step.get("gres", "gpu:1"),
+        qos=step.get("qos", "granite-gpu"),
     )
     lines.extend(
         [

@@ -20,8 +20,8 @@ Stage 1 writes **two-step SLURM scripts** matching CHPC documentation:
 Alias ``RFAA`` / ``RoseTTAFold2`` maps to method ``RF2`` (CHPC RoseTTAFold2 module).
 
 Step 1 AF scripts chain step 2 with ``sbatch -d afterok:$SLURM_JOBID``. Defaults
-(partitions, accounts, GRES, memory) live in ``configs/structures.yaml`` —
-edit those to match your allocation.
+live in ``configs/structures.yaml`` (Granite: CPU ``granite`` / GPU
+``granite-gpu``, account ``cheatham``, matching ``--qos``).
 
 **AF3 access:** CHPC requires emailing ``helpdesk@chpc.utah.edu`` for weight
 license access before ``ml alphafold/3.0.0`` will work for your account.

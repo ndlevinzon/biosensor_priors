@@ -359,6 +359,8 @@ def build_rif_job(
 
             account=jobs_cfg.get("account"),
 
+            qos=jobs_cfg.get("qos"),
+
             module_loads=list(jobs_cfg.get("module_loads") or []),
 
             stdout_path=stdout,

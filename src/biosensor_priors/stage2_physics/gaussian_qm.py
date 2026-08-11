@@ -161,6 +161,8 @@ def write_gaussian_slurm(
         lines.append(f"#SBATCH -p {job['partition']}")
     if job.get("account"):
         lines.append(f"#SBATCH -A {job['account']}")
+    if job.get("qos"):
+        lines.append(f"#SBATCH --qos={job['qos']}")
     lines.extend(
         [
             "",

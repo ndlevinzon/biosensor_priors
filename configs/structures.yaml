@@ -1,6 +1,6 @@
 # Stage 1 structure prediction — CHPC (University of Utah) SLURM defaults.
 # Paths and module names follow CHPC Alphafold documentation.
-# Adjust partition/account/GPU GRES to match your allocation.
+# Granite allocation: account=cheatham; CPU=granite, GPU=granite-gpu (+ matching qos).
 
 provider: chpc_utah
 
@@ -35,8 +35,9 @@ af2:
   db_preset: full_dbs    # full_dbs | reduced_dbs
   # Step 1 — MSA / features (CPU)
   step1:
-    partition: notchpeak-shared-short
-    account: notchpeak-shared-short
+    partition: granite
+    qos: granite
+    account: cheatham
     ntasks: 16
     nodes: 1
     mem: 128G
@@ -44,13 +45,15 @@ af2:
     gres: null
   # Step 2 — structure / relax (GPU)
   step2:
-    partition: notchpeak-shared-short
-    account: notchpeak-shared-short
+    partition: granite-gpu
+    qos: granite-gpu
+    account: cheatham
     ntasks: 4
     nodes: 1
     mem: 32G
     time: "8:00:00"
-    gres: "gpu:t4:1"
+    # Any available GPU on granite-gpu; pin e.g. gpu:l40s:1 or gpu:h100nvl:1 if needed
+    gres: "gpu:1"
 
 af3:
   module: "alphafold/3.0.0"
@@ -62,21 +65,23 @@ af3:
   # Older GPUs may need: flash_attention_implementation: xla
   flash_attention_implementation: null
   step1:
-    partition: notchpeak-shared-short
-    account: notchpeak-shared-short
+    partition: granite
+    qos: granite
+    account: cheatham
     ntasks: 16
     nodes: 1
     mem: 64G
     time: "8:00:00"
     gres: null
   step2:
-    partition: notchpeak-gpu
-    account: notchpeak-gpu
+    partition: granite-gpu
+    qos: granite-gpu
+    account: cheatham
     ntasks: 4
     nodes: 1
     mem: 32G
     time: "24:00:00"
-    gres: "gpu:3090:1"
+    gres: "gpu:1"
 
 # Single-sequence structure prediction (no MSA). CHPC: module load esmfold/1.0.3
 esmfold:
@@ -88,13 +93,14 @@ esmfold:
   max_tokens_per_batch: null
   cpu_offload: false
   job:
-    partition: notchpeak-gpu
-    account: notchpeak-gpu
+    partition: granite-gpu
+    qos: granite-gpu
+    account: cheatham
     ntasks: 4
     nodes: 1
     mem: 32G
     time: "4:00:00"
-    gres: "gpu:3090:1"
+    gres: "gpu:1"
 
 # RoseTTAFold2 structure prediction. CHPC: module load rosettafold2/1.0
 rosettafold2:
@@ -106,13 +112,14 @@ rosettafold2:
   symm: null
   extra_args: []
   job:
-    partition: notchpeak-gpu
-    account: notchpeak-gpu
+    partition: granite-gpu
+    qos: granite-gpu
+    account: cheatham
     ntasks: 8
     nodes: 1
     mem: 64G
     time: "12:00:00"
-    gres: "gpu:3090:1"
+    gres: "gpu:1"
 
 jobs:
   # Relative to data/structures

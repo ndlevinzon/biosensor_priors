@@ -103,7 +103,12 @@ structure:
     assert "run_alphafold_full.sh" in text1
     assert "ml alphafold/2.3.2" in text2
     assert "--run_feature=1" not in text2
-    assert "--gres=gpu:t4:1" in text2
+    assert "--gres=gpu:1" in text2
+    assert "#SBATCH -p granite-gpu" in text2
+    assert "#SBATCH --qos=granite-gpu" in text2
+    assert "#SBATCH -A cheatham" in text2
+    assert "#SBATCH -p granite" in text1
+    assert "#SBATCH --qos=granite" in text1
 
     af3_row = registry[registry["method"] == "AF3"].iloc[0]
     a3s1 = (root / af3_row["step1_script"]).read_text(encoding="utf-8")
@@ -112,7 +117,8 @@ structure:
     assert "--norun_inference" in a3s1
     assert "sbatch -d afterok:${SLURM_JOBID}" in a3s1
     assert "--norun_data_pipeline" in a3s2
-    assert "notchpeak-gpu" in a3s2
+    assert "granite-gpu" in a3s2
+    assert "--qos=granite-gpu" in a3s2
     assert "_data.json" in a3s2
 
     fasta = (root / af2_row["input_path"]).read_text(encoding="utf-8")
