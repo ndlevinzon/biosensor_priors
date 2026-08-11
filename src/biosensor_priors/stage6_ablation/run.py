@@ -20,6 +20,24 @@ from biosensor_priors.stage6_ablation.statistics import run_ablation_statistics
 
 
 def _load_master(root: Path) -> pd.DataFrame:
+    """Load the Stage-0 experiment master table from processed data.
+
+    Parameters
+    ----------
+    root : Path
+        Repository root containing ``data/processed/``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Experiment master table (pickle preferred, parquet fallback).
+
+    Raises
+    ------
+    FileNotFoundError
+        If neither ``experiment_master.pkl`` nor ``experiment_master.parquet``
+        exists.
+    """
     pkl = root / "data" / "processed" / "experiment_master.pkl"
     if pkl.exists():
         return pd.read_pickle(pkl)
@@ -38,9 +56,32 @@ def run_stage6(
     pairwise: bool = False,
     n_bootstrap: int | None = None,
 ) -> dict[str, Any]:
-    """
-    Run the full Stage-6 ablation matrix on shared Stage-0 splits/seeds,
-    then statistics + automatic reporting.
+    """Run the full Stage-6 ablation pipeline end to end.
+
+    Executes the ablation matrix on shared Stage-0 splits and seeds, then
+    paired statistics and automatic report generation.
+
+    Parameters
+    ----------
+    repo_root : Path, optional
+        Repository root. Defaults to :data:`REPO_ROOT`.
+    pairwise : bool, default False
+        When ``True``, run all pairwise config comparisons instead of each
+        config versus the reference.
+    n_bootstrap : int, optional
+        Bootstrap replicates for paired tests. Taken from ablation YAML when
+        ``None``.
+
+    Returns
+    -------
+    dict[str, Any]
+        Keys include ``metrics_table``, ``predictions``, ``statistics``,
+        ``artifacts``, ``output_dir``, ``manifest_path``, and ``config_meta``.
+
+    Raises
+    ------
+    RuntimeError
+        If no fitness-labeled constructs are available.
     """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")
@@ -160,6 +201,7 @@ def run_stage6(
 
 
 def main() -> None:
+    """CLI entry point for Stage-6 ablation and scientific reporting."""
     import argparse
 
     parser = argparse.ArgumentParser(description="Stage 6 ablation + scientific reporting")

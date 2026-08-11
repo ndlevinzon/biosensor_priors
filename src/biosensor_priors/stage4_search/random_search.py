@@ -32,6 +32,17 @@ class RandomSearchPolicy:
         mutation_rate: float | None = None,
         random_seed: int = 42,
     ) -> None:
+        """Configure random parent-mutation search over a finite pool.
+
+        Parameters
+        ----------
+        candidate_m : int, optional
+            Number of unique candidates to collect before subsampling (default 256).
+        mutation_rate : float or None, optional
+            Per-site mutation probability; defaults to ``1 / n_sites`` when None.
+        random_seed : int, optional
+            RNG seed for reproducibility (default 42).
+        """
         self.candidate_m = candidate_m
         self.mutation_rate = mutation_rate
         self.random_seed = random_seed
@@ -43,6 +54,24 @@ class RandomSearchPolicy:
         surrogate: FusedSurrogate,
         batch_size: int,
     ) -> pd.DataFrame:
+        """Draw candidates via parent mutation model, randomly select batch B.
+
+        Parameters
+        ----------
+        observed : pd.DataFrame
+            Measured constructs used as mutation parents.
+        candidate_pool : pd.DataFrame
+            Unmeasured candidates to sample from.
+        surrogate : FusedSurrogate
+            Fitted surrogate; predictions are attached for logging parity.
+        batch_size : int
+            Number of candidates to return.
+
+        Returns
+        -------
+        pd.DataFrame
+            Randomly selected batch of up to ``batch_size`` pool rows.
+        """
         if candidate_pool.empty:
             return candidate_pool.copy()
 

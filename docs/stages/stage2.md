@@ -4,6 +4,12 @@ External scientific-computing orchestration plus standardized scoring.
 Ligand conformers, separate RIFs for AcCoA and PropCoA, 20-AA scans, RPX
 packing, selectivity term, and uncertainty across structural models.
 
+**HPC note:** External RIF/RPX/QM binaries are optional. Default
+``configs/physics.yaml`` uses ``backend: mock`` so the Python orchestration,
+permanent IDs, long tables, uncertainty aggregation, and Gate 2 all run
+locally. Point ``rif.executable`` / ``rpx.executable`` / ligand tools at your
+deployed stack and set ``backend: external`` when ready.
+
 ## Pieces
 
 ### 2A. Ligand conformer pipeline
@@ -19,7 +25,8 @@ AcCoA / PropCoA starting structure
 
 Each conformer receives a permanent ``conformer_id``.
 
-Outputs: ``ligands/AcCoA/``, ``ligands/PropCoA/``, ``ligand_conformers.parquet``
+Outputs: ``data/physics/ligands/AcCoA/``, ``.../PropCoA/``,
+``data/physics/ligand_conformers.parquet``
 
 Module: ``biosensor_priors.stage2_physics.ligand_ensemble``
 
@@ -27,62 +34,84 @@ Module: ``biosensor_priors.stage2_physics.ligand_ensemble``
 
 Programmatic wrapper around the external RIF toolchain:
 
-- construct command, submit job, capture stdout/stderr
-- verify completion, parse scores, store provenance
+- construct command, write shell/sbatch scripts
+- submit locally (opt-in) or leave for scheduler
+- capture stdout/stderr, verify completion, parse scores, store ``job.json``
 
 Inputs: ``structure_model_id`` + ligand conformer ensemble  
-Outputs: ``RIF_AcCoA``, ``RIF_PropCoA``
+Outputs: ``data/physics/rif/.../rif_scores.tsv``
 
-The external program remains responsible for physics.
-
-Modules: ``rif_jobs.py``, ``score_parser.py``
+Modules: ``rif_jobs.py``, ``jobs.py``, ``score_parser.py``
 
 ### 2C. 20-AA scan engine
 
 For every allowed canonical position × amino acid, generate a mutation
 specification and score through RIF/RPX.
 
-Long-format table (illustrative):
+Long-format table:
 
-| Version | Position | WT | Mutant | RIF Ac | RIF Prop | RPX |
-| --- | --- | --- | --- | --- | --- | --- |
+| Version | Position | WT | Mutant | RIF_Ac | RIF_Prop | RPX | delta_RIF_sel |
+| --- | --- | --- | --- | --- | --- | --- | --- |
 
-Derived selectivity:
+Derived selectivity (definition only — direction is separate):
 
 $$
 \Delta\mathrm{RIF}_{\mathrm{sel}} = \mathrm{RIF}_{\mathrm{Ac}} - \mathrm{RIF}_{\mathrm{Prop}}
 $$
 
-**Always retain raw terms**, not only the derived score. Score **direction
-convention is frozen in config** (more negative = better).
+**Always retain raw terms.** Score direction is frozen in
+``thresholds.yaml`` → ``physics.score_direction``
+(``more_negative_is_better``).
 
-Module: ``biosensor_priors.stage2_physics.mutation_scan``
+Module: ``mutation_scan.py``
 
 ### 2D. Physics-uncertainty propagation
 
-Multiple structural models ⇒ multiple physics scores per mutation. Store
-distributional summaries, not a single point:
+Multiple structural models ⇒ distributional summaries per mutation:
 
 ```text
 Q324R
-  mean RIF = -12.5
-  SD = 1.8
-  N structures = 7
-  structural confidence = 0.91
+  rif_ac_mean / std / n
+  n_structures
+  structural_confidence
 ```
 
-Module: ``biosensor_priors.stage2_physics.physics_uncertainty``
+Writes ``data/physics/physics_scores_summary.parquet`` and a Stage-3 drop-in
+``data/processed/physics_mutation_scores.parquet``.
+
+Module: ``physics_uncertainty.py``
 
 ### 2E. Gate 2 regression tests
 
 Hard controls: **Q324R** and **A355R**.
 
 ```text
-test_Q324R_direction()  PASS / FAIL
-test_A355R_direction()  PASS / FAIL
+check_Q324R_direction()  PASS / FAIL
+check_A355R_direction()  PASS / FAIL
 ```
 
-If either fails directionally: ``physics_gate = FAIL`` and Stage 3 must **not**
-quietly use physics at full weight.
+(These are the Gate-2 regression checks; implemented as ``check_*`` so pytest
+does not collect them as unit tests from the package namespace.)
 
-Module: ``biosensor_priors.stage2_physics.gate2``
+If either fails: ``physics_gate = FAIL`` and Stage 3 falls back to
+``gp_zero_mean`` (no silent full physics weight).
+
+Module: ``gate2.py``
+
+## CLI
+
+```bash
+biosensor-stage2
+# or
+python -m biosensor_priors.stage2_physics.run --require-gate
+```
+
+## Deploying external tools later
+
+1. Install RIF/RPX/QM/conformer tools on the HPC.
+2. Set absolute paths in ``configs/physics.yaml`` under ``ligands.tools``,
+   ``rif.executable``, ``rpx.executable``.
+3. Set ``backend: external``, optionally ``jobs.scheduler: slurm`` and
+   ``jobs.submit: true``.
+4. Re-run Stage 2; Gate 2 must still pass on real scores before Stage 3
+   trusts physics weights.

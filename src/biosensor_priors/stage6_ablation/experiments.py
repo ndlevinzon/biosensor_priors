@@ -31,6 +31,14 @@ class AblationConfig:
     label: str | None = None
 
     def model_kind(self) -> ModelKind:
+        """Map physics/GP flags to a fused surrogate kind.
+
+        Returns
+        -------
+        ModelKind
+            One of ``"physics_gp"``, ``"physics_only"``, or ``"gp_zero_mean"``.
+            Raises if both physics and GP are disabled.
+        """
         if self.physics and self.gp:
             return "physics_gp"
         if self.physics and not self.gp:
@@ -40,11 +48,27 @@ class AblationConfig:
         raise ValueError(f"Invalid ablation {self.id}: need physics and/or GP")
 
     def use_confidence_weighting(self) -> bool:
+        """Whether structural confidence weighting is active for this cell.
+
+        Returns
+        -------
+        bool
+            ``True`` only when confidence weighting is explicitly enabled and
+            physics features are included.
+        """
         if self.confidence_weighting is None:
             return False
         return bool(self.confidence_weighting) and bool(self.physics)
 
     def as_row(self) -> dict[str, Any]:
+        """Serialize the config plus derived fields for reporting.
+
+        Returns
+        -------
+        dict[str, Any]
+            Dataclass fields plus ``model_kind`` and
+            ``confidence_weighting_effective``.
+        """
         row = asdict(self)
         row["model_kind"] = self.model_kind()
         row["confidence_weighting_effective"] = self.use_confidence_weighting()
@@ -52,6 +76,18 @@ class AblationConfig:
 
 
 def _parse_optional_bool(value: Any) -> bool | None:
+    """Parse YAML-style optional booleans and sentinel placeholders.
+
+    Parameters
+    ----------
+    value : Any
+        Raw value from an ablation config entry (bool, str, or null sentinel).
+
+    Returns
+    -------
+    bool or None
+        Parsed boolean, or ``None`` when the value denotes missing/disabled.
+    """
     if value is None or value == "—" or value == "-" or value == "":
         return None
     if isinstance(value, str):
@@ -66,13 +102,39 @@ def _parse_optional_bool(value: Any) -> bool | None:
 
 
 def _parse_optional_str(value: Any) -> str | None:
+    """Parse YAML-style optional strings and sentinel placeholders.
+
+    Parameters
+    ----------
+    value : Any
+        Raw value from an ablation config entry.
+
+    Returns
+    -------
+    str or None
+        String form of the value, or ``None`` when empty or a null sentinel.
+    """
     if value is None or value == "—" or value == "-" or value == "":
         return None
     return str(value)
 
 
 def load_ablation_matrix(path: Path | None = None) -> tuple[list[AblationConfig], dict[str, Any]]:
-    """Load ``configs/ablation.yaml`` into typed configs + raw settings."""
+    """Load ``configs/ablation.yaml`` into typed configs and raw settings.
+
+    Parameters
+    ----------
+    path : Path, optional
+        Path to the ablation YAML file. Defaults to ``configs/ablation.yaml``
+        under the repository root.
+
+    Returns
+    -------
+    configs : list[AblationConfig]
+        Parsed ablation matrix cells.
+    settings : dict[str, Any]
+        Full raw YAML document (seeds, paths, reference config, etc.).
+    """
     root = REPO_ROOT
     cfg_path = path or (root / "configs" / "ablation.yaml")
     raw = load_yaml(cfg_path)
@@ -95,7 +157,14 @@ def load_ablation_matrix(path: Path | None = None) -> tuple[list[AblationConfig]
 
 
 def default_ablation_matrix() -> list[AblationConfig]:
-    """Built-in five-plus matrix matching the Stage-6 writeup."""
+    """Return the built-in ablation matrix matching the Stage-6 writeup.
+
+    Returns
+    -------
+    list[AblationConfig]
+        Six preset configurations spanning physics-only, GP-only, fused models,
+        confidence weighting, and AF2/AF3 prefilter variants.
+    """
     return [
         AblationConfig("physics_only_consensus", True, False, None, "consensus", False, "Physics only"),
         AblationConfig("gp_only", False, True, None, None, False, "GP only"),
@@ -125,6 +194,20 @@ def default_ablation_matrix() -> list[AblationConfig]:
 
 
 def _subset(df: pd.DataFrame, ids: Iterable[str]) -> pd.DataFrame:
+    """Filter a construct table to a set of construct IDs.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Table containing a ``construct_id`` column.
+    ids : Iterable[str]
+        Construct identifiers to retain.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of ``df`` restricted to rows whose ``construct_id`` is in ``ids``.
+    """
     id_set = {str(x) for x in ids}
     return df[df["construct_id"].astype(str).isin(id_set)].copy()
 
@@ -137,11 +220,34 @@ def attach_structure_confidence(
     confidence_dir: str | Path = "data/processed",
     pattern: str = "structural_confidence_{source}.parquet",
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """
-    Attach ``structural_confidence`` for a named structure source.
+    """Attach ``structural_confidence`` for a named structure source.
 
-    Looks for Stage-1 artifacts; otherwise uses existing column (consensus) or
-    unit confidence and records ``structure_available=False``.
+    Looks for Stage-1 parquet artifacts; otherwise uses an existing consensus
+    column or a deterministic hash-based proxy and records availability in
+    metadata.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Construct table with ``construct_id`` (and optionally
+        ``structural_confidence``).
+    structure_source : str or None
+        Structure predictor label (e.g. ``"consensus"``, ``"AF2"``, ``"AF3"``).
+        ``None`` sets unit confidence.
+    repo_root : Path, optional
+        Repository root for resolving relative paths.
+    confidence_dir : str or Path, default ``"data/processed"``
+        Directory containing per-source confidence parquet files.
+    pattern : str, default ``"structural_confidence_{source}.parquet"``
+        Filename pattern with ``{source}`` placeholder.
+
+    Returns
+    -------
+    out : pd.DataFrame
+        Copy of ``df`` with a ``structural_confidence`` column.
+    meta : dict[str, Any]
+        Provenance flags: ``structure_source``, ``structure_available``,
+        ``structure_path``, and optional ``structure_proxy``.
     """
     out = df.copy()
     meta: dict[str, Any] = {
@@ -203,7 +309,25 @@ def apply_prefilter_mask(
     enabled: bool,
     score_direction: str = "more_negative_is_better",
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """When enabled, drop HARD_FAIL rows from the working ablation set."""
+    """Apply physics prefilter and optionally drop HARD_FAIL constructs.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Construct table with physics scores for prefilter tagging.
+    enabled : bool
+        When ``False``, return a copy of ``df`` unchanged.
+    score_direction : str, default ``"more_negative_is_better"``
+        Passed to :func:`physics_prefilter`.
+
+    Returns
+    -------
+    filtered : pd.DataFrame
+        Rows retained after prefilter (HARD_FAIL removed when enabled).
+    meta : dict[str, Any]
+        ``prefilter_enabled``, ``n_dropped_hard_fail``, and optionally
+        ``n_remaining``.
+    """
     if not enabled:
         return df.copy(), {"prefilter_enabled": False, "n_dropped_hard_fail": 0}
     tagged = physics_prefilter(df, score_direction=score_direction)
@@ -228,7 +352,38 @@ def run_ablation_config(
     structure_confidence_dir: str = "data/processed",
     structure_confidence_pattern: str = "structural_confidence_{source}.parquet",
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Fit/predict one ablation config over shared splits."""
+    """Fit and predict one ablation configuration over shared CV splits.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Fitness-labeled construct table.
+    splits : list[dict[str, Any]]
+        Cross-validation splits with ``split_id``, ``train_construct_ids``, and
+        ``held_out_construct_ids``.
+    config : AblationConfig
+        Ablation cell defining model flags and data options.
+    encoding : str, default ``"hybrid"``
+        Feature encoding passed to :class:`FeatureBuilder`.
+    random_seed : int, default 42
+        Random seed for the fused surrogate GP.
+    score_direction : str, default ``"more_negative_is_better"``
+        Physics score direction for prefiltering.
+    repo_root : Path, optional
+        Repository root for structure-confidence artifacts.
+    structure_confidence_dir : str, default ``"data/processed"``
+        Directory for per-source confidence parquet files.
+    structure_confidence_pattern : str
+        Filename pattern with ``{source}`` placeholder.
+
+    Returns
+    -------
+    preds : pd.DataFrame
+        Per-construct held-out predictions with ablation metadata and errors.
+    meta : dict[str, Any]
+        Config row, structure/prefilter provenance, prediction count, and
+        summary metrics.
+    """
     work, struct_meta = attach_structure_confidence(
         df,
         config.structure_source,
@@ -308,6 +463,21 @@ def run_ablation_config(
 def summarize_ablation_predictions(
     preds: pd.DataFrame, config: AblationConfig | None = None
 ) -> dict[str, Any]:
+    """Compute aggregate regression metrics for ablation predictions.
+
+    Parameters
+    ----------
+    preds : pd.DataFrame
+        Prediction table with ``y_true`` and ``fitness_mean`` columns.
+    config : AblationConfig, optional
+        When provided, ``ablation_id`` is included in the summary dict.
+
+    Returns
+    -------
+    dict[str, Any]
+        Keys include ``n``, ``rmse``, ``mae``, and gate-3 metrics from
+        :func:`metrics_for_predictions`; NaN metrics when ``preds`` is empty.
+    """
     if preds.empty:
         return {"n": 0, "rmse": float("nan"), "mae": float("nan")}
     y_true = preds["y_true"].to_numpy(dtype=float)
@@ -331,10 +501,35 @@ def run_ablation_matrix(
     repo_root: Path | None = None,
     ablation_settings: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """
-    Run every ablation configuration on the **same** splits and seed.
+    """Run every ablation configuration on identical splits and seed.
 
-    Returns predictions, per-config metadata, and a metrics table.
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Fitness-labeled construct table.
+    configs : list[AblationConfig], optional
+        Ablation cells to evaluate. Loaded from YAML when ``None``.
+    splits : list[dict[str, Any]], optional
+        Precomputed CV splits. Generated via :func:`ensure_splits_for_fitness`
+        when ``None``.
+    splits_dir : Path, optional
+        Directory for persisted split artifacts.
+    encoding : str, default ``"hybrid"``
+        Feature encoding for all configs.
+    random_seed : int, default 42
+        Shared random seed across configs.
+    score_direction : str, default ``"more_negative_is_better"``
+        Physics score direction for optional prefiltering.
+    repo_root : Path, optional
+        Repository root for artifact resolution.
+    ablation_settings : dict[str, Any], optional
+        Raw ablation YAML settings (structure paths, etc.).
+
+    Returns
+    -------
+    dict[str, Any]
+        Keys: ``predictions``, ``configs``, ``config_meta``, ``metrics_table``,
+        ``n_splits``, ``random_seed``, ``encoding``, ``settings``.
     """
     root = repo_root or REPO_ROOT
     settings = ablation_settings or {}

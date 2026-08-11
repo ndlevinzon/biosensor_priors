@@ -36,6 +36,21 @@ class MCMCPolicy:
         candidate_m: int = 256,
         random_seed: int = 42,
     ) -> None:
+        """Configure parallel Metropolis-Hastings search over the landscape graph.
+
+        Parameters
+        ----------
+        temperature : float, optional
+            Sampling temperature ``T`` in ``exp(μ / T)`` (default 0.10).
+        n_steps : int, optional
+            MH steps per chain (default 300).
+        n_chains : int, optional
+            Number of parallel chains (default 8).
+        candidate_m : int, optional
+            Maximum unique pool candidates to collect before ranking (default 256).
+        random_seed : int, optional
+            RNG seed for reproducibility (default 42).
+        """
         self.temperature = temperature
         self.n_steps = n_steps
         self.n_chains = n_chains
@@ -49,6 +64,24 @@ class MCMCPolicy:
         surrogate: FusedSurrogate,
         batch_size: int,
     ) -> pd.DataFrame:
+        """Sample candidates via MH, rank by predicted mean, return top B.
+
+        Parameters
+        ----------
+        observed : pd.DataFrame
+            Measured constructs defining the landscape graph and start states.
+        candidate_pool : pd.DataFrame
+            Unmeasured candidates eligible for selection.
+        surrogate : FusedSurrogate
+            Fitted surrogate providing GP means on pool rows.
+        batch_size : int
+            Number of candidates to return.
+
+        Returns
+        -------
+        pd.DataFrame
+            Top ``batch_size`` visited pool candidates ranked by ``pred_fitness_mean``.
+        """
         if candidate_pool.empty:
             return candidate_pool.copy()
 

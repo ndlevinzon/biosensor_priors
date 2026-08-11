@@ -9,6 +9,18 @@ import pandas as pd
 
 
 def finite_positive(value: Any) -> bool:
+    """Return whether a value is a finite positive number.
+
+    Parameters
+    ----------
+    value : Any
+        Value to test, coerced to ``float`` when possible.
+
+    Returns
+    -------
+    bool
+        ``True`` when ``value`` is finite and strictly greater than zero.
+    """
     try:
         value = float(value)
     except (TypeError, ValueError):
@@ -21,8 +33,7 @@ def measured_component_values(
     *,
     policies: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
-    """
-    Build conservative, measured-only phenotype scores.
+    """Build conservative, measured-only phenotype component scores.
 
     All returned component values are oriented so **higher is better**.
 
@@ -32,6 +43,20 @@ def measured_component_values(
     * FC: exact → use; ``>x`` → use x; ``<x`` → omit
     * Selectivity: use positive lower bound of Kd(Prop)/Kd(Ac); omit if ≤0
     * Brightness: measured ordinal
+
+    Parameters
+    ----------
+    clean : pandas.DataFrame
+        Cleaned experimental table with parsed phenotype columns.
+    policies : dict[str, Any] | None, optional
+        Reserved for forward-compatible censoring policy overrides.
+        Currently unused.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of ``clean`` with ``_fitness_*_raw`` columns for affinity, FC,
+        selectivity, and brightness components.
     """
     _ = policies  # explicit for forward-compatible policy branching
     df = clean.copy()
@@ -73,7 +98,20 @@ def measured_component_values(
 
 
 def percentile_score(series: pd.Series) -> pd.Series:
-    """Convert measured values to [0, 1] empirical percentile ranks (mean ranks)."""
+    """Convert measured values to [0, 1] empirical percentile ranks.
+
+    Uses mean ranks for ties. A single valid observation receives score 0.5.
+
+    Parameters
+    ----------
+    series : pandas.Series
+        Raw component values, possibly containing NaN.
+
+    Returns
+    -------
+    pandas.Series
+        Percentile scores in [0, 1] for non-missing entries; NaN elsewhere.
+    """
     s = pd.to_numeric(series, errors="coerce")
     valid = s.notna()
     out = pd.Series(np.nan, index=s.index, dtype=float)
@@ -95,12 +133,39 @@ def fitness_transform(
     policies: dict[str, Any] | None = None,
     require_range: bool = True,
 ) -> pd.DataFrame:
-    """
-    Weighted measured-only fitness in [0, 1].
+    """Compute weighted measured-only fitness in [0, 1].
 
     Missing phenotype components are **not** imputed. Their weights are
     redistributed across available components when
     ``missing_phenotype: redistribute_weights``.
+
+    Parameters
+    ----------
+    clean : pandas.DataFrame
+        Cleaned experimental table with parsed phenotype columns.
+    weights : dict[str, float] | None, optional
+        Component weights for ``selectivity``, ``affinity``, ``fc``, and
+        ``brightness``. Must sum to 1.0. Defaults to preregistered weights.
+    min_components : int, optional
+        Minimum number of measured components required to assign fitness.
+        Default is 2.
+    policies : dict[str, Any] | None, optional
+        Censoring policies forwarded to :func:`measured_component_values`.
+    require_range : bool, optional
+        When ``True``, require at least five constructs with fitness and a
+        non-degenerate raw score range. Default is ``True``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of ``clean`` with fitness component scores, metadata columns,
+        and final ``fitness`` in [0, 1].
+
+    Raises
+    ------
+    ValueError
+        If weights are incomplete, do not sum to 1.0, or if
+        ``require_range`` checks fail.
     """
     weight_map = weights or {
         "selectivity": 0.40,

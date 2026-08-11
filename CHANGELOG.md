@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Stage 2 physics landscape orchestration: ligand conformer pipeline with
+  permanent ``conformer_id``s, RIF/RPX job wrappers + provenance, 20-AA scan
+  long table with ``ΔRIF_sel = RIF_Ac − RIF_Prop``, uncertainty aggregation
+  across structure models, Gate 2 Q324R/A355R directional tests, mock backend
+  until HPC tools are deployed, CLI ``biosensor-stage2``
 - Stage 6 ablation matrix (``configs/ablation.yaml``), shared-split runner,
   paired bootstrap / Wilcoxon / Holm / effect-size statistics, automatic
   tables+figures report, CLI ``biosensor-stage6``
@@ -35,5 +40,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sphinx documentation site with MyST Markdown and ``sphinx-rtd-theme``
 - Read the Docs config (``.readthedocs.yaml``)
 - Package scaffold under ``src/biosensor_priors`` matching the stage layout
-- YAML configs: ``pipeline``, ``fitness``, ``search``, ``thresholds``, ``ablation``
-- Regression tests for Stage 0/3/4/5/6
+- YAML configs: ``pipeline``, ``fitness``, ``search``, ``thresholds``, ``ablation``, ``physics``
+- Regression tests for Stage 0/2/3/4/5/6

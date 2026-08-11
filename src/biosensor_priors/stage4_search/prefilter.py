@@ -25,15 +25,38 @@ def physics_prefilter(
     physics_score_col: str = "delta_rif_sel",
     high_confidence_min: float = 0.7,
 ) -> pd.DataFrame:
-    """
-    Categorize candidates without silently deleting exploration options.
+    """Categorize candidates by physics score without discarding exploration options.
 
     Heuristic until Stage-2 thresholds are calibrated:
-      * missing/zero physics → PASS (GP-only path)
-      * bad physics + high confidence → HARD_FAIL
-      * bad physics + low confidence → EXPLORATION_RESERVED
-      * marginal physics → SOFT_FAIL
-      * otherwise PASS
+
+    * missing/zero physics → PASS (GP-only path)
+    * bad physics + high confidence → HARD_FAIL
+    * bad physics + low confidence → EXPLORATION_RESERVED
+    * marginal physics → SOFT_FAIL
+    * otherwise PASS
+
+    Parameters
+    ----------
+    candidates : pd.DataFrame
+        Candidate table with optional physics and confidence columns.
+    score_direction : str, optional
+        ``"more_negative_is_better"`` or opposite (default
+        ``"more_negative_is_better"``).
+    hard_threshold : float or None, optional
+        Goodness cutoff for HARD_FAIL vs SOFT_FAIL; inferred from quantiles when None.
+    soft_threshold : float or None, optional
+        Goodness cutoff for PASS vs SOFT_FAIL; inferred from quantiles when None.
+    confidence_col : str, optional
+        Column name for structural confidence (default ``"structural_confidence"``).
+    physics_score_col : str, optional
+        Column name for physics score (default ``"delta_rif_sel"``).
+    high_confidence_min : float, optional
+        Confidence above which bad physics becomes HARD_FAIL (default 0.7).
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of ``candidates`` with ``prefilter`` and ``physics_goodness`` columns.
     """
     out = candidates.copy()
     if physics_score_col not in out.columns:
@@ -85,7 +108,21 @@ def select_search_pools(
     *,
     hard_fail_exclude: bool = True,
 ) -> dict[str, pd.DataFrame]:
-    """Split into main pool vs exploration pool."""
+    """Split prefiltered candidates into main, exploration, and excluded pools.
+
+    Parameters
+    ----------
+    candidates : pd.DataFrame
+        Candidate table, optionally already containing a ``prefilter`` column.
+    hard_fail_exclude : bool, optional
+        When True, HARD_FAIL rows are excluded from the main pool (default True).
+
+    Returns
+    -------
+    dict of str to pd.DataFrame
+        Keys ``"main"``, ``"exploration"``, and ``"excluded"`` mapping to filtered
+        subsets.
+    """
     df = candidates if "prefilter" in candidates.columns else physics_prefilter(candidates)
     main_mask = df["prefilter"].isin(
         [PrefilterCategory.PASS.value, PrefilterCategory.SOFT_FAIL.value]

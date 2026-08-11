@@ -1,0 +1,97 @@
+# Stage 2 physics landscape — external tool paths and job settings.
+# Score *direction* lives in thresholds.yaml (frozen; do not re-derive here).
+#
+# External binaries are optional until HPC deployment. Use backend: mock for
+# local dry-runs that exercise the full Python orchestration + Gate 2 path.
+
+backend: mock  # mock | external
+
+ligands:
+  names:
+    - AcCoA
+    - PropCoA
+  # Starting structures (SDF/MOL2/PDB). Missing → placeholder stubs written.
+  starting_structures:
+    AcCoA: null
+    PropCoA: null
+  # Pipeline stages (orchestration only; tools filled in when deployed)
+  pipeline:
+    - conformer_generation
+    - geometry_cleanup
+    - qm_refinement
+    - deduplication_clustering
+    - approve_ensemble
+  # Tool placeholders — set absolute paths or module loads on the HPC.
+  tools:
+    conformer_generator: null   # e.g. omega / rdkit script
+    geometry_cleanup: null
+    qm_refinement: null         # e.g. orca / psi4 wrapper
+    clustering: null
+  clustering:
+    rmsd_threshold_angstrom: 0.5
+    max_conformers_per_ligand: 32
+  # Bump only when the *definition* of conformer_id content changes.
+  conformer_id_schema_version: 1
+
+rif:
+  # External RIF executable / script. null → mock backend only.
+  executable: null
+  # Command template; available keys: {executable}, {structure_pdb},
+  # {ligand_dir}, {ligand_name}, {out_dir}, {structure_model_id}, {scan_id}
+  command_template: >-
+    {executable}
+    --structure {structure_pdb}
+    --ligands {ligand_dir}
+    --ligand-name {ligand_name}
+    --out {out_dir}
+  output_score_filename: rif_scores.tsv
+  ligands:
+    - AcCoA
+    - PropCoA
+
+rpx:
+  executable: null
+  command_template: >-
+    {executable}
+    --structure {structure_pdb}
+    --mutation {mutation}
+    --out {out_dir}
+  output_score_filename: rpx_scores.tsv
+
+scan:
+  # Canonical positions / AAs come from fitness.yaml design block by default.
+  positions: null
+  amino_acids: null
+  # Include wild-type identity mutants in the long table.
+  include_wt: true
+
+jobs:
+  # local: write scripts + optionally run subprocess
+  # slurm: write sbatch scripts (do not submit unless submit: true)
+  scheduler: local
+  submit: false
+  walltime: "04:00:00"
+  partition: null
+  account: null
+  cpus: 4
+  mem_gb: 16
+  module_loads: []
+  # Relative to data/physics
+  jobs_subdir: jobs
+  logs_subdir: logs
+
+uncertainty:
+  # Join structural_confidence when available
+  structural_confidence_path: "data/processed/structural_confidence.parquet"
+  min_n_structures: 1
+
+# Mock backend (deterministic pseudo-physics for orchestration tests)
+mock:
+  # Favorable AcCoA controls get more-negative RIF_Ac than RIF_Prop when
+  # thresholds.physics.score_direction is more_negative_is_better.
+  control_delta_rif_sel:
+    Q324R: -2.5
+    A355R: -2.0
+  base_rif_prop: -8.0
+  base_rpx: -5.0
+  structure_noise_sd: 0.4

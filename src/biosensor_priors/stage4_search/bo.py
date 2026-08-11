@@ -32,6 +32,20 @@ class BOPolicy:
         lambda_physics: float = 0.0,
         use_effective_uncertainty: bool = False,
     ) -> None:
+        """Configure GP-UCB batch selection over a finite candidate pool.
+
+        Parameters
+        ----------
+        kappa : float, optional
+            UCB exploration coefficient (default 1.5).
+        lambda_structure : float, optional
+            Weight on structural uncertainty in effective sigma (default 0.0).
+        lambda_physics : float, optional
+            Weight on physics uncertainty in effective sigma (default 0.0).
+        use_effective_uncertainty : bool, optional
+            When True, use :func:`~biosensor_priors.stage4_search.acquisition.sigma_effective`
+            instead of GP sigma alone (default False).
+        """
         self.kappa = kappa
         self.lambda_structure = lambda_structure
         self.lambda_physics = lambda_physics
@@ -44,6 +58,24 @@ class BOPolicy:
         surrogate: FusedSurrogate,
         batch_size: int,
     ) -> pd.DataFrame:
+        """Propose top-B candidates by GP-UCB over the entire pool.
+
+        Parameters
+        ----------
+        observed : pd.DataFrame
+            Measured constructs (unused for pure UCB ranking but kept for API parity).
+        candidate_pool : pd.DataFrame
+            Unmeasured candidates to rank.
+        surrogate : FusedSurrogate
+            Fitted surrogate providing predictive mean and uncertainty.
+        batch_size : int
+            Number of candidates to return.
+
+        Returns
+        -------
+        pd.DataFrame
+            Top ``batch_size`` pool rows sorted by acquisition score.
+        """
         _ = observed
         if candidate_pool.empty:
             return candidate_pool.copy()

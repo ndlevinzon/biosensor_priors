@@ -10,7 +10,18 @@ from scipy import stats
 
 
 def holm_adjust(pvalues: Iterable[float]) -> list[float]:
-    """Holm step-down adjustment; returns adjusted p-values in original order."""
+    """Apply Holm step-down multiple-comparison adjustment.
+
+    Parameters
+    ----------
+    pvalues : Iterable[float]
+        Raw p-values in comparison order.
+
+    Returns
+    -------
+    list[float]
+        Holm-adjusted p-values in the same order as the input.
+    """
     p = list(pvalues)
     m = len(p)
     if m == 0:
@@ -35,11 +46,37 @@ def paired_bootstrap_delta(
     seed: int = 42,
     alpha: float = 0.05,
 ) -> dict[str, float]:
-    """
-    Paired bootstrap CI for ``stat(a) - stat(b)``.
+    """Paired bootstrap confidence interval for ``stat(a) - stat(b)``.
 
-    For ``rmse``, ``values_*`` should be signed residuals (y - pred).
-    For ``mae`` / ``mean``, values are the paired observations (e.g. abs errors).
+    For ``statistic="rmse"``, ``values_*`` should be signed residuals
+    (``y - pred``). For ``"mae"`` or ``"mean"``, values are the paired
+    observations (e.g. absolute errors).
+
+    Parameters
+    ----------
+    values_a : np.ndarray
+        First paired sample.
+    values_b : np.ndarray
+        Second paired sample (same length as ``values_a``).
+    statistic : {"mean", "mae", "rmse"}, default ``"mean"``
+        Statistic applied to each resampled pair before differencing.
+    n_boot : int, default 1000
+        Number of bootstrap replicates.
+    seed : int, default 42
+        Random seed for resampling.
+    alpha : float, default 0.05
+        Two-sided CI tail probability.
+
+    Returns
+    -------
+    dict[str, float]
+        Observed delta, bootstrap mean, CI bounds, sample size, and metadata
+        keys (``n_boot``, ``alpha``, ``statistic``). NaN deltas when ``n=0``.
+
+    Raises
+    ------
+    ValueError
+        If ``values_a`` and ``values_b`` differ in length.
     """
     a = np.asarray(values_a, dtype=float)
     b = np.asarray(values_b, dtype=float)
@@ -55,6 +92,7 @@ def paired_bootstrap_delta(
         }
 
     def _stat(x: np.ndarray) -> float:
+        """Compute the configured statistic on a 1-D array."""
         if statistic == "rmse":
             return float(np.sqrt(np.mean(x**2)))
         if statistic == "mae":
@@ -87,7 +125,23 @@ def wilcoxon_paired(
     *,
     alternative: str = "two-sided",
 ) -> dict[str, float]:
-    """Wilcoxon signed-rank on paired differences ``a - b``."""
+    """Wilcoxon signed-rank test on paired differences ``a - b``.
+
+    Parameters
+    ----------
+    values_a : np.ndarray
+        First paired sample.
+    values_b : np.ndarray
+        Second paired sample.
+    alternative : {"two-sided", "less", "greater"}, default ``"two-sided"``
+        Alternative hypothesis passed to :func:`scipy.stats.wilcoxon`.
+
+    Returns
+    -------
+    dict[str, float]
+        Test statistic, p-value, and pair count. Returns p-value 1.0 when
+        fewer than three pairs or all differences are zero.
+    """
     a = np.asarray(values_a, dtype=float)
     b = np.asarray(values_b, dtype=float)
     diff = a - b
@@ -105,7 +159,21 @@ def wilcoxon_paired(
 
 
 def cohens_d_paired(values_a: np.ndarray, values_b: np.ndarray) -> float:
-    """Paired Cohen's d = mean(diff) / sd(diff)."""
+    """Compute paired Cohen's d from mean and SD of differences.
+
+    Parameters
+    ----------
+    values_a : np.ndarray
+        First paired sample.
+    values_b : np.ndarray
+        Second paired sample.
+
+    Returns
+    -------
+    float
+        ``mean(a - b) / sd(a - b)``. NaN when fewer than two pairs; 0.0 or
+        ``inf`` when the difference SD is negligible.
+    """
     diff = np.asarray(values_a, dtype=float) - np.asarray(values_b, dtype=float)
     if len(diff) < 2:
         return float("nan")
@@ -116,7 +184,24 @@ def cohens_d_paired(values_a: np.ndarray, values_b: np.ndarray) -> float:
 
 
 def cliffs_delta(values_a: np.ndarray, values_b: np.ndarray) -> float:
-    """Cliff's delta effect size (unpaired form on paired vectors is still informative)."""
+    """Compute Cliff's delta nonparametric effect size.
+
+    Uses the unpaired dominance formula on the two paired vectors, which
+    remains informative at Stage-0 LOCO scale.
+
+    Parameters
+    ----------
+    values_a : np.ndarray
+        First sample vector.
+    values_b : np.ndarray
+        Second sample vector.
+
+    Returns
+    -------
+    float
+        ``(P(a > b) - P(a < b))`` over all cross-pairs. NaN when either
+        vector is empty.
+    """
     a = np.asarray(values_a, dtype=float)
     b = np.asarray(values_b, dtype=float)
     if len(a) == 0 or len(b) == 0:
@@ -137,7 +222,25 @@ def align_paired_predictions(
     *,
     id_cols: tuple[str, ...] = ("split_id", "construct_id"),
 ) -> pd.DataFrame:
-    """Inner-join two ablation configs on split/construct for paired tests."""
+    """Inner-join predictions from two ablation configs for paired tests.
+
+    Parameters
+    ----------
+    predictions : pd.DataFrame
+        Long-form ablation predictions with ``ablation_id``.
+    config_a : str
+        First ablation configuration ID.
+    config_b : str
+        Second ablation configuration ID.
+    id_cols : tuple[str, ...], default (``"split_id"``, ``"construct_id"``)
+        Columns used to align held-out rows.
+
+    Returns
+    -------
+    pd.DataFrame
+        Merged rows with ``_a`` / ``_b`` suffixes on overlapping columns.
+        Empty when either config has no rows or no overlap exists.
+    """
     left = predictions[predictions["ablation_id"] == config_a].copy()
     right = predictions[predictions["ablation_id"] == config_b].copy()
     if left.empty or right.empty:
@@ -159,10 +262,31 @@ def compare_ablation_pair(
     seed: int = 42,
     alpha: float = 0.05,
 ) -> dict[str, Any]:
-    """
-    Compare config_a vs config_b on paired held-out predictions.
+    """Compare two ablation configs on paired held-out predictions.
 
-    Negative RMSE/MAE delta means config_a is better (lower error).
+    Negative RMSE or MAE delta indicates ``config_a`` has lower error.
+
+    Parameters
+    ----------
+    predictions : pd.DataFrame
+        Long-form ablation prediction table.
+    config_a : str
+        Configuration treated as the focal (potentially better) model.
+    config_b : str
+        Reference or baseline configuration.
+    n_boot : int, default 1000
+        Bootstrap replicates for delta CIs.
+    seed : int, default 42
+        Random seed for bootstrap resampling.
+    alpha : float, default 0.05
+        CI tail probability.
+
+    Returns
+    -------
+    dict[str, Any]
+        RMSE/MAE summaries, bootstrap deltas with CIs, Wilcoxon p-values,
+        effect sizes, and nested ``bootstrap`` dict. When no pairs overlap,
+        returns ``ok=False`` with ``reason``.
     """
     paired = align_paired_predictions(predictions, config_a, config_b)
     if paired.empty:
@@ -222,11 +346,39 @@ def run_ablation_statistics(
     seed: int = 42,
     alpha: float = 0.05,
 ) -> dict[str, Any]:
-    """
-    Statistics engine over the ablation matrix.
+    """Run paired statistical comparisons across the ablation matrix.
 
-    By default compares every config to ``reference_config_id``.
-    Set ``pairwise=True`` for the full upper triangle (Holm over all pairs).
+    By default each configuration is compared to ``reference_config_id``.
+    Set ``pairwise=True`` for the full upper triangle with Holm correction
+    over all pairs.
+
+    Parameters
+    ----------
+    predictions : pd.DataFrame
+        Long-form ablation predictions with ``ablation_id``.
+    reference_config_id : str, optional
+        Baseline config for one-vs-reference mode. Defaults to the first
+        sorted ablation ID.
+    pairwise : bool, default False
+        When ``True``, compare every unordered pair of configs.
+    n_boot : int, default 1000
+        Bootstrap replicates per comparison.
+    seed : int, default 42
+        Random seed for bootstrap resampling.
+    alpha : float, default 0.05
+        Significance level for Holm-adjusted Wilcoxon tests.
+
+    Returns
+    -------
+    dict[str, Any]
+        Report with ``comparisons`` list (Holm-adjusted p-values and evidence
+        flags), reference ID, and summary counts. Returns ``ok=False`` when
+        predictions are empty.
+
+    Raises
+    ------
+    ValueError
+        If ``reference_config_id`` is not among the prediction ablation IDs.
     """
     if predictions.empty or "ablation_id" not in predictions.columns:
         return {"ok": False, "reason": "empty predictions", "comparisons": []}
@@ -292,7 +444,18 @@ def run_ablation_statistics(
 
 
 def comparisons_to_frame(stats_report: dict[str, Any]) -> pd.DataFrame:
-    """Flatten comparison dicts into a table (drops nested bootstrap blobs)."""
+    """Flatten comparison dicts into a tabular DataFrame.
+
+    Parameters
+    ----------
+    stats_report : dict[str, Any]
+        Statistics report containing a ``comparisons`` list of dicts.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per comparison; nested ``bootstrap`` blobs are omitted.
+    """
     rows = []
     for c in stats_report.get("comparisons", []):
         row = {k: v for k, v in c.items() if k != "bootstrap"}

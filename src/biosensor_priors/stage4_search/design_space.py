@@ -18,7 +18,28 @@ def canonical_to_version_positions(
     version: str,
     canonical_positions: Iterable[int | str],
 ) -> dict[int, int]:
-    """Map canonical keys → version-local positions for one background."""
+    """Map canonical residue keys to version-local positions for one background.
+
+    Parameters
+    ----------
+    residue_mapping : pd.DataFrame
+        Residue mapping table with ``Version``, ``Canonical_key``, and
+        ``Version_position`` columns.
+    version : str
+        Background version identifier.
+    canonical_positions : Iterable of int or str
+        Canonical positions to resolve.
+
+    Returns
+    -------
+    dict of int to int
+        Mapping from canonical position to version-local index.
+
+    Raises
+    ------
+    ValueError
+        If any requested canonical position is missing from the mapping.
+    """
     want = {str(p) for p in canonical_positions}
     sub = residue_mapping[
         (residue_mapping["Version"].astype(str) == str(version))
@@ -46,11 +67,39 @@ def generate_design_space(
     exclude_wt: bool = True,
     position_labels: dict[int, int] | None = None,
 ) -> pd.DataFrame:
-    """
-    Enumerate singles / doubles / … up to ``max_mutations`` at mutable positions.
+    """Enumerate single and multi-site mutants up to ``max_mutations``.
 
     ``mutable_positions`` are version-local indices into ``parent_sequence``.
-    Optional ``position_labels`` maps version-local → canonical position for IDs.
+    Optional ``position_labels`` maps version-local indices to canonical positions
+    for mutation IDs.
+
+    Parameters
+    ----------
+    parent_version : str
+        Background version label for generated construct IDs.
+    parent_sequence : str
+        Parent amino-acid sequence (1-indexed positions in ``mutable_positions``).
+    mutable_positions : Iterable of int
+        Version-local indices that may be mutated.
+    allowed_amino_acids : Iterable of str or None, optional
+        Allowed destination amino acids (default standard 20).
+    max_mutations : int, optional
+        Maximum number of simultaneous mutations per construct (default 2).
+    exclude_wt : bool, optional
+        When True, skip mutations that restore the parent amino acid (default True).
+    position_labels : dict of int to int or None, optional
+        Version-local to canonical position labels for mutation codes.
+
+    Returns
+    -------
+    pd.DataFrame
+        Design-space table with mutation codes, physicochemical deltas, and
+        placeholder physics columns.
+
+    Raises
+    ------
+    ValueError
+        If any mutable position falls outside the parent sequence length.
     """
     allowed = [a.upper() for a in (allowed_amino_acids or STANDARD_AA)]
     positions = sorted({int(p) for p in mutable_positions})
@@ -126,6 +175,36 @@ def design_space_from_config(
     residue_mapping: pd.DataFrame | None = None,
     positions_are_canonical: bool = True,
 ) -> pd.DataFrame:
+    """Build a combinatorial design space from pipeline configuration inputs.
+
+    Parameters
+    ----------
+    versions : pd.DataFrame
+        Version table containing ``Version`` and ``Sequence_clean`` columns.
+    parent_version : str
+        Background version to mutate.
+    mutable_positions : list of int
+        Canonical or version-local mutable positions depending on
+        ``positions_are_canonical``.
+    allowed_amino_acids : list of str
+        Allowed destination amino acids at each mutable site.
+    max_mutations : int
+        Maximum simultaneous mutations per construct.
+    residue_mapping : pd.DataFrame or None, optional
+        Required when ``positions_are_canonical`` is True.
+    positions_are_canonical : bool, optional
+        When True, resolve ``mutable_positions`` via ``residue_mapping`` (default True).
+
+    Returns
+    -------
+    pd.DataFrame
+        Combinatorial design-space table from :func:`generate_design_space`.
+
+    Raises
+    ------
+    ValueError
+        If the parent version is missing or canonical mapping is required but absent.
+    """
     row = versions.loc[versions["Version"].astype(str) == parent_version]
     if row.empty:
         raise ValueError(f"Parent version {parent_version} not found in versions table.")

@@ -55,6 +55,21 @@ def run_stage3(
         random_seed=seed,
     )
 
+    # Gate 2: refuse silent full physics weight when physics_gate=FAIL
+    gate2_path = resolve_path(pipeline["paths"]["physics"], root) / "gate2.json"
+    physics_weight_allowed = True
+    fused_kind = "physics_gp"
+    if gate2_path.exists():
+        gate2 = json.loads(gate2_path.read_text(encoding="utf-8"))
+        physics_weight_allowed = bool(gate2.get("allow_full_physics_weight", gate2.get("passed")))
+        if (
+            str(pipeline.get("gates", {}).get("stage2", "")) == "required_for_physics_weight"
+            and not physics_weight_allowed
+        ):
+            # Fall back to GP-only rather than quietly trusting physics.
+            use_confidence_weighting = False
+            fused_kind = "gp_zero_mean"
+
     predictions = run_split_evaluation(
         master,
         splits,
@@ -76,19 +91,22 @@ def run_stage3(
     # Interim GP-only path: hard statistical gate may be underpowered; record both.
     gate_passed = bool(gate["passed"] or (not require_hard_gate and gate["soft_passed_point_rmse"]))
     gate["operational_passed"] = gate_passed
+    gate["physics_weight_allowed"] = physics_weight_allowed
+    gate["fused_kind"] = fused_kind
 
     # Fit final fused model on all fitness rows for Stage 4.
     fit_df = master[master["fitness"].notna()].copy()
     fused = FusedSurrogate(
-        kind="physics_gp",
+        kind=fused_kind,  # type: ignore[arg-type]
         use_confidence_weighting=use_confidence_weighting,
         random_state=seed,
         encoding=encoding,
     )
     fused.fit(fit_df, fit_df["fitness"].to_numpy(dtype=float))
     model_meta = fused.metadata()
+    model_meta["physics_weight_allowed"] = physics_weight_allowed
     meta_path = out_dir / "fused_model_metadata.json"
-    meta_path.write_text(json.dumps(model_meta, indent=2), encoding="utf-8")
+    meta_path.write_text(json.dumps(model_meta, indent=2, default=str), encoding="utf-8")
 
     # Persist a lightweight joblib-free snapshot of training IDs for Stage 4 reload.
     train_ids_path = out_dir / "fused_train_construct_ids.json"
@@ -108,12 +126,15 @@ def run_stage3(
                 else None,
             },
             "n_splits": len(splits),
+            "gate2_path": str(gate2_path.relative_to(root)) if gate2_path.exists() else None,
         },
         parameters={
             "use_confidence_weighting": use_confidence_weighting,
             "prefer_loco": prefer_loco,
             "random_seed": seed,
             "gp": thresholds.get("gp", {}),
+            "fused_kind": fused_kind,
+            "physics_weight_allowed": physics_weight_allowed,
         },
         outputs={
             "cv_predictions": {"path": str(pred_path.relative_to(root)), "sha256": sha256_file(pred_path)},
@@ -124,7 +145,7 @@ def run_stage3(
         gate=gate,
         notes=(
             "Physics columns optional; without Stage 2, physics_only is intercept/mean "
-            "and fused = mean + GP residual."
+            "and fused = mean + GP residual. Gate 2 FAIL forces gp_zero_mean."
         ),
     )
 

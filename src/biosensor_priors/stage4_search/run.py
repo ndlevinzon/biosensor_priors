@@ -19,6 +19,18 @@ from biosensor_priors.stage4_search.random_search import RandomSearchPolicy
 
 
 def _load_master(root: Path) -> pd.DataFrame:
+    """Load the processed experiment master table from disk.
+
+    Parameters
+    ----------
+    root : Path
+        Repository root containing ``data/processed/``.
+
+    Returns
+    -------
+    pd.DataFrame
+        Experiment master table preferring pickle over parquet when both exist.
+    """
     pkl = root / "data" / "processed" / "experiment_master.pkl"
     if pkl.exists():
         return pd.read_pickle(pkl)
@@ -26,6 +38,20 @@ def _load_master(root: Path) -> pd.DataFrame:
 
 
 def _build_policies(search_cfg: dict[str, Any], seed: int) -> dict[str, Any]:
+    """Instantiate all configured Stage-4 search policies.
+
+    Parameters
+    ----------
+    search_cfg : dict
+        Parsed ``search.yaml`` configuration.
+    seed : int
+        Random seed passed to stochastic policies.
+
+    Returns
+    -------
+    dict of str to SearchPolicy
+        Mapping from strategy name to policy instance.
+    """
     adalead_cfg = search_cfg.get("adalead", {})
     return {
         "random": RandomSearchPolicy(
@@ -63,8 +89,7 @@ def run_stage4(
     freeze_round: int | str | None = None,
     freeze_strategy: str = "bo",
 ) -> dict[str, Any]:
-    """
-    Fit fused surrogate on observed fitness rows and propose batches.
+    """Fit fused surrogate on observed fitness rows and propose batches.
 
     By default, also runs a measured-landscape benchmark using unobserved
     constructs with fitness as an oracle pool (retrospective). When mutable
@@ -73,6 +98,25 @@ def run_stage4(
 
     If ``freeze_round`` is set, the design-space batch for ``freeze_strategy``
     is written immutably under ``data/rounds/`` (Stage 5A) before synthesis.
+
+    Parameters
+    ----------
+    repo_root : Path or None, optional
+        Repository root; defaults to configured ``REPO_ROOT``.
+    mutable_positions : list of int or None, optional
+        Canonical mutable positions for combinatorial design; falls back to config.
+    use_measured_holdout_pool : bool, optional
+        When True, run retrospective holdout-pool proposals (default True).
+    freeze_round : int, str, or None, optional
+        Round identifier for immutable prediction freeze before wet lab.
+    freeze_strategy : str, optional
+        Design-space strategy batch to freeze (default ``"bo"``).
+
+    Returns
+    -------
+    dict
+        Keys include ``batches``, ``manifest_path``, ``output_dir``, ``surrogate``,
+        ``n_design_candidates``, and optional ``freeze`` metadata.
     """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")

@@ -9,6 +9,14 @@ import pandas as pd
 
 
 def _try_matplotlib():
+    """Import matplotlib with a non-interactive backend when available.
+
+    Returns
+    -------
+    module or None
+        ``matplotlib.pyplot`` on success, or ``None`` if matplotlib is not
+        installed.
+    """
     try:
         import matplotlib
 
@@ -21,12 +29,40 @@ def _try_matplotlib():
 
 
 def write_metrics_table(metrics: pd.DataFrame, path: Path) -> Path:
+    """Write ablation metrics to CSV.
+
+    Parameters
+    ----------
+    metrics : pd.DataFrame
+        Per-config metrics table.
+    path : Path
+        Destination CSV path (parent directories are created).
+
+    Returns
+    -------
+    Path
+        ``path`` after writing.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     metrics.to_csv(path, index=False, encoding="utf-8")
     return path
 
 
 def write_comparisons_table(comparisons: pd.DataFrame, path: Path) -> Path:
+    """Write paired comparison statistics to CSV.
+
+    Parameters
+    ----------
+    comparisons : pd.DataFrame
+        Flattened pairwise comparison table.
+    path : Path
+        Destination CSV path (parent directories are created).
+
+    Returns
+    -------
+    Path
+        ``path`` after writing.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     comparisons.to_csv(path, index=False, encoding="utf-8")
     return path
@@ -38,7 +74,24 @@ def figure_rmse_by_config(
     *,
     title: str = "Ablation RMSE by configuration",
 ) -> Path | None:
-    """Bar chart of RMSE (and optional MAE) per ablation config."""
+    """Bar chart of RMSE per ablation configuration.
+
+    Parameters
+    ----------
+    metrics : pd.DataFrame
+        Table with an ``rmse`` column and optional ``ablation_label`` or
+        ``ablation_id``.
+    path : Path
+        Output PNG path.
+    title : str
+        Plot title.
+
+    Returns
+    -------
+    Path or None
+        ``path`` when the figure is written; ``None`` if matplotlib is missing,
+        data is empty, or ``rmse`` is absent.
+    """
     plt = _try_matplotlib()
     if plt is None or metrics.empty or "rmse" not in metrics.columns:
         return None
@@ -65,7 +118,24 @@ def figure_delta_forest(
     *,
     title: str = "ΔRMSE vs reference (paired bootstrap 95% CI)",
 ) -> Path | None:
-    """Forest plot of paired RMSE deltas with bootstrap CIs."""
+    """Forest plot of paired RMSE deltas with bootstrap confidence intervals.
+
+    Parameters
+    ----------
+    comparisons : pd.DataFrame
+        Table with ``config_a``, ``delta_rmse``, ``delta_rmse_ci_low``, and
+        ``delta_rmse_ci_high`` columns.
+    path : Path
+        Output PNG path.
+    title : str
+        Plot title.
+
+    Returns
+    -------
+    Path or None
+        ``path`` when the figure is written; ``None`` if matplotlib is missing,
+        required columns are absent, or no valid rows remain.
+    """
     plt = _try_matplotlib()
     needed = {"config_a", "delta_rmse", "delta_rmse_ci_low", "delta_rmse_ci_high"}
     if plt is None or comparisons.empty or not needed.issubset(comparisons.columns):
@@ -108,6 +178,23 @@ def figure_effect_sizes(
     *,
     title: str = "Effect sizes (paired Cohen's d on |error|)",
 ) -> Path | None:
+    """Horizontal bar chart of paired Cohen's d effect sizes on absolute error.
+
+    Parameters
+    ----------
+    comparisons : pd.DataFrame
+        Table with ``config_a``, ``config_b``, and ``cohens_d_abs_error``.
+    path : Path
+        Output PNG path.
+    title : str
+        Plot title.
+
+    Returns
+    -------
+    Path or None
+        ``path`` when the figure is written; ``None`` if matplotlib is missing,
+        data is empty, or effect-size column is absent.
+    """
     plt = _try_matplotlib()
     if plt is None or comparisons.empty or "cohens_d_abs_error" not in comparisons.columns:
         return None
@@ -135,7 +222,26 @@ def generate_ablation_figures(
     comparisons: pd.DataFrame,
     out_dir: Path,
 ) -> dict[str, Any]:
-    """Write tables always; figures when matplotlib is installed."""
+    """Write ablation tables and optional matplotlib figures.
+
+    CSV tables are always written; PNG figures are produced when matplotlib is
+    installed.
+
+    Parameters
+    ----------
+    metrics : pd.DataFrame
+        Per-config aggregate metrics.
+    comparisons : pd.DataFrame
+        Flattened pairwise comparison statistics.
+    out_dir : Path
+        Output directory for CSV and PNG artifacts.
+
+    Returns
+    -------
+    dict[str, Any]
+        Artifact paths keyed by name (``metrics_csv``, ``comparisons_csv``,
+        figure keys, ``matplotlib_available``).
+    """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     artifacts: dict[str, Any] = {

@@ -30,11 +30,34 @@ class AdaLeadPolicy:
         epsilon: float | None = None,
         parent_mode: str = "relative_kappa",
     ) -> None:
+        """Configure AdaLead parent selection and local search.
+
+        Parameters
+        ----------
+        kappa : float, optional
+            Relative fitness band ``(1-κ)·F_max`` for parent selection (default 0.05).
+        epsilon : float or None, optional
+            Absolute fitness margin for ``absolute_epsilon`` parent mode.
+        parent_mode : str, optional
+            ``"relative_kappa"`` or ``"absolute_epsilon"`` (default ``"relative_kappa"``).
+        """
         self.kappa = kappa
         self.epsilon = epsilon
         self.parent_mode = parent_mode
 
     def _parent_mask(self, fitness: pd.Series) -> pd.Series:
+        """Return boolean mask of constructs eligible as AdaLead parents.
+
+        Parameters
+        ----------
+        fitness : pd.Series
+            Measured fitness values for observed constructs.
+
+        Returns
+        -------
+        pd.Series
+            True for rows meeting the configured parent threshold.
+        """
         best = float(fitness.max())
         if self.parent_mode == "absolute_epsilon":
             eps = 0.05 if self.epsilon is None else float(self.epsilon)
@@ -48,6 +71,24 @@ class AdaLeadPolicy:
         surrogate: FusedSurrogate,
         batch_size: int,
     ) -> pd.DataFrame:
+        """Propose AdaLead children exceeding parent GP predictions.
+
+        Parameters
+        ----------
+        observed : pd.DataFrame
+            Measured constructs defining parent set and fitness landscape.
+        candidate_pool : pd.DataFrame
+            Unmeasured candidates for local mutation and recombination.
+        surrogate : FusedSurrogate
+            Fitted surrogate providing GP means on pool rows.
+        batch_size : int
+            Number of candidates to return.
+
+        Returns
+        -------
+        pd.DataFrame
+            Top ``batch_size`` AdaLead children ranked by predicted fitness.
+        """
         if candidate_pool.empty:
             return candidate_pool.copy()
 

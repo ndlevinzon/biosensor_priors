@@ -16,6 +16,8 @@ robust.
 
 5. **Stage 1** — job generation, predictor adapters, confidence tables
 6. **Stage 2** — ligand ensembles, RIF/RPX wrappers, mutation scans, Gate 2 controls
+   (implemented with ``backend: mock``; point ``configs/physics.yaml`` at HPC
+   binaries when deployed)
 
 Interfaces are defined so Stage 1/2 outputs drop into Stage 3 without rewriting
 search.

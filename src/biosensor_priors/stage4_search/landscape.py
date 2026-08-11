@@ -11,6 +11,22 @@ from biosensor_priors.stage0_ground_truth.version_resolve import get_row_mutatio
 
 
 def parse_mutation_list(row: pd.Series) -> list[tuple[str, int, str]]:
+    """Extract normalized mutation triples from a construct row.
+
+    Tries :func:`~biosensor_priors.stage0_ground_truth.version_resolve.get_row_mutations`
+    first, then falls back to parsing ``mutation_codes``-style strings of the
+    form ``A123B``.
+
+    Parameters
+    ----------
+    row : pd.Series
+        Single construct row from an experiment or design table.
+
+    Returns
+    -------
+    list of tuple of (str, int, str)
+        Parsed mutations as ``(aa_from, position, aa_to)``; empty when none found.
+    """
     muts = get_row_mutations(row)
     if muts is not None:
         return list(muts)
@@ -42,14 +58,47 @@ class LandscapeView:
 
     @property
     def n_sites(self) -> int:
+        """Number of variable sites in the landscape representation.
+
+        Returns
+        -------
+        int
+            Length of ``site_positions``.
+        """
         return len(self.site_positions)
 
 
 def hamming(a: str, b: str) -> int:
+    """Count differing characters between two equal-length strings.
+
+    Parameters
+    ----------
+    a : str
+        First sequence string.
+    b : str
+        Second sequence string (same length as ``a``).
+
+    Returns
+    -------
+    int
+        Hamming distance between ``a`` and ``b``.
+    """
     return sum(x != y for x, y in zip(a, b, strict=True))
 
 
 def pairwise_hamming(sequences: list[str]) -> np.ndarray:
+    """Build a symmetric pairwise Hamming distance matrix.
+
+    Parameters
+    ----------
+    sequences : list of str
+        Variable-site sequence strings for each construct.
+
+    Returns
+    -------
+    np.ndarray
+        Square ``(n, n)`` integer matrix of pairwise Hamming distances.
+    """
     n = len(sequences)
     d = np.zeros((n, n), dtype=np.int16)
     for i in range(n):
@@ -61,11 +110,20 @@ def pairwise_hamming(sequences: list[str]) -> np.ndarray:
 
 
 def build_landscape_view(df: pd.DataFrame) -> LandscapeView:
-    """
-    Build variable-site sequences from mutation codes.
+    """Build variable-site sequences and distance matrix from mutation codes.
 
-    Sites are the union of mutated canonical positions in ``df``.
-    Each construct sequence is the WT-at-site string with trusted mutations applied.
+    Sites are the union of mutated canonical positions in ``df``. Each construct
+    sequence is the WT-at-site string with trusted mutations applied.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Table of constructs with mutation-code columns.
+
+    Returns
+    -------
+    LandscapeView
+        Indexed landscape with sequences, site alphabets, and Hamming distances.
     """
     work = df.reset_index(drop=True).copy()
     mut_lists = [parse_mutation_list(row) for _, row in work.iterrows()]
@@ -107,6 +165,22 @@ def build_landscape_view(df: pd.DataFrame) -> LandscapeView:
 
 
 def top_b_by_score(frame: pd.DataFrame, score_col: str, batch_size: int) -> pd.DataFrame:
+    """Return the top-scoring rows from a ranked candidate table.
+
+    Parameters
+    ----------
+    frame : pd.DataFrame
+        Candidate table containing ``score_col``.
+    score_col : str
+        Column to sort by in descending order.
+    batch_size : int
+        Maximum number of rows to return.
+
+    Returns
+    -------
+    pd.DataFrame
+        Top ``batch_size`` rows by ``score_col``, or empty when inputs are invalid.
+    """
     if frame.empty or batch_size <= 0:
         return frame.iloc[0:0].copy()
     return frame.sort_values(score_col, ascending=False).head(batch_size).copy()

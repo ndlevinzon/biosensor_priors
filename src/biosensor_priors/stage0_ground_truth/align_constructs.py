@@ -13,6 +13,19 @@ GAP_EXTEND_SCORE = -0.5
 
 
 def clean_protein_sequence(seq) -> str | None:
+    """Normalize a protein sequence string for alignment.
+
+    Parameters
+    ----------
+    seq : Any
+        Raw sequence value, possibly NaN.
+
+    Returns
+    -------
+    str | None
+        Uppercase sequence with whitespace and gaps removed and trailing ``*``
+        stripped, or ``None`` when missing or empty.
+    """
     if pd.isna(seq):
         return None
     seq = str(seq).upper()
@@ -21,6 +34,26 @@ def clean_protein_sequence(seq) -> str | None:
 
 
 def load_version_database(filename: Path, canonical_version: str) -> pd.DataFrame:
+    """Load and validate the biosensor version sequence database.
+
+    Parameters
+    ----------
+    filename : pathlib.Path
+        Excel workbook with version metadata and sequences.
+    canonical_version : str
+        Version label used as the canonical numbering reference.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Validated version table with cleaned sequences and length checks.
+
+    Raises
+    ------
+    ValueError
+        If required columns are missing, sequences are empty, version names
+        are duplicated, or the canonical version is absent.
+    """
     df = pd.read_excel(filename)
     required = ["Version", "Parent", "Sequence", "Length"]
     missing = [c for c in required if c not in df.columns]
@@ -50,6 +83,13 @@ def load_version_database(filename: Path, canonical_version: str) -> pd.DataFram
 
 
 def build_aligner() -> PairwiseAligner:
+    """Create a global BLOSUM62 pairwise aligner with gap penalties.
+
+    Returns
+    -------
+    Bio.Align.PairwiseAligner
+        Configured aligner for canonical-to-version sequence alignment.
+    """
     aligner = PairwiseAligner()
     aligner.mode = "global"
     aligner.substitution_matrix = substitution_matrices.load("BLOSUM62")
@@ -59,6 +99,22 @@ def build_aligner() -> PairwiseAligner:
 
 
 def validate_sequence_alphabet(sequence: str, version: str, matrix) -> None:
+    """Ensure all residues in a sequence are supported by the substitution matrix.
+
+    Parameters
+    ----------
+    sequence : str
+        Protein sequence to validate.
+    version : str
+        Version label included in error messages.
+    matrix
+        Biopython substitution matrix with an ``alphabet`` attribute.
+
+    Raises
+    ------
+    ValueError
+        If ``sequence`` contains characters outside ``matrix.alphabet``.
+    """
     invalid = sorted(set(sequence) - set(matrix.alphabet))
     if invalid:
         raise ValueError(
@@ -74,6 +130,41 @@ def build_mapping_from_alignment(
     version_sequence: str,
     alignment,
 ) -> tuple[list[dict], list[dict], dict, str, str]:
+    """Derive per-residue canonical mapping rows from one pairwise alignment.
+
+    Parameters
+    ----------
+    canonical_version : str
+        Label of the canonical reference version.
+    canonical_sequence : str
+        Unaligned canonical sequence.
+    version : str
+        Label of the version being mapped.
+    parent
+        Parent version name, or pandas NA.
+    version_sequence : str
+        Unaligned version sequence.
+    alignment
+        Biopython alignment object for canonical vs version sequences.
+
+    Returns
+    -------
+    alignment_rows : list[dict]
+        Full alignment trace including deletions.
+    residue_rows : list[dict]
+        Mapped version residues (matches, substitutions, insertions).
+    summary : dict
+        Alignment statistics and identity metrics.
+    canonical_aligned : str
+        Gapped canonical sequence string from the alignment.
+    version_aligned : str
+        Gapped version sequence string from the alignment.
+
+    Raises
+    ------
+    RuntimeError
+        If aligned sequence strings differ in length.
+    """
     canonical_aligned = str(alignment[0])
     version_aligned = str(alignment[1])
     if len(canonical_aligned) != len(version_aligned):
@@ -185,6 +276,26 @@ def build_canonical_mapping(
     versions: pd.DataFrame,
     canonical_version: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
+    """Align all versions to a canonical reference and build mapping tables.
+
+    Parameters
+    ----------
+    versions : pandas.DataFrame
+        Version database from :func:`load_version_database`.
+    canonical_version : str
+        Reference version label for canonical numbering.
+
+    Returns
+    -------
+    residue_mapping : pandas.DataFrame
+        Per-residue mapping rows for all versions.
+    alignment_detail : pandas.DataFrame
+        Full alignment trace including deletions.
+    summaries : pandas.DataFrame
+        Per-version alignment summary statistics.
+    alignment_text : list[str]
+        Human-readable alignment strings for logging or export.
+    """
     canonical_row = versions.loc[versions["Version"] == canonical_version].iloc[0]
     canonical_sequence = canonical_row["Sequence_clean"]
     aligner = build_aligner()
@@ -233,6 +344,20 @@ def build_canonical_mapping(
 
 
 def validate_mapping(versions: pd.DataFrame, residue_mapping: pd.DataFrame) -> list[str]:
+    """Run QC checks on a canonical residue mapping table.
+
+    Parameters
+    ----------
+    versions : pandas.DataFrame
+        Version database with ``Version`` and ``Length_actual`` columns.
+    residue_mapping : pandas.DataFrame
+        Per-residue mapping from :func:`build_canonical_mapping`.
+
+    Returns
+    -------
+    list[str]
+        Human-readable problem descriptions; empty when all checks pass.
+    """
     problems: list[str] = []
     for _, version_row in versions.iterrows():
         version = version_row["Version"]

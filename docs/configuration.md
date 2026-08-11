@@ -9,6 +9,8 @@ constants in Python.
 | ``configs/fitness.yaml`` | Preregistered fitness formulation, weights, observation policies, design constraints |
 | ``configs/search.yaml`` | Batch size, UCB/AdaLead/MCMC, uncertainty λs, prefilter, diversification |
 | ``configs/thresholds.yaml`` | Structure predictors/seeds/states, confidence cutoffs, physics score direction, GP defaults |
+| ``configs/physics.yaml`` | Stage 2 backend (mock/external), ligand/RIF/RPX tool paths, job scheduler, mock control deltas |
+| ``configs/ablation.yaml`` | Stage 6 ablation matrix |
 
 ## Fitness preregistration
 

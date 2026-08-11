@@ -13,6 +13,20 @@ from biosensor_priors.stage6_ablation.statistics import comparisons_to_frame
 
 
 def _fmt(x: Any, digits: int = 4) -> str:
+    """Format a numeric value for Markdown tables.
+
+    Parameters
+    ----------
+    x : Any
+        Value to format (typically float).
+    digits : int, default 4
+        Decimal places for finite numbers.
+
+    Returns
+    -------
+    str
+        Fixed-point string, or ``"—"`` for missing or non-numeric values.
+    """
     try:
         v = float(x)
     except (TypeError, ValueError):
@@ -29,7 +43,24 @@ def build_markdown_report(
     figure_artifacts: dict[str, Any],
     meta: dict[str, Any],
 ) -> str:
-    """Render a concise Markdown scientific report for Stage 6."""
+    """Render a concise Markdown scientific report for Stage 6.
+
+    Parameters
+    ----------
+    metrics : pd.DataFrame
+        Per-config aggregate metrics table.
+    stats_report : dict[str, Any]
+        Output of :func:`run_ablation_statistics` with comparison dicts.
+    figure_artifacts : dict[str, Any]
+        Paths to CSV/PNG artifacts from figure generation.
+    meta : dict[str, Any]
+        Run metadata (seed, encoding, split count, etc.).
+
+    Returns
+    -------
+    str
+        Full Markdown document body.
+    """
     lines = [
         "# Stage 6 — Ablation report",
         "",
@@ -135,7 +166,27 @@ def write_report(
     predictions: pd.DataFrame | None = None,
     meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Write tables, figures, JSON stats, predictions, and Markdown report."""
+    """Write tables, figures, JSON stats, predictions, and Markdown report.
+
+    Parameters
+    ----------
+    out_dir : Path
+        Output directory for all Stage-6 artifacts.
+    metrics : pd.DataFrame
+        Per-config aggregate metrics.
+    stats_report : dict[str, Any]
+        Full statistics report (bootstrap blobs stripped in saved JSON).
+    predictions : pd.DataFrame, optional
+        Per-construct prediction rows to persist as parquet.
+    meta : dict[str, Any], optional
+        Run metadata embedded in the Markdown report.
+
+    Returns
+    -------
+    dict[str, Any]
+        Artifact paths: CSVs, figures, ``report_md``, ``statistics_json``,
+        and optional ``predictions`` parquet path.
+    """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     meta = meta or {}

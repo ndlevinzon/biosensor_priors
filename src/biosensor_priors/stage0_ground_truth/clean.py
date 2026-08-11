@@ -22,6 +22,19 @@ from biosensor_priors.stage0_ground_truth.parsing import (
 
 
 def mutation_audit_status(row: pd.Series) -> str:
+    """Compare mutations parsed from Construct vs Description columns.
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row containing ``mut_from_construct`` and ``mut_from_description``.
+
+    Returns
+    -------
+    str
+        Audit status: ``"match"``, ``"MISMATCH"``, ``"construct_only"``,
+        ``"description_only"``, or ``"no_mutation_found"``.
+    """
     c = row["mut_from_construct"]
     d = row["mut_from_description"]
     if c and d:
@@ -38,7 +51,25 @@ def prepare_database(
     *,
     assume_unitless_affinity_um: bool = False,
 ) -> pd.DataFrame:
-    """Normalize phenotypes, mutations, and selectivity intervals."""
+    """Normalize phenotypes, mutations, and selectivity intervals.
+
+    Parses numeric fields, converts affinities to µM, maps brightness ordinals,
+    audits mutation consistency, and derives selectivity ratio bounds.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Raw experimental workbook loaded as a DataFrame.
+    assume_unitless_affinity_um : bool, optional
+        When ``True``, treat unitless affinity values as micromolar.
+        Default is ``False``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Cleaned table with normalized columns, mutation audit fields, and
+        ``construct_id``.
+    """
     df = df.copy()
 
     numeric_cols = [
@@ -120,4 +151,16 @@ def prepare_database(
 
 
 def load_raw_experimental_workbook(path) -> pd.DataFrame:
+    """Load the raw experimental mutant workbook from Excel.
+
+    Parameters
+    ----------
+    path : str | pathlib.Path
+        Path to the ``.xlsx`` or ``.xls`` workbook.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Unmodified sheet contents as loaded by ``pandas.read_excel``.
+    """
     return pd.read_excel(path)

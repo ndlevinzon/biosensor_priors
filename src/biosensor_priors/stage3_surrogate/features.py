@@ -36,7 +36,7 @@ PHYSCHEM_DELTA_KEYS = (
 
 # Georgiev-like per-residue physicochemical vector (AAIndex-style stand-in).
 # Paper Georgiev is 19-D PCA of AAIndex; we use a fixed 19-D property vector
-# from our curated AA table (continuous + binary descriptors).
+# from our curated AA table (continuous + binary descriptors). [https://doi.org/10.1089/cmb.2008.0173]
 GEORGIEV_KEYS = (
     "hydrophobicity_KD",
     "side_chain_volume_A3",
