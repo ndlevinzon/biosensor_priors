@@ -1,0 +1,1 @@
+"""AdaLead search strategy."""

@@ -5,14 +5,22 @@ build-backend = "hatchling.build"
 [project]
 name = "biosensor-priors"
 version = "0.1.0"
-description = "Prior distributions and utilities for biosensor modeling"
+description = "Physics-informed Gaussian process pipeline for biosensor design and active learning"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
     { name = "ndlev" },
 ]
-keywords = ["biosensor", "priors", "bayesian", "scientific"]
+keywords = [
+    "biosensor",
+    "priors",
+    "gaussian-process",
+    "active-learning",
+    "RIF",
+    "RPX",
+    "bayesian-optimization",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
@@ -21,14 +29,41 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
-dependencies = []
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "pyarrow>=15.0",
+    "pyyaml>=6.0",
+    "scipy>=1.12",
+]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
     "ruff>=0.8",
 ]
+docs = [
+    "sphinx>=8.0",
+    "sphinx-rtd-theme>=3.0",
+    "myst-parser>=4.0",
+    "sphinx-autodoc-typehints>=2.0",
+    "sphinx-copybutton>=0.5",
+]
+ml = [
+    "scikit-learn>=1.4",
+    "gpytorch>=1.11",
+    "torch>=2.2",
+]
+all = [
+    "biosensor-priors[dev,docs,ml]",
+]
+
+[project.urls]
+Documentation = "https://biosensor-priors.readthedocs.io"
+Repository = "https://github.com/ndlev/biosensor-priors"
+Changelog = "https://github.com/ndlev/biosensor-priors/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/biosensor_priors"]
@@ -36,6 +71,7 @@ packages = ["src/biosensor_priors"]
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

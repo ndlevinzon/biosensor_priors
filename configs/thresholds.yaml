@@ -1,0 +1,42 @@
+# Structure / confidence thresholds (Stage 1)
+structure:
+  predictors:
+    - AF2
+    - AF3
+    - RFAA
+    - ESMFold
+  seeds: [1, 2, 3]
+  states:
+    - apo
+    - AcCoA
+    - PropCoA
+  confidence:
+    plDDT_min_reliable: 70.0
+    rmsd_max_reliable: 2.0
+    pae_pocket_max_reliable: 10.0
+    confidence_min_reliable: 0.5
+
+# Physics landscape thresholds (Stage 2)
+physics:
+  # Freeze score direction before coding. Downstream must not guess.
+  # Convention: more negative RIF/RPX = better interaction (Rosetta-like).
+  score_direction: more_negative_is_better
+  rif:
+    accoa_threshold: null  # set from calibration
+    propcoa_threshold: null
+  rpx:
+    packing_threshold: null
+  controls:
+    - mutation: Q324R
+      expected_direction: favorable_AcCoA
+    - mutation: A355R
+      expected_direction: favorable_AcCoA
+
+# GP / surrogate (Stage 3)
+gp:
+  kernel: matern52
+  physics_mean_weights:
+    w_rif_ac: null   # fit on train; leave null for LOCO fit
+    w_rpx: null
+    w_delta_rif_sel: null
+  leave_one_construct_out: true

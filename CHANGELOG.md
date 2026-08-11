@@ -9,4 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial project scaffolding (`README`, `CHANGELOG`, `pyproject.toml`)
+- Full pipeline architecture documentation (Stages 0–6, shared infrastructure,
+  configuration, identifiers, manifests, build order)
+- Sphinx documentation site with MyST Markdown and ``sphinx-rtd-theme``
+- Read the Docs config (``.readthedocs.yaml``)
+- Package scaffold under ``src/biosensor_priors`` matching the stage layout
+- YAML configs: ``pipeline``, ``fitness``, ``search``, ``thresholds``
+- Placeholder regression tests for numbering, Q324R, A355R, leakage, reproducibility

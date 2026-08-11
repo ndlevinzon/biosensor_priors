@@ -1,0 +1,40 @@
+# Search / active-learning configuration (Stage 4)
+
+batch_size: 8
+
+# Uncertainty-aware UCB: μ + κ * σ_effective
+ucb:
+  kappa: 1.0
+
+# AdaLead
+adalead:
+  epsilon: 0.01
+
+# MCMC
+mcmc:
+  temperature: 1.0
+  n_steps: 10000
+
+# Effective uncertainty combination:
+#   σ_eff² = σ_GP² + λ_s * σ_structure² + λ_p * σ_physics²
+uncertainty:
+  lambda_structure: 1.0
+  lambda_physics: 1.0
+
+prefilter:
+  hard_fail_exclude: true
+  soft_fail_to_exploration: true
+  exploration_budget_fraction: 0.15
+
+batch_diversification:
+  max_candidates_per_position: 2
+  min_sequence_distance: 1
+  min_physchem_diversity: 0.1
+  exploitation_fraction: 0.7
+  exploration_fraction: 0.3
+
+strategies:
+  - random
+  - adalead
+  - mcmc
+  - bo

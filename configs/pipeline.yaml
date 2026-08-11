@@ -1,0 +1,27 @@
+# Master pipeline configuration
+# All stage-specific knobs live here or in companion YAML files.
+# Stages must load config rather than hard-coding constants.
+
+canonical_reference: "V1.0"
+active_design_background: "V2.4"
+
+random_seed: 42
+analysis_round: 0
+
+paths:
+  experimental: "data/experimental"
+  constructs: "data/constructs"
+  structures: "data/structures"
+  physics: "data/physics"
+  rounds: "data/rounds"
+  manifests: "manifests"
+  outputs: "outputs"
+
+# Stage gate defaults: a failed gate blocks silent use of that stage's outputs.
+gates:
+  stage0: required
+  stage1: advisory
+  stage2: required_for_physics_weight
+  stage3: required
+  stage4: advisory
+  stage5: required_before_model_update

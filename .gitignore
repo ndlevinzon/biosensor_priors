@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Docs
+docs/_build/
+docs/api/_autosummary/
+
+# Data / runtime artifacts (keep directory placeholders via .gitkeep)
+data/experimental/*
+!data/experimental/.gitkeep
+data/structures/*
+!data/structures/.gitkeep
+data/physics/*
+!data/physics/.gitkeep
+data/rounds/*
+!data/rounds/.gitkeep
+manifests/*
+!manifests/.gitkeep
+outputs/*
+!outputs/.gitkeep
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

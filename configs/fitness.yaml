@@ -1,0 +1,47 @@
+# Fitness definition — preregistered before any modeling or search.
+# Changing weights after seeing results is not allowed for a given analysis round.
+
+# Scalar weighted fitness (default for first pipeline):
+#   F = 0.40*S + 0.25*A + 0.20*FC + 0.15*B
+# where components are normalized phenotype scores in [0, 1].
+formulation: weighted_scalar
+
+weights:
+  S: 0.40   # selectivity / related phenotype slot
+  A: 0.25   # affinity / related phenotype slot
+  FC: 0.20  # fold-change / related phenotype slot
+  B: 0.15   # brightness / related phenotype slot
+
+# Observation handling policies
+observations:
+  exact: use_as_is
+  left_censored: interval_aware  # do not treat LOD as point estimate
+  right_censored: interval_aware
+  missing_phenotype: exclude_from_fitness  # or impute — freeze policy per round
+  qualitative: map_to_ordinal_then_normalize
+
+# Design constraints used by Stage 0 validation and Stage 4 design space
+design:
+  allowed_mutable_positions: []  # canonical positions; fill from campaign config
+  allowed_amino_acids:
+    - A
+    - C
+    - D
+    - E
+    - F
+    - G
+    - H
+    - I
+    - K
+    - L
+    - M
+    - N
+    - P
+    - Q
+    - R
+    - S
+    - T
+    - V
+    - W
+    - Y
+  maximum_mutations_per_construct: 3
