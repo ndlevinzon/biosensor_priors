@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   long table with ``ΔRIF_sel = RIF_Ac − RIF_Prop``, uncertainty aggregation
   across structure models, Gate 2 Q324R/A355R directional tests, mock backend
   until HPC tools are deployed, CLI ``biosensor-stage2``
+- Methodology documentation (``docs/methodology.md``) with equations, full
+  stage-by-stage procedure, and architecture-flow figure
 - Stage 6 ablation matrix (``configs/ablation.yaml``), shared-split runner,
   paired bootstrap / Wilcoxon / Holm / effect-size statistics, automatic
   tables+figures report, CLI ``biosensor-stage6``

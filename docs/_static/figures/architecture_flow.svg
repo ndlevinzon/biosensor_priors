@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 720" width="920" height="720" role="img" aria-labelledby="title desc">
+  <title id="title">biosensor-priors architecture flow</title>
+  <desc id="desc">Flow from wet-lab ground truth through structure, physics, GP surrogate, search, prospective update, and ablations.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2F4F4F"/>
+    </marker>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-opacity="0.18"/>
+    </filter>
+    <style>
+      .box { fill: #F7F4EE; stroke: #2F4F4F; stroke-width: 1.6; }
+      .box-accent { fill: #E8F0EA; stroke: #2F4F4F; stroke-width: 1.6; }
+      .box-gate { fill: #F3EDE4; stroke: #8B5E3C; stroke-width: 1.6; stroke-dasharray: 4 2; }
+      .box-loop { fill: #E9EEF4; stroke: #1F4E79; stroke-width: 1.6; }
+      .label { font-family: Georgia, 'Times New Roman', serif; font-size: 13px; fill: #1a1a1a; }
+      .sub { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; fill: #444; }
+      .title { font-family: Georgia, 'Times New Roman', serif; font-size: 18px; font-weight: 700; fill: #1a1a1a; }
+      .caption { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; fill: #555; }
+      .edge { stroke: #2F4F4F; stroke-width: 1.7; fill: none; marker-end: url(#arrow); }
+      .edge-soft { stroke: #1F4E79; stroke-width: 1.5; fill: none; marker-end: url(#arrow); stroke-dasharray: 5 3; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="920" height="720" fill="#FBF9F5"/>
+  <text x="36" y="36" class="title">biosensor-priors  architecture flow</text>
+  <text x="36" y="56" class="caption">Wet-lab ground truth ’ priors ’ physics-informed GP ’ active learning ’ prospective rounds</text>
+
+  <!-- Stage 0 -->
+  <g filter="url(#shadow)">
+    <rect class="box" x="60" y="90" rx="8" ry="8" width="220" height="78"/>
+  </g>
+  <text x="78" y="118" class="label">Stage 0  Ground truth</text>
+  <text x="78" y="138" class="sub">Clean DB · fitness F · splits</text>
+  <text x="78" y="154" class="sub">experiment_master · Gate 0</text>
+
+  <!-- Stage 1 -->
+  <g filter="url(#shadow)">
+    <rect class="box" x="350" y="90" rx="8" ry="8" width="220" height="78"/>
+  </g>
+  <text x="368" y="118" class="label">Stage 1  Structures</text>
+  <text x="368" y="138" class="sub">AF2/AF3/RFAA ensemble</text>
+  <text x="368" y="154" class="sub">structural_confidence</text>
+
+  <!-- Stage 2 -->
+  <g filter="url(#shadow)">
+    <rect class="box" x="640" y="90" rx="8" ry="8" width="220" height="78"/>
+  </g>
+  <text x="658" y="118" class="label">Stage 2  Physics</text>
+  <text x="658" y="138" class="sub">Ligands · RIF · RPX · scans</text>
+  <text x="658" y="154" class="sub">”RIF_sel · Gate 2</text>
+
+  <path class="edge" d="M 280 129 H 342"/>
+  <path class="edge" d="M 570 129 H 632"/>
+
+  <!-- Stage 3 -->
+  <g filter="url(#shadow)">
+    <rect class="box-accent" x="350" y="230" rx="8" ry="8" width="220" height="90"/>
+  </g>
+  <text x="368" y="258" class="label">Stage 3  Surrogate</text>
+  <text x="368" y="278" class="sub">¼€(physics) + GP residual</text>
+  <text x="368" y="294" class="sub">confidence weighting</text>
+  <text x="368" y="310" class="sub">CV · Gate 3</text>
+
+  <path class="edge" d="M 170 168 V 275 H 342"/>
+  <path class="edge" d="M 460 168 V 222"/>
+  <path class="edge" d="M 750 168 V 275 H 578"/>
+
+  <!-- Stage 4 -->
+  <g filter="url(#shadow)">
+    <rect class="box-accent" x="350" y="380" rx="8" ry="8" width="220" height="78"/>
+  </g>
+  <text x="368" y="408" class="label">Stage 4  Search</text>
+  <text x="368" y="428" class="sub">Random / AdaLead / MCMC / BO</text>
+  <text x="368" y="444" class="sub">UCB · prefilter · batches</text>
+
+  <path class="edge" d="M 460 320 V 372"/>
+
+  <!-- Wet lab -->
+  <g filter="url(#shadow)">
+    <rect class="box-loop" x="350" y="510" rx="8" ry="8" width="220" height="70"/>
+  </g>
+  <text x="368" y="538" class="label">Wet-lab synthesis</text>
+  <text x="368" y="558" class="sub">Selected candidate batch</text>
+
+  <path class="edge" d="M 460 458 V 502"/>
+
+  <!-- Stage 5 -->
+  <g filter="url(#shadow)">
+    <rect class="box-loop" x="640" y="505" rx="8" ry="8" width="220" height="80"/>
+  </g>
+  <text x="658" y="533" class="label">Stage 5  Prospective</text>
+  <text x="658" y="553" class="sub">Freeze ’ import ’ validate</text>
+  <text x="658" y="569" class="sub">Refit · next batch · Gate 4</text>
+
+  <path class="edge" d="M 570 545 H 632"/>
+
+  <!-- Feedback loop -->
+  <path class="edge-soft" d="M 750 505 V 360 H 570"/>
+  <text x="580" y="350" class="caption">model update / next round</text>
+
+  <!-- Stage 6 spanning -->
+  <g filter="url(#shadow)">
+    <rect class="box-gate" x="60" y="620" rx="8" ry="8" width="800" height="70"/>
+  </g>
+  <text x="78" y="648" class="label">Stage 6  Ablation &amp; scientific reporting (across all stages)</text>
+  <text x="78" y="668" class="sub">Shared splits/seeds · paired bootstrap · Wilcoxon · Holm · effect sizes · figures/tables</text>
+
+  <path class="edge-soft" d="M 170 168 V 620"/>
+  <path class="edge-soft" d="M 460 320 V 480"/>
+  <path class="edge-soft" d="M 460 588 V 620"/>
+  <path class="edge-soft" d="M 750 585 V 620"/>
+</svg>

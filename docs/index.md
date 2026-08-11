@@ -8,6 +8,7 @@ uncertainty, RIF/RPX physics landscapes, and active learning.
 :caption: Overview
 
 architecture
+methodology
 build_order
 project_structure
 ```
