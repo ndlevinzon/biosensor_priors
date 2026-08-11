@@ -63,6 +63,7 @@ py -3.12 -m biosensor_priors.stage0_ground_truth.load_experiments
 py -3.12 -m biosensor_priors.stage3_surrogate.run
 py -3.12 -m biosensor_priors.stage4_search.run
 py -3.12 -m biosensor_priors.stage4_search.campaign
+py -3.12 -m biosensor_priors.stage5_prospective.run --help
 py -3.12 -m pytest tests -q
 ruff check .
 ```

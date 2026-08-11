@@ -16,6 +16,14 @@ Before synthesis, write an **immutable** file, e.g.
 
 Hash the file and **never rewrite**. Prevents hindsight leakage.
 
+```bash
+python -m biosensor_priors.stage5_prospective.run freeze \
+  --round 3 --batch outputs/stage4/batch_design_bo.csv
+
+# Or freeze directly from Stage 4:
+python -m biosensor_priors.stage4_search.run --freeze-round 3 --freeze-strategy bo
+```
+
 Module: ``freeze_predictions.py``
 
 ### 5B. Experimental result importer
@@ -44,12 +52,12 @@ Module: ``prospective_validation.py``
 
 ### 5D. Model-update engine
 
-Only **after** evaluation:
+Only **after** evaluation (Gate 4):
 
 1. append new data
 2. refit physics weights
 3. refit GP
-4. rerun calibration gates
+4. rerun calibration gates (Stage-3 CV / Gate 3)
 5. generate next batch
 
 Store physics coefficients by round:
@@ -60,9 +68,22 @@ Store physics coefficients by round:
 Physics weights trending toward zero as real data accumulates is a
 **legitimate** scientific outcome and should be logged, not suppressed.
 
+```bash
+python -m biosensor_priors.stage5_prospective.run ingest \
+  --round 3 --results path/to/plate.xlsx --strategy bo
+```
+
 Module: ``update_model.py``
 
 ## Gate
 
-``gate4.py`` records prospective validation status before allowing model update
-into the next round.
+``gate4.py`` records freeze integrity + prospective validation status before
+allowing model update into the next round
+(``pipeline.gates.stage5: required_before_model_update``).
+
+## CLI
+
+```bash
+biosensor-stage5 freeze --round 3 --batch outputs/stage4/batch_design_bo.csv
+biosensor-stage5 ingest --round 3 --results path/to/plate.xlsx
+```

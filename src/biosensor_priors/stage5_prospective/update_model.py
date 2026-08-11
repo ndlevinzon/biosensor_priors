@@ -1,1 +1,213 @@
 """Append data, refit physics/GP, recalibrate gates, propose next batch."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+from biosensor_priors.stage3_surrogate.cross_validate import (
+    ensure_splits_for_fitness,
+    run_split_evaluation,
+)
+from biosensor_priors.stage3_surrogate.features import PHYSICS_FEATURE_COLUMNS
+from biosensor_priors.stage3_surrogate.gate3 import evaluate_gate3
+from biosensor_priors.stage3_surrogate.surrogate import FusedSurrogate
+from biosensor_priors.stage4_search.adalead import AdaLeadPolicy
+from biosensor_priors.stage4_search.bo import BOPolicy
+from biosensor_priors.stage4_search.mcmc import MCMCPolicy
+from biosensor_priors.stage4_search.random_search import RandomSearchPolicy
+
+# Round history columns (w_ΔRIF is the selectivity ΔRIF weight).
+WEIGHT_HISTORY_COLUMNS = ("Round", "w_RIF_Ac", "w_RPX", "w_ΔRIF", "intercept", "mode")
+
+
+def append_physics_weights_row(
+    history_path: Path,
+    *,
+    round_id: int | str,
+    weights: dict[str, Any],
+) -> pd.DataFrame:
+    """
+    Append one round of physics coefficients.
+
+    Columns: Round, w_RIF_Ac, w_RPX, w_ΔRIF (+ intercept/mode extras).
+
+    Weights trending toward zero as labeled data accumulates is a legitimate
+    outcome and is recorded, not suppressed.
+    """
+    history_path = Path(history_path)
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    row = {
+        "Round": round_id,
+        "w_RIF_Ac": weights.get("rif_ac", weights.get("w_RIF_Ac")),
+        "w_RPX": weights.get("rpx", weights.get("w_RPX")),
+        "w_ΔRIF": weights.get(
+            "delta_rif_sel",
+            weights.get("w_ΔRIF", weights.get("w_delta_RIF")),
+        ),
+        "intercept": weights.get("intercept"),
+        "mode": weights.get("mode"),
+    }
+    if history_path.exists():
+        hist = pd.read_csv(history_path)
+        hist = pd.concat([hist, pd.DataFrame([row])], ignore_index=True)
+    else:
+        hist = pd.DataFrame([row])
+    hist.to_csv(history_path, index=False, encoding="utf-8")
+    return hist
+
+
+def refit_surrogate(
+    master: pd.DataFrame,
+    *,
+    encoding: str = "hybrid",
+    use_confidence_weighting: bool = True,
+    random_seed: int = 42,
+    kind: str = "physics_gp",
+) -> tuple[FusedSurrogate, dict[str, Any]]:
+    """Refit fused surrogate on all constructs with usable fitness."""
+    fit_df = master[master["fitness"].notna()].copy()
+    if fit_df.empty:
+        raise RuntimeError("No fitness-labeled constructs available for model update.")
+    model = FusedSurrogate(
+        kind=kind,  # type: ignore[arg-type]
+        use_confidence_weighting=use_confidence_weighting,
+        random_state=random_seed,
+        encoding=encoding,
+    )
+    model.fit(fit_df, fit_df["fitness"].to_numpy(dtype=float))
+    return model, model.metadata()
+
+
+def rerun_calibration_gates(
+    master: pd.DataFrame,
+    *,
+    splits_dir: Path | None = None,
+    encoding: str = "hybrid",
+    use_confidence_weighting: bool = True,
+    random_seed: int = 42,
+    require_hard_gate: bool = False,
+) -> dict[str, Any]:
+    """
+    Re-run Stage-3 CV + Gate 3 after appending prospective data.
+
+    Returns Gate 3 report with ``operational_passed`` (soft RMSE allowed when
+    the hard statistical gate is underpowered).
+    """
+    fit_df = master[master["fitness"].notna()].copy()
+    splits = ensure_splits_for_fitness(
+        fit_df,
+        splits_dir,
+        prefer_loco=True,
+        random_seed=random_seed,
+    )
+    predictions = run_split_evaluation(
+        fit_df,
+        splits,
+        use_confidence_weighting=use_confidence_weighting,
+        random_seed=random_seed,
+        encoding=encoding,
+    )
+    if predictions.empty:
+        return {
+            "passed": False,
+            "operational_passed": False,
+            "reason": "no CV predictions after model update",
+        }
+    gate = evaluate_gate3(predictions, random_seed=random_seed)
+    gate["operational_passed"] = bool(
+        gate["passed"] or (not require_hard_gate and gate.get("soft_passed_point_rmse"))
+    )
+    gate["n_cv_rows"] = int(len(predictions))
+    gate["n_splits"] = int(predictions["split_id"].nunique()) if "split_id" in predictions else 0
+    return gate
+
+
+def _build_policies(search_cfg: dict[str, Any], seed: int) -> dict[str, Any]:
+    adalead_cfg = search_cfg.get("adalead", {})
+    return {
+        "random": RandomSearchPolicy(
+            candidate_m=int(search_cfg.get("candidate_m", 256)),
+            random_seed=seed,
+        ),
+        "adalead": AdaLeadPolicy(
+            kappa=float(adalead_cfg.get("kappa", 0.05)),
+            epsilon=adalead_cfg.get("epsilon"),
+            parent_mode=str(adalead_cfg.get("parent_mode", "relative_kappa")),
+        ),
+        "mcmc": MCMCPolicy(
+            temperature=float(search_cfg.get("mcmc", {}).get("temperature", 0.10)),
+            n_steps=int(search_cfg.get("mcmc", {}).get("n_steps", 300)),
+            n_chains=int(search_cfg.get("mcmc", {}).get("n_chains", 8)),
+            candidate_m=int(search_cfg.get("candidate_m", 256)),
+            random_seed=seed,
+        ),
+        "bo": BOPolicy(
+            kappa=float(search_cfg.get("ucb", {}).get("kappa", 1.5)),
+            use_effective_uncertainty=bool(
+                search_cfg.get("uncertainty", {}).get("use_effective", False)
+            ),
+        ),
+    }
+
+
+def generate_next_batch(
+    *,
+    master: pd.DataFrame,
+    candidate_pool: pd.DataFrame,
+    surrogate: FusedSurrogate,
+    search_cfg: dict[str, Any],
+    strategy: str = "bo",
+    batch_size: int | None = None,
+    random_seed: int = 42,
+) -> pd.DataFrame:
+    """Propose the next experimental batch with the updated surrogate."""
+    observed = master[master["fitness"].notna()].copy()
+    policies = _build_policies(search_cfg, random_seed)
+    if strategy not in policies:
+        raise ValueError(f"Unknown strategy {strategy}; choose from {sorted(policies)}")
+    b = int(batch_size if batch_size is not None else search_cfg.get("batch_size", 8))
+    batch = policies[strategy].propose(observed, candidate_pool, surrogate, b)
+    batch["selection_algorithm"] = strategy
+    batch["selection_rank"] = range(1, len(batch) + 1)
+    return batch
+
+
+def save_model_update_artifacts(
+    *,
+    out_dir: Path,
+    round_id: int | str,
+    metadata: dict[str, Any],
+    weights_history: pd.DataFrame,
+    calibration_gate: dict[str, Any] | None = None,
+) -> dict[str, Path]:
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    meta_path = out_dir / f"round_{round_id}_model_metadata.json"
+    meta_path.write_text(json.dumps(metadata, indent=2, default=str), encoding="utf-8")
+    hist_path = out_dir / "physics_weights_by_round.csv"
+    weights_history.to_csv(hist_path, index=False, encoding="utf-8")
+    named = {
+        "round_id": round_id,
+        "physics_feature_columns": list(PHYSICS_FEATURE_COLUMNS),
+        "weights": metadata.get("physics_weights", {}),
+        "weight_history_columns": list(WEIGHT_HISTORY_COLUMNS),
+    }
+    named_path = out_dir / f"round_{round_id}_physics_weights.json"
+    named_path.write_text(json.dumps(named, indent=2, default=str), encoding="utf-8")
+    out: dict[str, Path] = {
+        "metadata": meta_path,
+        "weights_history": hist_path,
+        "named_weights": named_path,
+    }
+    if calibration_gate is not None:
+        gate_path = out_dir / f"round_{round_id}_calibration_gate.json"
+        gate_path.write_text(
+            json.dumps(calibration_gate, indent=2, default=str),
+            encoding="utf-8",
+        )
+        out["calibration_gate"] = gate_path
+    return out

@@ -60,6 +60,8 @@ def run_stage4(
     repo_root: Path | None = None,
     mutable_positions: list[int] | None = None,
     use_measured_holdout_pool: bool = True,
+    freeze_round: int | str | None = None,
+    freeze_strategy: str = "bo",
 ) -> dict[str, Any]:
     """
     Fit fused surrogate on observed fitness rows and propose batches.
@@ -68,6 +70,9 @@ def run_stage4(
     constructs with fitness as an oracle pool (retrospective). When mutable
     positions are provided (or set in fitness.yaml design), also generates a
     combinatorial design-space batch.
+
+    If ``freeze_round`` is set, the design-space batch for ``freeze_strategy``
+    is written immutably under ``data/rounds/`` (Stage 5A) before synthesis.
     """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")
@@ -206,12 +211,44 @@ def run_stage4(
             store[col] = store[col].map(lambda x: None if x is None else str(x))
     store.to_parquet(all_path, index=False)
 
+    freeze_meta = None
+    if freeze_round is not None:
+        from biosensor_priors.stage5_prospective.run import freeze_round_batch
+
+        design_batches = [
+            b
+            for b in batch_tables
+            if "pool_type" in b.columns and (b["pool_type"] == "design_space").all()
+        ]
+        to_freeze = None
+        for b in design_batches:
+            if "search_strategy" in b.columns and (b["search_strategy"] == freeze_strategy).all():
+                to_freeze = b.copy()
+                break
+        if to_freeze is None and design_batches:
+            to_freeze = design_batches[0].copy()
+        if to_freeze is not None:
+            to_freeze["selection_algorithm"] = to_freeze.get(
+                "search_strategy", freeze_strategy
+            )
+            to_freeze["selection_rank"] = range(1, len(to_freeze) + 1)
+            freeze_meta = freeze_round_batch(to_freeze, round_id=freeze_round, repo_root=root)
+
     manifest = write_manifest(
         resolve_path(pipeline["paths"]["manifests"], root) / "stage4_manifest.json",
         stage="stage4_search",
         inputs={"n_observed": int(len(observed)), "parent_version": parent, "mutable_positions": positions},
-        parameters={"search": search_cfg, "batch_size": batch_size},
-        outputs={"all_batches": str(all_path.relative_to(root)), "n_batch_rows": int(len(all_batches))},
+        parameters={
+            "search": search_cfg,
+            "batch_size": batch_size,
+            "freeze_round": freeze_round,
+            "freeze_strategy": freeze_strategy,
+        },
+        outputs={
+            "all_batches": str(all_path.relative_to(root)),
+            "n_batch_rows": int(len(all_batches)),
+            "freeze": freeze_meta,
+        },
         random_seed=seed,
         gate={"passed": True, "notes": "Stage 4 advisory; proposals generated."},
     )
@@ -222,15 +259,32 @@ def run_stage4(
         "output_dir": out_dir,
         "surrogate": surrogate,
         "n_design_candidates": int(len(design)),
+        "freeze": freeze_meta,
     }
 
 
 def main() -> None:
-    result = run_stage4()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Stage 4 active-learning proposals")
+    parser.add_argument(
+        "--freeze-round",
+        default=None,
+        help="If set, freeze the design batch for this round under data/rounds/",
+    )
+    parser.add_argument(
+        "--freeze-strategy",
+        default="bo",
+        help="Which design-space strategy batch to freeze (default: bo)",
+    )
+    args = parser.parse_args()
+    result = run_stage4(freeze_round=args.freeze_round, freeze_strategy=args.freeze_strategy)
     print(f"Design candidates: {result['n_design_candidates']}")
     print(f"Batch rows: {len(result['batches'])}")
     print(f"Wrote: {result['output_dir']}")
     print(f"Manifest: {result['manifest_path']}")
+    if result.get("freeze"):
+        print(f"Frozen: {result['freeze']}")
 
 
 if __name__ == "__main__":

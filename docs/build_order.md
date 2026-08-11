@@ -23,6 +23,7 @@ search.
 ## Third block
 
 7. **Stage 5** — freeze predictions, import results, prospective validation, update
+   (implemented: ``biosensor-stage5`` / ``python -m biosensor_priors.stage5_prospective.run``)
 8. **Stage 6** — ablation matrix, statistics, figures, report
 
 ## Capability today vs later

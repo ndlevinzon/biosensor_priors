@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Stage 5 prospective wet-lab loop: immutable hashed prediction freeze (5A),
+  Stage-0 cleaning importer (5B), prospective validation metrics (5C),
+  model-update engine with physics weights-by-round + Gate 3 recalibration (5D),
+  Gate 4 before append/refit, CLI ``biosensor-stage5``
 - BO-EVO SI-faithful Stage 4 solvers (Random 1/N→M→B, AdaLead (1-κ) parents,
   MCMC collect-M/rank-μ, enumerative UCB BO) and multi-round campaign runner
   with success ratio / cumulative-best metrics
@@ -29,4 +33,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Read the Docs config (``.readthedocs.yaml``)
 - Package scaffold under ``src/biosensor_priors`` matching the stage layout
 - YAML configs: ``pipeline``, ``fitness``, ``search``, ``thresholds``
-- Regression tests for Stage 0/3/4
+- Regression tests for Stage 0/3/4/5
