@@ -39,10 +39,14 @@ dependencies = [
     "scipy>=1.12",
     "openpyxl>=3.1",
     "biopython>=1.83",
+    "scikit-learn>=1.4",
 ]
 
 [project.scripts]
 biosensor-stage0 = "biosensor_priors.stage0_ground_truth.load_experiments:main"
+biosensor-stage3 = "biosensor_priors.stage3_surrogate.run:main"
+biosensor-stage4 = "biosensor_priors.stage4_search.run:main"
+biosensor-stage4-campaign = "biosensor_priors.stage4_search.campaign:main"
 
 [project.optional-dependencies]
 dev = [

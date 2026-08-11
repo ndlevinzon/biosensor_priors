@@ -35,7 +35,12 @@ observations:
 
 # Design constraints used by Stage 0 validation and Stage 4 design space
 design:
-  allowed_mutable_positions: []
+  # Version-local mutable positions for active design background (see pipeline.yaml).
+  # Defaults are control hotspots Q324 / A355 in canonical numbering mapped to
+  # the active background sequence positions when available.
+  allowed_mutable_positions:
+    - 324
+    - 355
   allowed_amino_acids:
     - A
     - C

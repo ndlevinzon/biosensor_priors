@@ -35,8 +35,9 @@ physics:
 # GP / surrogate (Stage 3)
 gp:
   kernel: matern52
+  encoding: hybrid   # onehot | georgiev | hybrid | mutation_bag
   physics_mean_weights:
-    w_rif_ac: null   # fit on train; leave null for LOCO fit
+    w_rif_ac: null
     w_rpx: null
     w_delta_rif_sel: null
   leave_one_construct_out: true

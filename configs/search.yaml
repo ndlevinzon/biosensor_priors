@@ -1,23 +1,30 @@
 # Search / active-learning configuration (Stage 4)
+# Defaults aligned with BO-EVO SI / project reference benchmark.
 
 batch_size: 8
+candidate_m: 256
 
-# Uncertainty-aware UCB: μ + κ * σ_effective
+# Enumerative BO UCB: μ + κ σ
 ucb:
-  kappa: 1.0
+  kappa: 1.5
 
-# AdaLead
+# AdaLead — paper parent rule: F >= (1-κ)·F_max
 adalead:
-  epsilon: 0.01
+  parent_mode: relative_kappa
+  kappa: 0.05
+  # absolute_epsilon mode alternative (project legacy):
+  # parent_mode: absolute_epsilon
+  # epsilon: 0.05
 
-# MCMC
+# MCMC — maximization form π ∝ exp(μ/T)
 mcmc:
-  temperature: 1.0
-  n_steps: 10000
+  temperature: 0.10
+  n_steps: 300
+  n_chains: 8
 
-# Effective uncertainty combination:
-#   σ_eff² = σ_GP² + λ_s * σ_structure² + λ_p * σ_physics²
+# Optional σ_eff extension (off by default for paper-faithful BO)
 uncertainty:
+  use_effective: false
   lambda_structure: 1.0
   lambda_physics: 1.0
 
@@ -26,12 +33,20 @@ prefilter:
   soft_fail_to_exploration: true
   exploration_budget_fraction: 0.15
 
+# Optional post-hoc diversification (disabled for paper-faithful top-B)
 batch_diversification:
+  enabled: false
   max_candidates_per_position: 2
   min_sequence_distance: 1
-  min_physchem_diversity: 0.1
   exploitation_fraction: 0.7
-  exploration_fraction: 0.3
+
+# Multi-round retrospective campaign (BO-EVO evaluation protocol)
+campaign:
+  n_repeats: 5
+  n_rounds: 5
+  initial_n: 8
+  encoding: hybrid   # onehot | georgiev | hybrid | mutation_bag
+  top_quantile: 0.05
 
 strategies:
   - random

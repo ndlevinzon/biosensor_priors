@@ -80,3 +80,24 @@ After ranking, enforce practical campaign constraints:
 - mix of high-confidence exploitation and uncertainty exploration
 
 Module: ``batch_design.py``
+
+## Implementation status
+
+Paper-faithful solvers (BO-EVO SI) are implemented:
+
+* **Random** — parent mutation at rate 1/N → collect M → sample B
+* **AdaLead** — parents with $F \\ge (1-\\kappa)F_{\\max}$, local/recombinant
+  children beating the corresponding parent, top-B by $\\mu$
+* **MCMC** — parallel MH with $\\pi \\propto \\exp(\\mu/T)$, collect M, rank by $\\mu$, top B
+* **BO** — enumerative UCB $\\mu + \\kappa\\sigma$, top B
+
+Encodings: ``onehot``, ``georgiev`` (19-D AAIndex-style stand-in), ``hybrid``,
+``mutation_bag``.
+
+Multi-round paired campaigns:
+
+```bash
+py -3.12 -m biosensor_priors.stage4_search.campaign
+```
+
+Metrics: success ratio, cumulative best / batch max / batch mean fitness.

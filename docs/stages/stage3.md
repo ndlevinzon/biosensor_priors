@@ -85,3 +85,24 @@ accuracy; paired Wilcoxon + Holm; bootstrap CIs.
 the prespecified baselines.
 
 Module: ``gate3.py``
+
+## Implementation status
+
+Runnable now (GP-only / physics-optional path):
+
+```bash
+py -3.12 -m biosensor_priors.stage3_surrogate.run
+```
+
+Encodings (``configs/thresholds.yaml`` → ``gp.encoding``):
+
+* ``onehot`` — per variable site, classical 20-AA one-hot ($N \\times 20$)
+* ``georgiev`` — per-site 19-D physicochemical vector (AAIndex-style stand-in)
+* ``hybrid`` — onehot + georgiev (default)
+* ``mutation_bag`` — mutation physchem deltas + mutation-code one-hots
+
+Artifacts under ``outputs/stage3/`` and ``manifests/stage3_manifest.json``.
+
+Until Stage 2 physics columns exist, ``physics_only`` is an intercept/mean
+baseline; fused = mean + GP residual. Gate records both hard statistical
+evidence and an operational soft pass on point RMSE improvement.

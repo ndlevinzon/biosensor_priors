@@ -60,6 +60,9 @@ See [docs/build_order.md](docs/build_order.md).
 ```bash
 py -3.12 -m pip install -e ".[dev,docs]"
 py -3.12 -m biosensor_priors.stage0_ground_truth.load_experiments
+py -3.12 -m biosensor_priors.stage3_surrogate.run
+py -3.12 -m biosensor_priors.stage4_search.run
+py -3.12 -m biosensor_priors.stage4_search.campaign
 py -3.12 -m pytest tests -q
 ruff check .
 ```

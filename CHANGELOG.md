@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- BO-EVO SI-faithful Stage 4 solvers (Random 1/N→M→B, AdaLead (1-κ) parents,
+  MCMC collect-M/rank-μ, enumerative UCB BO) and multi-round campaign runner
+  with success ratio / cumulative-best metrics
+- Stage 3 encodings: onehot, georgiev, hybrid, mutation_bag
+- Stage 3 physics-informed GP: feature builder (train-only preprocessing),
+  physics mean, confidence weighting, GP residual, CV over Stage-0 splits,
+  Gate 3 (Wilcoxon/Holm/bootstrap), CLI ``biosensor-stage3``
+- Stage 4 active learning design space, physics prefilter categories, CLI
+  ``biosensor-stage4`` / ``biosensor-stage4-campaign``
 - Stage 0 implementation: experimental DB cleaning, canonical alignment,
   physicochemical residue database, preregistered scalar fitness, frozen splits,
   validation gates, and ``experiment_master`` artifacts
@@ -20,4 +29,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Read the Docs config (``.readthedocs.yaml``)
 - Package scaffold under ``src/biosensor_priors`` matching the stage layout
 - YAML configs: ``pipeline``, ``fitness``, ``search``, ``thresholds``
-- Regression tests for numbering, Q324R, A355R, leakage, reproducibility
+- Regression tests for Stage 0/3/4
