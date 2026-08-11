@@ -51,6 +51,8 @@ biosensor-stage4-campaign = "biosensor_priors.stage4_search.campaign:main"
 biosensor-stage5 = "biosensor_priors.stage5_prospective.run:main"
 biosensor-stage6 = "biosensor_priors.stage6_ablation.run:main"
 biosensor-stage2 = "biosensor_priors.stage2_physics.run:main"
+biosensor-ligand-conformers = "biosensor_priors.stage2_physics.conformer_generator:main"
+biosensor-gaussian-qm = "biosensor_priors.stage2_physics.gaussian_qm:main"
 
 [project.optional-dependencies]
 dev = [
@@ -70,8 +72,11 @@ ml = [
     "gpytorch>=1.11",
     "torch>=2.2",
 ]
+chem = [
+    "rdkit>=2023.9.1",
+]
 all = [
-    "biosensor-priors[dev,docs,ml]",
+    "biosensor-priors[dev,docs,ml,chem]",
 ]
 
 [project.urls]

@@ -15,7 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (``esmfold/1.0.3``) and RoseTTAFold2 (``rosettafold2/1.0``, method ``RF2``)
   single-GPU job templates + adapters
 - Stage 2 physics landscape orchestration: ligand conformer pipeline with
-  permanent ``conformer_id``s, RIF/RPX job wrappers + provenance, 20-AA scan
+  permanent ``conformer_id``s, **RDKit ETKDG** conformer generator (OMEGA
+  replacement), **Gaussian16** (``gaussian16/SSE4.C01``) GJF/SLURM writers,
+  RIF/RPX job wrappers + provenance, 20-AA scan
   long table with ``ΔRIF_sel = RIF_Ac − RIF_Prop``, uncertainty aggregation
   across structure models, Gate 2 Q324R/A355R directional tests, mock backend
   until HPC tools are deployed, CLI ``biosensor-stage2``

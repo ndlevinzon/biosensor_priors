@@ -156,7 +156,8 @@ def _stage_tool_command(
     Parameters
     ----------
     tool : str, optional
-        External tool executable; when None, returns a no-op echo command.
+        External tool executable or ``builtin:*`` token; when None, returns a
+        no-op echo command.
     stage : str
         Pipeline stage name.
     ligand : str
@@ -171,10 +172,161 @@ def _stage_tool_command(
     list of str
         Command argv for the stage.
     """
-    if tool:
+    if tool and not str(tool).startswith("builtin:"):
         return [tool, "--ligand", ligand, "--in", str(in_dir), "--out", str(out_dir), "--stage", stage]
-    # Placeholder no-op recorded for provenance when tools are undeployed.
-    return ["echo", f"STAGE={stage}", f"LIGAND={ligand}", f"OUT={out_dir}"]
+    # Builtin stages are executed in-process; record a provenance echo.
+    return ["echo", f"STAGE={stage}", f"LIGAND={ligand}", f"TOOL={tool}", f"OUT={out_dir}"]
+
+
+def _run_builtin_stage(
+    *,
+    tool: str,
+    stage: str,
+    ligand: str,
+    in_dir: Path,
+    out_dir: Path,
+    lig_cfg: dict[str, Any],
+    backend: str,
+) -> dict[str, Any]:
+    """Execute built-in RDKit / Gaussian stages when configured.
+
+    Under ``backend: mock``, RDKit generation is skipped (placeholders later);
+    Gaussian ``.gjf`` / SLURM scripts are still written when ``qm.write_scripts``.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    meta: dict[str, Any] = {"tool": tool, "stage": stage, "ran": False}
+
+    if tool == "builtin:rdkit" and stage == "conformer_generation":
+        if backend != "external":
+            meta["skipped"] = "mock_backend"
+            return meta
+        from biosensor_priors.stage2_physics.conformer_generator import generate_conformers
+
+        gen_cfg = lig_cfg.get("conformer_generation") or {}
+        smiles_map = lig_cfg.get("smiles") or {}
+        starting = lig_cfg.get("starting_structures") or {}
+        start = starting.get(ligand)
+        start_path = Path(start) if start else None
+        if start_path and not start_path.is_absolute():
+            start_path = REPO_ROOT / start_path
+        paths = generate_conformers(
+            smiles=None if (start_path and start_path.exists()) else smiles_map.get(ligand),
+            input_path=start_path if (start_path and start_path.exists()) else None,
+            output_dir=out_dir,
+            n_conformers=int(gen_cfg.get("n_conformers", 50)),
+            prune_rms_thresh=float(gen_cfg.get("prune_rms_thresh", 0.5)),
+            random_seed=int(gen_cfg.get("random_seed", 42)),
+            force_field=str(gen_cfg.get("force_field", "MMFF94")),
+            minimize=bool(gen_cfg.get("minimize", True)),
+            max_iters=int(gen_cfg.get("max_iters", 200)),
+        )
+        meta.update({"ran": True, "n_written": len(paths)})
+        return meta
+
+    if tool == "builtin:rdkit_mmff" and stage == "geometry_cleanup":
+        # Conformer generation already minimizes; copy SDFs through unless external.
+        sdfs = sorted(in_dir.glob("*.sdf"))
+        if not sdfs:
+            meta["skipped"] = "no_input_sdfs"
+            return meta
+        for sdf in sdfs:
+            dest = out_dir / sdf.name
+            if not dest.exists():
+                dest.write_bytes(sdf.read_bytes())
+        meta.update({"ran": True, "n_copied": len(sdfs)})
+        return meta
+
+    if tool == "builtin:gaussian16" and stage == "qm_refinement":
+        qm_cfg = lig_cfg.get("qm") or {}
+        write_scripts = bool(qm_cfg.get("write_scripts", True))
+        if not write_scripts:
+            meta["skipped"] = "write_scripts_false"
+            return meta
+        from biosensor_priors.stage2_physics.gaussian_qm import (
+            prepare_gaussian_jobs_for_dir,
+            write_gaussian_gjf,
+            write_gaussian_slurm,
+        )
+
+        # Prefer cleaned SDFs; fall back to raw if cleanup empty (mock path).
+        src = in_dir
+        if not any(src.glob("*.sdf")):
+            raw = in_dir.parent / "raw"
+            if any(raw.glob("*.sdf")):
+                src = raw
+        result = prepare_gaussian_jobs_for_dir(src, out_dir, qm_cfg=qm_cfg, ligand=ligand)
+        if result["n_jobs"] == 0:
+            # Template job so CHPC SLURM/module wiring can be validated before ensembles exist.
+            gjf = out_dir / f"{ligand}_TEMPLATE.gjf"
+            slurm = out_dir / f"{ligand}_TEMPLATE.slurm"
+            write_gaussian_gjf(
+                gjf,
+                atoms=[
+                    ("C", 0.0, 0.0, 0.0),
+                    ("H", 0.0, 0.0, 1.09),
+                    ("H", 1.0267, 0.0, -0.363),
+                    ("H", -0.5134, 0.8892, -0.363),
+                    ("H", -0.5134, -0.8892, -0.363),
+                ],
+                title=f"{ligand} TEMPLATE methane — replace after RDKit ensemble",
+                charge=0,
+                multiplicity=1,
+                route=str(qm_cfg.get("route", "#p B3LYP/6-31G(d) Opt")),
+                nproc=int(qm_cfg.get("nproc", 8)),
+                mem=str(qm_cfg.get("mem", "32GB")),
+            )
+            write_gaussian_slurm(
+                slurm, gjf_path=gjf, qm_cfg=qm_cfg, job_name=f"g16_{ligand}_TEMPLATE"[:64]
+            )
+            submit = out_dir / "submit_all.sh"
+            submit.write_text(
+                "#!/bin/bash\nset -euo pipefail\n"
+                f'sbatch "{slurm.resolve().as_posix()}"\n',
+                encoding="utf-8",
+            )
+            meta.update(
+                {
+                    "ran": True,
+                    "n_jobs": 1,
+                    "template_only": True,
+                    "submit_script": str(submit),
+                }
+            )
+            return meta
+        meta.update(
+            {
+                "ran": True,
+                "n_jobs": result["n_jobs"],
+                "submit_script": str(result["submit_script"]),
+            }
+        )
+        return meta
+
+    if tool == "builtin:rdkit_rmsd" and stage == "deduplication_clustering":
+        if backend != "external":
+            meta["skipped"] = "mock_backend"
+            return meta
+        from biosensor_priors.stage2_physics.conformer_generator import cluster_conformers_rmsd
+
+        # Cluster QM-refined SDFs if present; else cleaned.
+        sdfs = sorted(in_dir.glob("*.sdf"))
+        if not sdfs:
+            meta["skipped"] = "no_input_sdfs"
+            return meta
+        clus = lig_cfg.get("clustering") or {}
+        kept = cluster_conformers_rmsd(
+            sdfs,
+            rmsd_threshold=float(clus.get("rmsd_threshold_angstrom", 0.5)),
+            max_keep=int(clus.get("max_conformers_per_ligand", 32)),
+        )
+        for p in kept:
+            dest = out_dir / p.name
+            dest.write_bytes(p.read_bytes())
+        meta.update({"ran": True, "n_kept": len(kept)})
+        return meta
+
+    meta["skipped"] = "unknown_builtin"
+    return meta
 
 
 def run_ligand_pipeline_stage(
@@ -187,8 +339,9 @@ def run_ligand_pipeline_stage(
     jobs_dir: Path,
     logs_dir: Path,
     backend: str = "mock",
+    lig_cfg: dict[str, Any] | None = None,
 ) -> PhysicsJob:
-    """Orchestrate one ligand pipeline stage (external or dry-run).
+    """Orchestrate one ligand pipeline stage (external, builtin, or dry-run).
 
     Parameters
     ----------
@@ -201,13 +354,15 @@ def run_ligand_pipeline_stage(
     out_dir : pathlib.Path
         Stage output directory.
     tool : str, optional
-        External tool executable for this stage.
+        External tool executable or ``builtin:*`` token.
     jobs_dir : pathlib.Path
         Root directory for job work folders.
     logs_dir : pathlib.Path
         Root directory for stdout/stderr logs.
     backend : str, optional
         Physics backend; ``external`` runs real tools when configured.
+    lig_cfg : dict, optional
+        Ligand subsection of ``physics.yaml`` for builtin stages.
 
     Returns
     -------
@@ -219,6 +374,17 @@ def run_ligand_pipeline_stage(
     work = jobs_dir / job_id
     work.mkdir(parents=True, exist_ok=True)
     cmd = _stage_tool_command(tool, stage=stage, ligand=ligand, in_dir=in_dir, out_dir=out_dir)
+    builtin_meta: dict[str, Any] = {}
+    if tool and str(tool).startswith("builtin:") and lig_cfg is not None:
+        builtin_meta = _run_builtin_stage(
+            tool=str(tool),
+            stage=stage,
+            ligand=ligand,
+            in_dir=in_dir,
+            out_dir=out_dir,
+            lig_cfg=lig_cfg,
+            backend=backend,
+        )
     job = PhysicsJob(
         job_id=job_id,
         kind="ligand",
@@ -226,11 +392,19 @@ def run_ligand_pipeline_stage(
         work_dir=work,
         stdout_path=logs_dir / f"{job_id}.out",
         stderr_path=logs_dir / f"{job_id}.err",
-        metadata={"stage": stage, "ligand": ligand, "backend": backend, "tool": tool},
+        metadata={
+            "stage": stage,
+            "ligand": ligand,
+            "backend": backend,
+            "tool": tool,
+            "builtin": builtin_meta,
+        },
     )
     write_shell_script(work / "run.sh", cmd)
-    # Always dry-run unless a real tool path is configured and backend=external.
-    dry = backend != "external" or tool is None
+    # External non-builtin tools run when backend=external; builtins already ran.
+    dry = True
+    if backend == "external" and tool and not str(tool).startswith("builtin:"):
+        dry = False
     return run_local_job(job, dry_run=dry)
 
 
@@ -416,6 +590,7 @@ def run_ligand_ensemble(
                 jobs_dir=jobs_dir,
                 logs_dir=logs_dir,
                 backend=backend,
+                lig_cfg=lig_cfg,
             )
             all_jobs.append(job)
 

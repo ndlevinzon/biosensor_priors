@@ -3,6 +3,10 @@
 #
 # External binaries are optional until HPC deployment. Use backend: mock for
 # local dry-runs that exercise the full Python orchestration + Gate 2 path.
+#
+# CHPC notes:
+# - No OpenEye OMEGA → built-in RDKit ETKDG conformer generator (builtin:rdkit).
+# - QM via Gaussian16: module load gaussian16/SSE4.C01 (ember/lonepeak SSE4).
 
 backend: mock  # mock | external
 
@@ -10,23 +14,56 @@ ligands:
   names:
     - AcCoA
     - PropCoA
-  # Starting structures (SDF/MOL2/PDB). Missing → placeholder stubs written.
+  # Starting structures (SDF/MOL2/PDB). Missing → SMILES below → placeholders (mock).
   starting_structures:
     AcCoA: null
     PropCoA: null
-  # Pipeline stages (orchestration only; tools filled in when deployed)
+  # Used when starting_structures are null and RDKit is available.
+  smiles:
+    # Ionized CoA phosphates (−4); adjust charge under qm if you change protonation.
+    AcCoA: "CC(=O)SCCNC(=O)CCNC(=O)[C@H](O)C(C)(C)COP(=O)([O-])OP(=O)([O-])OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1OP(=O)([O-])[O-]"
+    PropCoA: "CCC(=O)SCCNC(=O)CCNC(=O)[C@H](O)C(C)(C)COP(=O)([O-])OP(=O)([O-])OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1OP(=O)([O-])[O-]"
   pipeline:
     - conformer_generation
     - geometry_cleanup
     - qm_refinement
     - deduplication_clustering
     - approve_ensemble
-  # Tool placeholders — set absolute paths or module loads on the HPC.
+  # builtin:* uses in-repo tools; set absolute paths to override with wrappers.
   tools:
-    conformer_generator: null   # e.g. omega / rdkit script
-    geometry_cleanup: null
-    qm_refinement: null         # e.g. orca / psi4 wrapper
-    clustering: null
+    conformer_generator: "builtin:rdkit"      # OMEGA replacement
+    geometry_cleanup: "builtin:rdkit_mmff"  # MMFF minimize (same RDKit stack)
+    qm_refinement: "builtin:gaussian16"     # write GJF + SLURM (run on CHPC)
+    clustering: "builtin:rdkit_rmsd"
+  conformer_generation:
+    method: etkdg
+    n_conformers: 50
+    prune_rms_thresh: 0.5
+    random_seed: 42
+    force_field: MMFF94
+    minimize: true
+    max_iters: 200
+  geometry_cleanup:
+    force_field: MMFF94
+    max_iters: 200
+  qm:
+    module: "gaussian16/SSE4.C01"
+    executable: g16
+    # CoA-like ligands with 3× phosphate (−4) in SMILES above
+    charge: -4
+    multiplicity: 1
+    route: "#p B3LYP/6-31G(d) Opt"
+    nproc: 8
+    mem: "32GB"
+    # Always write .gjf/.slurm under ligands/*/qm/ (even under mock)
+    write_scripts: true
+    job:
+      partition: notchpeak
+      account: null   # set to your CHPC account
+      nodes: 1
+      ntasks: 8
+      mem: 32G
+      time: "24:00:00"
   clustering:
     rmsd_threshold_angstrom: 0.5
     max_conformers_per_ligand: 32

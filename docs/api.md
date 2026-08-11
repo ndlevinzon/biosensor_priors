@@ -183,6 +183,16 @@ descriptions via ``sphinx-autodoc-typehints``.
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: biosensor_priors.stage2_physics.conformer_generator
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: biosensor_priors.stage2_physics.gaussian_qm
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: biosensor_priors.stage2_physics.score_parser
    :members:
    :undoc-members:

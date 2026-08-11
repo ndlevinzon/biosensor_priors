@@ -134,7 +134,9 @@ Parsers and gates **do not infer** this convention.
 
 #### 4.1 Ligand conformer pipeline (2A)
 
-For AcCoA and PropCoA:
+For AcCoA and PropCoA. CHPC has no OpenEye OMEGA: conformers use **RDKit
+ETKDG** (`builtin:rdkit`); QM uses **Gaussian16**
+(`module load gaussian16/SSE4.C01`) via written `.gjf` + SLURM scripts.
 
 ```text
 starting structure → conformer generation → geometry cleanup

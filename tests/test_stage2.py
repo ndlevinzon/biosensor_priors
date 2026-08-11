@@ -45,6 +45,59 @@ def test_ligand_ensemble_writes_catalog() -> None:
     assert set(result.conformers["ligand"]) >= {"AcCoA", "PropCoA"}
     assert result.conformers["conformer_id"].is_unique
     assert (REPO_ROOT / "data" / "physics" / "ligands" / "AcCoA" / "approved").exists()
+    # Gaussian16 template SLURM written even under mock (no OMEGA; QM via g16)
+    qm_dir = REPO_ROOT / "data" / "physics" / "ligands" / "AcCoA" / "qm"
+    assert any(qm_dir.glob("*.slurm"))
+    slurm_text = next(qm_dir.glob("*.slurm")).read_text(encoding="utf-8")
+    assert "gaussian16/SSE4.C01" in slurm_text
+    assert "g16" in slurm_text
+
+
+def test_gaussian_gjf_and_log_parser(tmp_path) -> None:
+    from biosensor_priors.stage2_physics.gaussian_qm import (
+        parse_gaussian_optimized_xyz,
+        write_gaussian_gjf,
+        write_gaussian_slurm,
+    )
+
+    gjf = write_gaussian_gjf(
+        tmp_path / "m.gjf",
+        atoms=[("C", 0.0, 0.0, 0.0), ("H", 0.0, 0.0, 1.1)],
+        title="test",
+        charge=0,
+        route="#p B3LYP/6-31G(d) Opt",
+    )
+    text = gjf.read_text(encoding="utf-8")
+    assert "%NProcShared=" in text
+    assert "#p B3LYP/6-31G(d) Opt" in text
+    slurm = write_gaussian_slurm(
+        tmp_path / "m.slurm",
+        gjf_path=gjf,
+        qm_cfg={
+            "module": "gaussian16/SSE4.C01",
+            "executable": "g16",
+            "job": {"partition": "notchpeak", "account": "test", "time": "1:00:00", "ntasks": 4, "mem": "8G"},
+        },
+    )
+    s = slurm.read_text(encoding="utf-8")
+    assert "ml gaussian16/SSE4.C01" in s
+    log = tmp_path / "m.log"
+    log.write_text(
+        """
+ Standard orientation:
+ ---------------------------------------------------------------------
+ Center     Atomic      Atomic             Coordinates (Angstroms)
+ Number     Number       Type             X           Y           Z
+ ---------------------------------------------------------------------
+      1          6           0        0.000000    0.000000    0.000000
+      2          1           0        0.000000    0.000000    1.090000
+ ---------------------------------------------------------------------
+""",
+        encoding="utf-8",
+    )
+    atoms = parse_gaussian_optimized_xyz(log)
+    assert atoms[0][0] == "C"
+    assert atoms[1][0] == "H"
 
 
 def test_mutation_scan_and_gate2(stage0_result) -> None:
