@@ -268,10 +268,10 @@ def run_mutation_scan(
     amino_acids: list[str] | None = None,
     physics_scan_id: str | None = None,
 ) -> dict[str, Any]:
-    """Stage 2C — generate specs, score via Rosetta, and write long table.
+    """Stage 2C — generate specs, score via RF3 docking, and write long table.
 
     Long-format columns include Version, Position, WT, Mutant, rif_ac,
-    rif_prop, rpx, and delta_rif_sel (Rosetta interface / packing energies).
+    rif_prop, rpx, and delta_rif_sel (negated RF3 docking / apo confidence).
 
     Parameters
     ----------

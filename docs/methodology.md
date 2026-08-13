@@ -127,7 +127,8 @@ the standardized confidence table.
 Score direction is frozen:
 
 $$
-\text{more negative Rosetta interface/packing} \equiv \text{better interaction}.
+\text{more negative physics score} \equiv \text{better interaction}
+\quad(\text{RF3: }-\text{confidence}).
 $$
 
 Parsers and gates **do not infer** this convention.
@@ -147,11 +148,11 @@ Each approved structure receives a permanent `conformer_id` derived from
 content hash + schema version. Catalog:
 `data/physics/ligand_conformers.parquet`.
 
-#### 4.2 Rosetta interface / packing wrappers (2B)
+#### 4.2 RoseTTAFold3 docking wrappers (2B)
 
-Stage-2 priors are **PyRosetta** mutate→pack energies (CHPC
-``pyrosetta/4.0.0``), written into schema columns ``rif_ac``,
-``rif_prop``, and ``rpx``.
+Stage-2 priors are **RoseTTAFold3** (Foundry ``rf3 fold``) apo + ligand
+docking confidences, negated into schema columns ``rif_ac``, ``rif_prop``,
+and ``rpx`` so the frozen ``more_negative_is_better`` direction holds.
 
 For each `structure_model_id` and ligand ensemble the Python layer:
 

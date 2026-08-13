@@ -9,7 +9,7 @@
 `biosensor-priors` is a research software package for ranking and proposing
 protein biosensor variants under limited wet-lab budgets. Experimental
 measurements are treated as the only ground truth. Structural models (e.g.
-AlphaFold2/3) and physics scores (Rosetta / PyRosetta interface + packing)
+Boltz2 / AF3 / ESMFold / RF3) and physics scores (RoseTTAFold3 docking)
 enter as **priors and uncertainty
 channels**, not as substitutes for fitness. The pipeline supports
 leave-one-construct-out evaluation, BO-EVO–style search policies (Random,
@@ -27,7 +27,7 @@ The intended workflow is:
 
 1. **Stage 0** — clean experimental data; preregister scalar fitness; freeze splits  
 2. **Stage 1** — multi-predictor structure ensembles and confidence (HPC)  
-3. **Stage 2** — ligand ensembles, Rosetta interface/packing scans, $\Delta\mathrm{RIF}_{\mathrm{sel}}$, Gate 2  
+3. **Stage 2** — ligand ensembles, RF3 docking scans, $\Delta\mathrm{RIF}_{\mathrm{sel}}$, Gate 2  
 4. **Stage 3** — physics mean $\mu_0$ + GP residual; Gate 3 vs baselines  
 5. **Stage 4** — constrained design space + Random / AdaLead / MCMC / BO  
 6. **Stage 5** — immutable prediction freeze → plate import → prospective validation → refit  
@@ -131,7 +131,7 @@ src/biosensor_priors/
   common/                config, IDs, manifests, gates
   stage0_ground_truth/   cleaning, fitness, splits, Gate 0
   stage1_structures/     CHPC Boltz2/AF3/ESMFold/RF3 jobs, adapters, Gate 1
-  stage2_physics/        ligands, Rosetta scores, scans, Gate 2
+  stage2_physics/        ligands, RF3 docking scores, scans, Gate 2
   stage3_surrogate/      features, μ₀, GP residual, Gate 3
   stage4_search/         design space, policies, campaigns
   stage5_prospective/    freeze, import, validate, update
@@ -215,7 +215,7 @@ This project is released under the [MIT License](LICENSE).
 Pipeline design follows a physics-informed GP + active-learning framing for
 AcCoA-selective biosensor engineering, with search policies aligned to the
 BO-EVO style interface (Random, AdaLead, MCMC, enumerative UCB). External
-structure and PyRosetta remain user-deployed; the Python layer
+structure and RF3 (Foundry) remain user-deployed; the Python layer
 provides orchestration, provenance, and gates.
 
 This project was inspired by the following papers:

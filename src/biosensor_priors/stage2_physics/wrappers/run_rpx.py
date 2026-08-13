@@ -1,8 +1,9 @@
 """
-Stage 2 packing scores via CHPC **PyRosetta**.
+Stage 2 packing / fold-quality scores via RoseTTAFold3 apo confidence.
 
-``rpx`` is the local packing / total energy after mutate+pack. Same engine as
-``run_rosetta``; this CLI writes the packing-only TSV expected by ``rpx_jobs``.
+``rpx`` is negated apo RF3 confidence after mutation (legacy column name).
+Same engine as ``run_rf3_dock``; this CLI writes the packing-only TSV expected
+by ``rpx_jobs``.
 """
 
 from __future__ import annotations
@@ -13,14 +14,14 @@ from pathlib import Path
 from biosensor_priors.stage2_physics.wrappers._io import (
     load_mutations_json,
     resolve_mutations_path,
-    try_import,
     write_status,
 )
-from biosensor_priors.stage2_physics.wrappers.run_rosetta import (
-    load_rosetta_cfg,
+from biosensor_priors.stage2_physics.wrappers.run_rf3_dock import (
+    load_rf3_cfg,
     parse_mutation_string,
+    rf3_available,
     scaffold_rows,
-    score_mutation_rosetta,
+    score_mutation_rf3,
     write_rpx_only_tsv,
 )
 
@@ -35,7 +36,7 @@ def run(
     force_scaffold: bool = False,
     score_filename: str = "rpx_scores.tsv",
 ) -> Path:
-    """Score packing for one mutation or a mutations.json list."""
+    """Score apo RF3 confidence for one mutation or a mutations.json list."""
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -50,9 +51,9 @@ def run(
     else:
         targets = [parse_mutation_string("WT")]
 
-    ok, msg = try_import("pyrosetta")
+    cfg = load_rf3_cfg()
+    ok, msg = rf3_available(cfg)
     use_scaffold = force_scaffold or not ok
-    cfg = load_rosetta_cfg()
 
     if use_scaffold:
         rows = scaffold_rows(
@@ -60,30 +61,34 @@ def run(
         )
         write_status(
             out,
-            tool="pyrosetta_pack",
+            tool="rf3_apo",
             mode="scaffold",
             detail={
-                "import_ok": ok,
-                "import_message": msg,
+                "rf3_ok": ok,
+                "rf3_message": msg,
                 "n_mutations": len(targets),
                 "structure": str(structure),
                 "next_step": (
-                    "module load pyrosetta/4.0.0; drop --scaffold; "
-                    "set physics.yaml backend: external."
+                    "pip install 'rc-foundry[rf3]'; drop --scaffold; "
+                    "set physics.yaml backend: external (granite-gpu)."
                 ),
             },
         )
     else:
         rows = []
         errors: list[str] = []
+        work = out / "rf3_runs"
         for mut in targets:
             try:
                 rows.append(
-                    score_mutation_rosetta(
+                    score_mutation_rf3(
                         structure_pdb=structure,
                         mutation=mut,
                         cfg=cfg,
                         structure_model_id=structure_model_id,
+                        work_dir=work,
+                        score_apo=True,
+                        score_ligands=False,
                     )
                 )
             except Exception as exc:  # noqa: BLE001
@@ -97,7 +102,7 @@ def run(
                 )
         write_status(
             out,
-            tool="pyrosetta_pack",
+            tool="rf3_apo",
             mode="live" if not errors else "live_partial",
             detail={"n_rows": len(rows), "errors": errors[:20]},
         )
@@ -106,9 +111,9 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> None:
-    """CLI entry point for Rosetta packing (rpx column) scores."""
+    """CLI entry point for RF3 apo scores (rpx column)."""
     parser = argparse.ArgumentParser(
-        description="PyRosetta packing scores → Stage 2 rpx column"
+        description="RoseTTAFold3 apo confidence → Stage 2 rpx column"
     )
     parser.add_argument("--structure", type=Path, required=True)
     parser.add_argument(

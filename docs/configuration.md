@@ -43,7 +43,8 @@ Explicit policies are required for:
 
 **Frozen convention** (``configs/thresholds.yaml``):
 
-> More negative Rosetta interface/packing = better interaction.
+> More negative physics score = better interaction
+> (RF3 docking writes −confidence into ``rif_*`` / ``rpx``).
 
 Downstream code must not guess sign convention. Derived selectivity is:
 

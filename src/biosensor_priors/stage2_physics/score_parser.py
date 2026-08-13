@@ -1,6 +1,7 @@
-"""Parse and standardize Rosetta interface/packing score outputs; retain raw terms.
+"""Parse and standardize Stage-2 physics score outputs; retain raw terms.
 
 Legacy column names ``rif_ac`` / ``rif_prop`` / ``rpx`` are kept for Stage 3.
+Values are typically negated RF3 confidence (higher → more negative).
 """
 
 

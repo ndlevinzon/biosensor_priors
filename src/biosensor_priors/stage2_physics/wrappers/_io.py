@@ -1,4 +1,4 @@
-"""Shared helpers for Stage 2 Rosetta / packing wrapper CLIs."""
+"""Shared helpers for Stage 2 RF3 docking / apo wrapper CLIs."""
 
 from __future__ import annotations
 

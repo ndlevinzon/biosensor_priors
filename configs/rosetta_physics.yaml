@@ -1,34 +1,10 @@
-# Stage 2 physics priors via CHPC PyRosetta / Rosetta.
+# Stage 2 physics priors — DEPRECATED.
 #
-# Load on CHPC:
-#   module load pyrosetta/4.0.0
-#   python -c "import pyrosetta; pyrosetta.init('-mute all')"
+# PyRosetta packing/interface scoring was replaced by RoseTTAFold3 docking.
+# See configs/rf3_physics.yaml and:
+#   python -m biosensor_priors.stage2_physics.wrappers.run_rf3_dock
 #
-# Schema columns (Stage 3 / Gate 2) keep legacy names:
-#   rif_ac / rif_prop  → Rosetta ligand–protein interface (or total) energy
-#   rpx                → local packing / total energy after mutate+pack
-#   delta_rif_sel      → rif_ac − rif_prop
+# This file remains only so older docs/links do not 404; it is not loaded.
 
-rosetta:
-  engine: pyrosetta          # pyrosetta | (future: rosetta_scripts)
-  module: pyrosetta/4.0.0
-  init_flags: "-mute all"
-  scorefxn: ref2015
-  pack_radius_A: 8.0
-  n_pack_cycles: 2
-  # Prefer holo PDBs (protein + ligand). If null, apo packing fills rpx only
-  # and interface columns are NaN until complexes are provided.
-  complexes:
-    AcCoA: null              # e.g. data/physics/complexes/AcCoA_holo.pdb
-    PropCoA: null
-  # Residue name(s) treated as ligand when scoring interface (PDB HETATM)
-  ligand_resnames:
-    AcCoA: ["ACO", "ACoA", "ACCOA"]
-    PropCoA: ["PCO", "PCoA", "PROP"]
-  job:
-    partition: granite
-    qos: granite
-    account: cheatham
-    ntasks: 4
-    mem: 16G
-    time: "04:00:00"
+deprecated: true
+replaced_by: configs/rf3_physics.yaml

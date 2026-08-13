@@ -1,4 +1,4 @@
-"""Programmatic wrapper around Stage-2 Rosetta (PyRosetta) interface scoring."""
+"""Programmatic wrapper around Stage-2 RF3 docking (interface) scoring."""
 
 
 
@@ -360,6 +360,8 @@ def build_rif_job(
             account=jobs_cfg.get("account"),
 
             qos=jobs_cfg.get("qos"),
+
+            gres=jobs_cfg.get("gres"),
 
             module_loads=list(jobs_cfg.get("module_loads") or []),
 

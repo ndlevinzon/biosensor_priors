@@ -71,11 +71,11 @@ ligands:
   # Bump only when the *definition* of conformer_id content changes.
   conformer_id_schema_version: 1
 
-# Interface + packing priors via CHPC PyRosetta (configs/rosetta_physics.yaml).
+# Interface + packing priors via RoseTTAFold3 docking (configs/rf3_physics.yaml).
 # Schema columns keep legacy names: rif_ac / rif_prop / rpx / delta_rif_sel.
-# Keep backend: mock until Gate 2 passes on real pyrosetta scores.
+# Keep backend: mock until Gate 2 passes on real RF3 confidence scores.
 rif:
-  executable: "python -m biosensor_priors.stage2_physics.wrappers.run_rosetta"
+  executable: "python -m biosensor_priors.stage2_physics.wrappers.run_rf3_dock"
   command_template: >-
     {executable}
     --structure {structure_pdb}
@@ -90,7 +90,7 @@ rif:
     - PropCoA
 
 rpx:
-  # Same PyRosetta mutate+pack total energy → rpx column.
+  # Apo RF3 confidence (negated) → rpx column.
   executable: "python -m biosensor_priors.stage2_physics.wrappers.run_rpx"
   command_template: >-
     {executable}
@@ -101,11 +101,11 @@ rpx:
     --scaffold
   output_score_filename: rpx_scores.tsv
 
-# CHPC PyRosetta next steps:
-# 1. module load pyrosetta/4.0.0
-# 2. Set configs/rosetta_physics.yaml complexes.AcCoA / PropCoA to holo PDBs
+# CHPC RF3 docking next steps:
+# 1. pip install 'rc-foundry[rf3]'; foundry install base-models
+# 2. Optional: set configs/rf3_physics.yaml conda_activate / ligand SDF paths
 # 3. Drop --scaffold from command_templates above; set backend: external
-# 4. jobs.module_loads: [pyrosetta/4.0.0]; Gate 2 on Q324R / A355R
+# 4. jobs: granite-gpu + gres (below); Gate 2 on Q324R / A355R
 
 scan:
   # Canonical positions / AAs come from fitness.yaml design block by default.
@@ -117,16 +117,18 @@ scan:
 jobs:
   # local: write scripts + optionally run subprocess
   # slurm: write sbatch scripts (do not submit unless submit: true)
+  # RF3 docking needs a GPU allocation on Granite.
   scheduler: local
   submit: false
-  walltime: "04:00:00"
-  partition: granite
-  qos: granite
+  walltime: "12:00:00"
+  partition: granite-gpu
+  qos: granite-gpu
   account: cheatham
-  cpus: 4
-  mem_gb: 16
-  # Enable when backend: external on CHPC
-  module_loads: []   # e.g. [pyrosetta/4.0.0]
+  cpus: 8
+  mem_gb: 64
+  gres: "gpu:1"
+  # Enable when backend: external on CHPC (RF3 is pip/Foundry, not a module)
+  module_loads: []
   # Relative to data/physics
   jobs_subdir: jobs
   logs_subdir: logs

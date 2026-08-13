@@ -1,13 +1,12 @@
 # Stage 2 — Physics landscape
 
-Ligand conformers, Rosetta (PyRosetta) interface + packing scores for AcCoA
-and PropCoA, 20-AA scans, selectivity term, and uncertainty across structural
-models.
+Ligand conformers, **RoseTTAFold3 docking** scores for AcCoA and PropCoA,
+20-AA scans, selectivity term, and uncertainty across structural models.
 
 **HPC note:** External scoring is optional. Default ``configs/physics.yaml``
 uses ``backend: mock`` so the Python orchestration, permanent IDs, long tables,
-uncertainty aggregation, and Gate 2 all run locally. On CHPC use
-``module load pyrosetta/4.0.0``.
+uncertainty aggregation, and Gate 2 all run locally. On CHPC install Foundry
+RF3 (``pip install 'rc-foundry[rf3]'``; same stack as Stage 1).
 
 **Ligands on CHPC (no OMEGA):** conformers via built-in **RDKit ETKDG**
 (``builtin:rdkit``); QM via **Gaussian16** (``module load gaussian16/SSE4.C01``,
@@ -35,35 +34,36 @@ Outputs: ``data/physics/ligands/AcCoA/``, ``.../PropCoA/``,
 
 Modules: ``ligand_ensemble.py``, ``conformer_generator.py``, ``gaussian_qm.py``
 
-### 2B. Rosetta interface + packing wrapper
+### 2B. RF3 docking wrapper
 
-Programmatic wrapper around **PyRosetta** (CHPC ``pyrosetta/4.0.0``):
+Programmatic wrapper around **RoseTTAFold3** (Foundry ``rf3 fold``):
 
-- mutate → local pack → total energy (``rpx``)
-- optional holo complexes → interface ΔE for AcCoA / PropCoA (``rif_ac`` /
-  ``rif_prop``; legacy column names kept for Stage 3)
+- mutate sequence → optional backbone template from Stage-1 structure
+- apo fold confidence → ``rpx`` (negated)
+- protein + AcCoA / PropCoA docking confidence → ``rif_ac`` / ``rif_prop``
+  (negated; legacy column names kept for Stage 3)
 - write shell/sbatch scripts, capture logs, parse scores, store ``job.json``
 
-Config: ``configs/rosetta_physics.yaml`` (complex PDB paths, pack radius,
-score function).
+Config: ``configs/rf3_physics.yaml`` (ligand SMILES/SDF, template flags,
+metric keys, GPU job defaults).
 
-Inputs: ``structure_model_id`` + optional holo complexes  
+Inputs: ``structure_model_id`` + ligand SMILES (from ``physics.yaml``) or SDF  
 Outputs: ``data/physics/rif/.../rif_scores.tsv``, ``data/physics/rpx/...``
 
-Modules: ``rif_jobs.py``, ``rpx_jobs.py``, ``wrappers/run_rosetta.py``,
+Modules: ``rif_jobs.py``, ``rpx_jobs.py``, ``wrappers/run_rf3_dock.py``,
 ``score_parser.py``
 
 ### 2C. 20-AA scan engine
 
 For every allowed canonical position × amino acid, generate a mutation
-specification and score through Rosetta interface / packing.
+specification and score through RF3 apo + ligand docking.
 
 Long-format table:
 
 | Version | Position | WT | Mutant | RIF_Ac | RIF_Prop | RPX | delta_RIF_sel |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 
-(Column names are legacy; values are Rosetta energies.)
+(Column names are legacy; values are negated RF3 confidences.)
 
 Derived selectivity:
 
@@ -118,29 +118,31 @@ biosensor-stage2
 python -m biosensor_priors.stage2_physics.run --require-gate
 ```
 
-## Deploying PyRosetta on CHPC
+## Deploying RF3 docking on CHPC
 
 1. Install RDKit (``pip install 'biosensor-priors[chem]'``) for conformers;
    Gaussian16 is provided by CHPC (``gaussian16/SSE4.C01``).
-2. ``module load pyrosetta/4.0.0`` and confirm ``import pyrosetta``.
-3. Set ``configs/rosetta_physics.yaml`` → ``complexes.AcCoA`` / ``PropCoA`` to
-   holo PDBs (protein + ligand). Apo-only runs still fill ``rpx``.
+2. Install Foundry RF3: ``pip install 'rc-foundry[rf3]'`` and
+   ``foundry install base-models`` (same as Stage 1).
+3. Optional: set ``configs/rf3_physics.yaml`` → ``conda_activate`` and/or
+   per-ligand SDF ``path`` under ``ligands.*.path``.
 4. In ``configs/physics.yaml``: drop ``--scaffold`` from ``rif`` / ``rpx``
-   command templates; set ``jobs.module_loads: [pyrosetta/4.0.0]``;
-   set ``backend: external``.
+   command templates; set ``backend: external``; keep jobs on
+   ``granite-gpu`` with ``gres: gpu:1``.
 5. Gate 2 must still pass on real scores before Stage 3 trusts physics weights.
 
 ## Wrapper CLIs
 
 ```bash
-# Interface + packing (writes rif_scores.tsv; optional --write-rpx)
-python -m biosensor_priors.stage2_physics.wrappers.run_rosetta \
+# Ligand docking + optional apo (writes rif_scores.tsv; optional --write-rpx)
+python -m biosensor_priors.stage2_physics.wrappers.run_rf3_dock \
   --structure model.pdb --ligands data/physics/ligands \
-  --ligand-name 'AcCoA+PropCoA' --out /tmp/rosetta --scaffold
+  --ligand-name 'AcCoA+PropCoA' --out /tmp/rf3 --scaffold
 
-# Packing only → rpx_scores.tsv
+# Apo only → rpx_scores.tsv
 python -m biosensor_priors.stage2_physics.wrappers.run_rpx \
   --structure model.pdb --mutation Q324R --out /tmp/rpx --scaffold
 ```
 
-Entry points: ``biosensor-rosetta``, ``biosensor-rpx``.
+Entry points: ``biosensor-rf3-dock``, ``biosensor-rpx``
+(``biosensor-rosetta`` remains as an alias to RF3 dock).

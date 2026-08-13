@@ -1,4 +1,4 @@
-"""Programmatic wrapper around Rosetta packing (rpx column) jobs."""
+"""Programmatic wrapper around RF3 apo confidence (rpx column) jobs."""
 
 
 
@@ -244,6 +244,8 @@ def build_rpx_job(
             account=jobs_cfg.get("account"),
 
             qos=jobs_cfg.get("qos"),
+
+            gres=jobs_cfg.get("gres"),
 
             module_loads=list(jobs_cfg.get("module_loads") or []),
 

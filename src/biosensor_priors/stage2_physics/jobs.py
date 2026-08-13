@@ -131,6 +131,7 @@ def write_sbatch_script(
     partition: str | None = None,
     account: str | None = None,
     qos: str | None = None,
+    gres: str | None = None,
     module_loads: list[str] | None = None,
     stdout_path: Path | None = None,
     stderr_path: Path | None = None,
@@ -157,6 +158,8 @@ def write_sbatch_script(
         Slurm account string.
     qos : str, optional
         Slurm quality-of-service (required on Granite).
+    gres : str, optional
+        Slurm generic resources (e.g. ``gpu:1`` for RF3 docking).
     module_loads : list of str, optional
         Environment modules to load.
     stdout_path : pathlib.Path, optional
@@ -183,6 +186,8 @@ def write_sbatch_script(
         lines.append(f"#SBATCH --account={account}")
     if qos:
         lines.append(f"#SBATCH --qos={qos}")
+    if gres:
+        lines.append(f"#SBATCH --gres={gres}")
     if stdout_path:
         lines.append(f"#SBATCH --output={stdout_path}")
     if stderr_path:

@@ -17,8 +17,7 @@ keywords = [
     "priors",
     "gaussian-process",
     "active-learning",
-    "rosetta",
-    "pyrosetta",
+    "rosettafold3",
     "bayesian-optimization",
 ]
 classifiers = [
@@ -53,7 +52,8 @@ biosensor-stage6 = "biosensor_priors.stage6_ablation.run:main"
 biosensor-stage2 = "biosensor_priors.stage2_physics.run:main"
 biosensor-ligand-conformers = "biosensor_priors.stage2_physics.conformer_generator:main"
 biosensor-gaussian-qm = "biosensor_priors.stage2_physics.gaussian_qm:main"
-biosensor-rosetta = "biosensor_priors.stage2_physics.wrappers.run_rosetta:main"
+biosensor-rf3-dock = "biosensor_priors.stage2_physics.wrappers.run_rf3_dock:main"
+biosensor-rosetta = "biosensor_priors.stage2_physics.wrappers.run_rf3_dock:main"
 biosensor-rpx = "biosensor_priors.stage2_physics.wrappers.run_rpx:main"
 
 [project.optional-dependencies]

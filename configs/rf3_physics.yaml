@@ -1,0 +1,70 @@
+# Stage 2 physics priors via RoseTTAFold3 (Foundry) docking.
+#
+# Install on CHPC (same env as Stage 1 RF3):
+#   pip install 'rc-foundry[rf3]'
+#   foundry install base-models
+#
+# Protocol (fixed-backbone / ligand docking style):
+#   mutate sequence → rf3 fold(protein ± template + ligand) → confidence metrics
+#   mapped onto legacy Stage-3 columns (negated so more_negative_is_better holds):
+#     rif_ac / rif_prop  → −interface confidence (AcCoA / PropCoA)
+#     rpx                → −apo confidence (mutant fold quality / packing proxy)
+#     delta_rif_sel      → rif_ac − rif_prop
+#
+# Docs: https://github.com/RosettaCommons/foundry/blob/production/models/rf3/README.md
+
+rf3:
+  run: rf3
+  module: null
+  # Optional: conda activate script that puts `rf3` on PATH
+  # conda_activate: "/uufs/.../.conda/envs/biosensor_priors/bin/activate"
+  conda_activate: null
+  ckpt_path: null
+  early_stopping_plddt_threshold: 0.0
+  diffusion_batch_size: 1
+  num_steps: 50
+  # Extra hydra overrides appended to `rf3 fold ...`
+  extra_args: []
+
+  protein_chain_id: A
+  ligand_chain_id: B
+  # Template Stage-1 backbone while docking ligand (fixed-backbone docking).
+  template_protein: true
+  # If true and a ligand SDF/CIF is used, keep that conformer fixed.
+  ground_truth_ligand_conformer: false
+
+  # Confidence keys tried in order from RF3 summary / ranking outputs.
+  interface_metric_keys:
+    - iptm
+    - interface_ptm
+    - ranking_score
+    - ptm
+  apo_metric_keys:
+    - ptm
+    - ranking_score
+    - plddt
+    - mean_plddt
+  # RF3 confidence is higher-is-better; negate to match thresholds.yaml
+  # physics.score_direction: more_negative_is_better
+  negate_confidence: true
+
+  # Per-ligand sources (prefer SDF/CIF path; else SMILES from physics.yaml).
+  ligands:
+    AcCoA:
+      smiles: null   # null → configs/physics.yaml ligands.smiles.AcCoA
+      path: null     # e.g. data/physics/ligands/AcCoA/approved/conf_000.sdf
+      ccd_code: null
+    PropCoA:
+      smiles: null
+      path: null
+      ccd_code: null
+
+  job:
+    partition: granite-gpu
+    qos: granite-gpu
+    account: cheatham
+    ntasks: 8
+    nodes: 1
+    mem: 64G
+    time: "12:00:00"
+    gres: "gpu:1"
