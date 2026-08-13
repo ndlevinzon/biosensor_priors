@@ -22,9 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of ``-n 8`` so Foundry/Lightning Fabric does not abort under SLURM.
 - Stage 1 Boltz2 / ESMFold / AF3 GPU jobs likewise use ``--ntasks-per-node=1``
   (PyTorch Lightning rejects bare ``#SBATCH -n`` when ``SLURM_NTASKS > 1``).
-- Stage 1 Boltz2 inputs follow the CHPC FASTA example; input stems are
+- Stage 1 Boltz inputs follow the CHPC FASTA example; input stems are
   sanitized (no dots); ``--cpus-per-task=16``; later seeds reuse the first
   seed's MSA via SLURM ``afterok`` (avoids ColabFold MMseqs2 overload ERRORs).
+- Stage 1 GPU SLURM scripts use ``#SBATCH --export=NONE`` plus ``nvidia-smi``
+  checks so an empty login-shell ``CUDA_VISIBLE_DEVICES`` does not hide GPUs
+  from PyTorch (ESMFold / Boltz2 / RF3 / AF3 step-2).
 
 ### Added
 

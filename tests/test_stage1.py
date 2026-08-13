@@ -325,6 +325,8 @@ gates:
     esm_script = (root / esm["step1_script"]).read_text(encoding="utf-8")
     assert "ml esmfold/1.0.3" in esm_script
     assert "run_esmfold.py" in esm_script
+    assert "#SBATCH --export=NONE" in esm_script
+    assert "nvidia-smi -L" in esm_script
 
     rf = reg[reg["method"] == "RF3"].iloc[0]
     rf_script = (root / rf["step1_script"]).read_text(encoding="utf-8")

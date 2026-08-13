@@ -20,6 +20,7 @@ def _sbatch_header(
     gres: str | None = None,
     qos: str | None = None,
     export_all: bool = False,
+    export_none: bool = False,
     stdout_path: Path | str | None = None,
     stderr_path: Path | str | None = None,
     ntasks_per_node: int | None = None,
@@ -29,7 +30,13 @@ def _sbatch_header(
 
     Prefer ``ntasks_per_node`` for Foundry/Lightning RF3 jobs: Fabric rejects
     bare ``#SBATCH -n`` / ``--ntasks`` when ``SLURM_NTASKS > 1``.
+
+    Use ``export_none=True`` on GPU jobs so a login-shell
+    ``CUDA_VISIBLE_DEVICES=`` (empty) is not inherited — that yields
+    ``torch.cuda.is_available() is False`` with a CUDA unknown error.
     """
+    if export_all and export_none:
+        raise ValueError("export_all and export_none are mutually exclusive")
     lines = [
         "#!/bin/bash",
         f"#SBATCH -J {job_name}",
@@ -53,7 +60,9 @@ def _sbatch_header(
         lines.append(f"#SBATCH --qos={qos}")
     if gres:
         lines.append(f"#SBATCH --gres={gres}")
-    if export_all:
+    if export_none:
+        lines.append("#SBATCH --export=NONE")
+    elif export_all:
         lines.append("#SBATCH --export=ALL")
     if stdout_path is not None:
         out = Path(stdout_path)
@@ -65,6 +74,26 @@ def _sbatch_header(
         lines.append(f"#SBATCH --error={err.as_posix()}")
     lines.append("")
     return lines
+
+
+def _gpu_runtime_checks() -> list[str]:
+    """Bash prolog: confirm Slurm gave us a usable NVIDIA device."""
+    return [
+        'echo "host=$(hostname) job=${SLURM_JOB_ID:-na}"',
+        'echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES-unset}"',
+        'echo "SLURM_JOB_GPUS=${SLURM_JOB_GPUS-unset}"',
+        'if ! command -v nvidia-smi >/dev/null 2>&1; then',
+        '  echo "ERROR: nvidia-smi not found — need GPU partition + --gres=gpu:N" >&2',
+        "  exit 1",
+        "fi",
+        "nvidia-smi -L",
+        'if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then',
+        '  echo "ERROR: CUDA_VISIBLE_DEVICES is empty; PyTorch will see 0 GPUs." >&2',
+        '  echo "Hint: regenerate jobs (scripts use #SBATCH --export=NONE) or unset CUDA_VISIBLE_DEVICES on the login node before sbatch." >&2',
+        "  exit 1",
+        "fi",
+        "",
+    ]
 
 
 def resolve_slurm_log_paths(
@@ -325,6 +354,7 @@ def write_af3_step2_script(
         time=str(step["time"]),
         gres=step.get("gres"),
         qos=step.get("qos"),
+        export_none=True,
         stdout_path=stdout_path,
         stderr_path=stderr_path,
     )
@@ -334,6 +364,7 @@ def write_af3_step2_script(
             "ml purge",
             f"ml {af3_cfg['module']}",
             "",
+            *_gpu_runtime_checks(),
             f'INPUT_FILE="{Path(data_json).as_posix()}"',
             f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
             "",
@@ -392,11 +423,13 @@ def write_esmfold_script(
         account=str(step.get("account", "cheatham")),
         ntasks=_single_gpu_ntasks_per_node(step, default=1),
         ntasks_per_node=_single_gpu_ntasks_per_node(step, default=1),
+        cpus_per_task=int(step["cpus_per_task"]) if step.get("cpus_per_task") is not None else 4,
         nodes=int(step.get("nodes", 1)),
         mem=str(step.get("mem", "32G")),
         time=str(step.get("time", "4:00:00")),
         gres=step.get("gres", "gpu:1"),
         qos=step.get("qos", "granite-gpu"),
+        export_none=True,
         stdout_path=stdout_path,
         stderr_path=stderr_path,
     )
@@ -406,6 +439,7 @@ def write_esmfold_script(
             "ml purge",
             f"ml {esm_cfg['module']}",
             "",
+            *_gpu_runtime_checks(),
             f'FASTA_FILE="{Path(fasta_file).as_posix()}"',
             f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
             f'ESMFOLD_PY="{runner.as_posix()}"',
@@ -460,6 +494,7 @@ def write_boltz2_script(
         time=str(step.get("time", "8:00:00")),
         gres=step.get("gres", "gpu:1"),
         qos=step.get("qos", "granite-gpu"),
+        export_none=True,
         stdout_path=stdout_path,
         stderr_path=stderr_path,
     )
@@ -501,6 +536,7 @@ def write_boltz2_script(
             "ml purge",
             f"ml {boltz_cfg['module']}",
             "",
+            *_gpu_runtime_checks(),
             f'INPUT_FILE="{inp.as_posix()}"',
             f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
             'mkdir -p "$OUTPUT_DIR"',
@@ -539,11 +575,13 @@ def write_rf3_script(
         account=str(step.get("account", "cheatham")),
         ntasks=ntasks_per_node,
         ntasks_per_node=ntasks_per_node,
+        cpus_per_task=int(step["cpus_per_task"]) if step.get("cpus_per_task") is not None else 4,
         nodes=int(step.get("nodes", 1)),
         mem=str(step.get("mem", "64G")),
         time=str(step.get("time", "12:00:00")),
         gres=step.get("gres", "gpu:1"),
         qos=step.get("qos", "granite-gpu"),
+        export_none=True,
         stdout_path=stdout_path,
         stderr_path=stderr_path,
     )
@@ -573,12 +611,7 @@ def write_rf3_script(
     lines.extend(
         [
             "",
-            'if ! command -v nvidia-smi >/dev/null 2>&1; then',
-            '  echo "ERROR: nvidia-smi not found — need a GPU allocation" >&2',
-            "  exit 1",
-            "fi",
-            "nvidia-smi",
-            "",
+            *_gpu_runtime_checks(),
             f'INPUT_JSON="{Path(input_json).as_posix()}"',
             f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
             'mkdir -p "$OUTPUT_DIR"',
