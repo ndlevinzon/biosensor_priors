@@ -82,16 +82,58 @@ def _gpu_runtime_checks() -> list[str]:
         'echo "host=$(hostname) job=${SLURM_JOB_ID:-na}"',
         'echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES-unset}"',
         'echo "SLURM_JOB_GPUS=${SLURM_JOB_GPUS-unset}"',
+        # Empty string (inherited from login) hides all GPUs; unset ≠ empty.
+        'if [[ -v CUDA_VISIBLE_DEVICES && -z "${CUDA_VISIBLE_DEVICES}" ]]; then',
+        '  echo "WARNING: CUDA_VISIBLE_DEVICES was empty string; unsetting" >&2',
+        "  unset CUDA_VISIBLE_DEVICES",
+        "fi",
         'if ! command -v nvidia-smi >/dev/null 2>&1; then',
         '  echo "ERROR: nvidia-smi not found — need GPU partition + --gres=gpu:N" >&2',
         "  exit 1",
         "fi",
         "nvidia-smi -L",
-        'if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then',
-        '  echo "ERROR: CUDA_VISIBLE_DEVICES is empty; PyTorch will see 0 GPUs." >&2',
-        '  echo "Hint: regenerate jobs (scripts use #SBATCH --export=NONE) or unset CUDA_VISIBLE_DEVICES on the login node before sbatch." >&2',
+        'if ! nvidia-smi -L 2>/dev/null | grep -q GPU; then',
+        '  echo "ERROR: nvidia-smi -L shows no GPUs in this job" >&2',
         "  exit 1",
         "fi",
+        "",
+    ]
+
+
+def _lightning_declutter_slurm_env() -> list[str]:
+    """Stop PyTorch Lightning from treating the job as a Slurm multi-rank cluster.
+
+    Boltz / Foundry use Lightning, which auto-detects ``SLURM_NTASKS`` and can
+    then break single-GPU predict (CUDA init / device binding). Unset task-count
+    vars after Slurm has already applied GPU cgroup + ``CUDA_VISIBLE_DEVICES``.
+    """
+    return [
+        "# Lightning: ignore Slurm multi-rank detection for single-GPU predict",
+        "unset SLURM_NTASKS SLURM_NTASKS_PER_NODE SLURM_JOB_NAME || true",
+        "unset SLURM_LOCALID SLURM_PROCID SLURM_NODEID SLURM_JOB_NUM_NODES || true",
+        "",
+    ]
+
+
+def _torch_cuda_smoke_test(*, python_bin: str = "python") -> list[str]:
+    """Fail fast if PyTorch cannot open the allocated GPU."""
+    return [
+        f"{python_bin} - <<'PY'",
+        "import os, torch",
+        "print('torch', torch.__version__, 'cuda_build', torch.version.cuda)",
+        "print('CUDA_VISIBLE_DEVICES', os.environ.get('CUDA_VISIBLE_DEVICES', '<unset>'))",
+        "ok = torch.cuda.is_available()",
+        "print('torch.cuda.is_available', ok)",
+        "if not ok:",
+        "    raise SystemExit(",
+        "        'torch cannot initialize CUDA despite a Slurm GPU allocation. '",
+        "        'Common on CHPC: stale esmfold/1.0.0 vs 1.0.3, or GPU arch '",
+        "        '(granite H100/L40S) incompatible with this module\\'s PyTorch. '",
+        "        'Check nvidia-smi above; try ml spider esmfold / request gpu:l40s:1 '",
+        "        'or notchpeak-gpu.'",
+        "    )",
+        "print('device0', torch.cuda.get_device_name(0))",
+        "PY",
         "",
     ]
 
@@ -442,8 +484,11 @@ def write_esmfold_script(
             "set -euo pipefail",
             "ml purge",
             f"ml {esm_cfg['module']}",
+            "echo \"which python: $(which python)\"",
+            "echo \"CONDA_PREFIX=${CONDA_PREFIX-unset}\"",
             "",
             *_gpu_runtime_checks(),
+            *_torch_cuda_smoke_test(python_bin=python_bin),
             f'FASTA_FILE="{Path(fasta_file).as_posix()}"',
             f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
             f'ESMFOLD_PY="{runner.as_posix()}"',
@@ -541,6 +586,9 @@ def write_boltz2_script(
             f"ml {boltz_cfg['module']}",
             "",
             *_gpu_runtime_checks(),
+            *_lightning_declutter_slurm_env(),
+            # Fail fast if torch cannot actually open the GPU (before long MSA)
+            *_torch_cuda_smoke_test(python_bin="python"),
             f'INPUT_FILE="{inp.as_posix()}"',
             f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
             'mkdir -p "$OUTPUT_DIR"',
@@ -616,6 +664,8 @@ def write_rf3_script(
         [
             "",
             *_gpu_runtime_checks(),
+            *_lightning_declutter_slurm_env(),
+            *_torch_cuda_smoke_test(python_bin="python"),
             f'INPUT_JSON="{Path(input_json).as_posix()}"',
             f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
             'mkdir -p "$OUTPUT_DIR"',

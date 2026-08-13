@@ -75,6 +75,7 @@ af3:
     gres: "gpu:1"
 
 esmfold:
+  # Must be 1.0.3+ on granite (1.0.0 PyTorch is too old → CUDA unknown error)
   module: "esmfold/1.0.3"
   python: python
   device: cuda
@@ -89,7 +90,8 @@ esmfold:
     nodes: 1
     mem: 32G
     time: "4:00:00"
-    gres: "gpu:1"
+    # Prefer Ada if available; bare gpu:1 may land on H100 with old stacks
+    gres: "gpu:l40s:1"
 
 # RoseTTAFold3 via RosettaCommons Foundry (`rf3 fold`). Replaces RoseTTAFold2.
 # CHPC does not currently ship an RF3 module — install in your env:

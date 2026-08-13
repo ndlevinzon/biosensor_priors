@@ -79,14 +79,15 @@ def predict_sequences(
     model = model.eval()
     if device == "cuda":
         if not torch.cuda.is_available():
+            cvd = __import__("os").environ.get("CUDA_VISIBLE_DEVICES", "<unset>")
             raise RuntimeError(
                 "CUDA requested but torch.cuda.is_available() is False. "
-                "On CHPC this usually means (1) no GPU in the Slurm allocation "
-                "(need granite-gpu + --gres=gpu:1), or (2) an empty "
-                "CUDA_VISIBLE_DEVICES inherited from the login shell — regenerate "
-                "jobs so scripts use #SBATCH --export=NONE, or run "
-                "`unset CUDA_VISIBLE_DEVICES` before sbatch. "
-                f"CUDA_VISIBLE_DEVICES={__import__('os').environ.get('CUDA_VISIBLE_DEVICES', '<unset>')!r}"
+                f"CUDA_VISIBLE_DEVICES={cvd!r}. "
+                "If CVD is set (e.g. '0') but torch still fails, this is usually "
+                "a driver/module mismatch — not a missing Slurm GPU. "
+                "Use esmfold/1.0.3 (not 1.0.0), regenerate jobs, and confirm "
+                "`nvidia-smi -L` works in the job. On granite-gpu try "
+                "`gres: gpu:l40s:1` or run on notchpeak-gpu."
             )
         model = model.cuda()
     else:
