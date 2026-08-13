@@ -1,0 +1,3 @@
+# Optional: place AcCoA starting 3D coordinates here as starting.mol2
+# (or starting.sdf / starting.mol / starting.pdb).
+# If present, Stage 2A prefers this over ligand.smi for conformer generation.

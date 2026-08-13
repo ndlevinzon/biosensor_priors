@@ -15,6 +15,60 @@ from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
 from biosensor_priors.common.provenance import sha256_file
 from biosensor_priors.stage2_physics.jobs import PhysicsJob, run_local_job, write_shell_script
 
+_LIGAND_INPUT_ROOT = "data/ligands"
+_STARTING_SUFFIXES = (".mol2", ".sdf", ".mol", ".pdb")
+
+
+def read_smiles_file(path: Path) -> str | None:
+    """Return the first non-empty, non-comment SMILES line from a ``.smi`` file."""
+    path = Path(path)
+    if not path.exists():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        # Allow "SMILES name" two-column .smi
+        return s.split()[0]
+    return None
+
+
+def resolve_ligand_start_path(
+    ligand: str,
+    *,
+    lig_cfg: dict[str, Any],
+    repo_root: Path | None = None,
+) -> Path | None:
+    """Resolve optional 3D starting structure for a ligand (MOL2/SDF/MOL/PDB)."""
+    root = repo_root or REPO_ROOT
+    starting = lig_cfg.get("starting_structures") or {}
+    configured = starting.get(ligand)
+    if configured:
+        path = resolve_path(str(configured), root)
+        if path.exists():
+            return path
+    base = root / _LIGAND_INPUT_ROOT / ligand
+    for suffix in _STARTING_SUFFIXES:
+        candidate = base / f"starting{suffix}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def resolve_ligand_smiles(
+    ligand: str,
+    *,
+    lig_cfg: dict[str, Any],
+    repo_root: Path | None = None,
+) -> str | None:
+    """Resolve SMILES from YAML, else ``data/ligands/<name>/ligand.smi``."""
+    root = repo_root or REPO_ROOT
+    smiles_map = lig_cfg.get("smiles") or {}
+    configured = smiles_map.get(ligand)
+    if configured:
+        return str(configured)
+    return read_smiles_file(root / _LIGAND_INPUT_ROOT / ligand / "ligand.smi")
+
 
 def make_conformer_id(
     ligand: str,
@@ -203,15 +257,13 @@ def _run_builtin_stage(
         from biosensor_priors.stage2_physics.conformer_generator import generate_conformers
 
         gen_cfg = lig_cfg.get("conformer_generation") or {}
-        smiles_map = lig_cfg.get("smiles") or {}
-        starting = lig_cfg.get("starting_structures") or {}
-        start = starting.get(ligand)
-        start_path = Path(start) if start else None
-        if start_path and not start_path.is_absolute():
-            start_path = REPO_ROOT / start_path
+        start_path = resolve_ligand_start_path(ligand, lig_cfg=lig_cfg)
+        smiles = None if start_path is not None else resolve_ligand_smiles(
+            ligand, lig_cfg=lig_cfg
+        )
         paths = generate_conformers(
-            smiles=None if (start_path and start_path.exists()) else smiles_map.get(ligand),
-            input_path=start_path if (start_path and start_path.exists()) else None,
+            smiles=smiles,
+            input_path=start_path,
             output_dir=out_dir,
             n_conformers=int(gen_cfg.get("n_conformers", 50)),
             prune_rms_thresh=float(gen_cfg.get("prune_rms_thresh", 0.5)),
@@ -220,7 +272,14 @@ def _run_builtin_stage(
             minimize=bool(gen_cfg.get("minimize", True)),
             max_iters=int(gen_cfg.get("max_iters", 200)),
         )
-        meta.update({"ran": True, "n_written": len(paths)})
+        meta.update(
+            {
+                "ran": True,
+                "n_written": len(paths),
+                "start_path": str(start_path) if start_path else None,
+                "smiles_used": bool(smiles),
+            }
+        )
         return meta
 
     if tool == "builtin:rdkit_mmff" and stage == "geometry_cleanup":
@@ -549,7 +608,6 @@ def run_ligand_ensemble(
     tools = lig_cfg.get("tools") or {}
     stages = list(lig_cfg.get("pipeline") or [])
     backend = str(physics_cfg.get("backend", "mock"))
-    starting = lig_cfg.get("starting_structures") or {}
 
     jobs_dir = physics_root / physics_cfg.get("jobs", {}).get("jobs_subdir", "jobs")
     logs_dir = physics_root / physics_cfg.get("jobs", {}).get("logs_subdir", "logs")
@@ -594,8 +652,7 @@ def run_ligand_ensemble(
             )
             all_jobs.append(job)
 
-        start_path = starting.get(ligand)
-        start = resolve_path(start_path, root) if start_path else None
+        start = resolve_ligand_start_path(ligand, lig_cfg=lig_cfg, repo_root=root)
         cat = build_approved_ensemble(
             ligand,
             ldir,

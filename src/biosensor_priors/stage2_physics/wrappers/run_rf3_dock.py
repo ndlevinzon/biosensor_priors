@@ -28,6 +28,7 @@ import pandas as pd
 import yaml
 
 from biosensor_priors.common.config import REPO_ROOT, resolve_path
+from biosensor_priors.stage2_physics.ligand_ensemble import read_smiles_file
 from biosensor_priors.stage2_physics.wrappers._io import (
     load_mutations_json,
     resolve_mutations_path,
@@ -238,6 +239,8 @@ def resolve_ligand_component(
     smiles = lig_cfg.get("smiles")
     if not smiles:
         smiles = load_physics_ligand_smiles(root).get(ligand_name)
+    if not smiles:
+        smiles = read_smiles_file(root / "data" / "ligands" / ligand_name / "ligand.smi")
     if not smiles and ligands_dir is not None:
         # Prefer an approved SDF if present
         approved = Path(ligands_dir) / ligand_name / "approved"

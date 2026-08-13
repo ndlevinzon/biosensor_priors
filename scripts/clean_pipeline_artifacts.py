@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Remove generated pipeline artifacts so Stages 0–6 can be rerun from scratch.
 
-Keeps experimental inputs, construct references, configs, and ``weights/``
-(RF3 / Foundry checkpoints). Wipes Stage 0–6 outputs under ``data/``,
-``manifests/``, and ``outputs/`` (same trees that ``.gitignore`` treats as
-disposable).
+Keeps experimental inputs, construct references, ``data/ligands/``, configs,
+and ``weights/`` (RF3 / Foundry checkpoints). Wipes Stage 0–6 outputs under
+``data/``, ``manifests/``, and ``outputs/`` (same trees that ``.gitignore``
+treats as disposable).
 
 Usage (from repo root, on CHPC or locally)::
 
@@ -41,6 +41,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PROTECTED_PREFIXES = (
     "data/experimental",
     "data/constructs",
+    "data/ligands",
     "configs",
     "src",
     "tests",

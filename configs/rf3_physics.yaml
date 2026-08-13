@@ -44,10 +44,12 @@ rf3:
   # physics.score_direction: more_negative_is_better
   negate_confidence: true
 
-  # Per-ligand sources (prefer SDF/CIF path; else SMILES from physics.yaml).
+  # Per-ligand sources (prefer SDF/CIF path; else CCD; else SMILES).
+  # SMILES fallback: rf3.ligands.*.smiles → physics.yaml → data/ligands/<name>/ligand.smi
+  # After Stage 2A, set path to an approved SDF for best docking quality.
   ligands:
     AcCoA:
-      smiles: null   # null → configs/physics.yaml ligands.smiles.AcCoA
+      smiles: null
       path: null     # e.g. data/physics/ligands/AcCoA/approved/conf_000.sdf
       ccd_code: null
     PropCoA:

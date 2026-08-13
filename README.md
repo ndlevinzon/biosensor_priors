@@ -152,7 +152,7 @@ analysis constants in Python.
 
 ```text
 configs/                 YAML analysis contracts (preregistered)
-data/                    experimental, constructs, structures, physics, rounds
+data/                    experimental, constructs, ligands (inputs), structures, physics, rounds
 scripts/                 HPC helpers (e.g. clean_pipeline_artifacts)
 src/biosensor_priors/
   common/                config, IDs, manifests, gates

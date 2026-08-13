@@ -11,6 +11,7 @@ analysis_round: 0
 paths:
   experimental: "data/experimental"
   constructs: "data/constructs"
+  ligands: "data/ligands"
   structures: "data/structures"
   physics: "data/physics"
   rounds: "data/rounds"

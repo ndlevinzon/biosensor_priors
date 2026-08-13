@@ -14,15 +14,18 @@ ligands:
   names:
     - AcCoA
     - PropCoA
-  # Starting structures (SDF/MOL2/PDB). Missing → SMILES below → placeholders (mock).
+  # Optional overrides. Prefer dropping files under data/ligands/<name>/:
+  #   ligand.smi          → SMILES (first non-comment line)
+  #   starting.mol2|.sdf  → 3D start (used if present)
+  # Paths below win when the file exists; otherwise the data/ligands/ convention is used.
   starting_structures:
+    AcCoA: "data/ligands/AcCoA/starting.mol2"
+    PropCoA: "data/ligands/PropCoA/starting.mol2"
+  # null → read data/ligands/<name>/ligand.smi (seeded defaults live there).
+  # Set explicitly only to override the file without editing ligand.smi.
+  smiles:
     AcCoA: null
     PropCoA: null
-  # Used when starting_structures are null and RDKit is available.
-  smiles:
-    # Ionized CoA phosphates (−4); adjust charge under qm if you change protonation.
-    AcCoA: "CC(=O)SCCNC(=O)CCNC(=O)[C@H](O)C(C)(C)COP(=O)([O-])OP(=O)([O-])OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1OP(=O)([O-])[O-]"
-    PropCoA: "CCC(=O)SCCNC(=O)CCNC(=O)[C@H](O)C(C)(C)COP(=O)([O-])OP(=O)([O-])OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1OP(=O)([O-])[O-]"
   pipeline:
     - conformer_generation
     - geometry_cleanup
