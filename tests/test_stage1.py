@@ -100,6 +100,9 @@ structure:
     assert "--use_msa_server" in bz_script
     assert "colabfold02.int.chpc.utah.edu" in bz_script
     assert "#SBATCH -p granite-gpu" in bz_script
+    assert "#SBATCH --output=" in bz_script
+    assert "/logs/V2.4/V2.4_Boltz2_seed1_apo__boltz2_gpu.out" in bz_script.replace("\\", "/")
+    assert "#SBATCH --error=" in bz_script
     assert bz["step2_script"] is None or (isinstance(bz["step2_script"], float) and pd.isna(bz["step2_script"]))
 
     yaml_text = (root / bz["input_path"]).read_text(encoding="utf-8")
@@ -114,7 +117,8 @@ structure:
     assert "sbatch -d afterok:${SLURM_JOBID}" in a3s1
     assert "--norun_data_pipeline" in a3s2
     assert "granite-gpu" in a3s2
-
+    assert "/logs/V2.4/V2.4_AF3_seed1_apo__af3_step1_msa.out" in a3s1.replace("\\", "/")
+    assert "/logs/V2.4/V2.4_AF3_seed1_apo__af3_step2_infer.out" in a3s2.replace("\\", "/")
     import json as _json
 
     js_obj = _json.loads((root / af3_row["input_path"]).read_text(encoding="utf-8"))

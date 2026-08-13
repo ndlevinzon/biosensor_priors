@@ -46,6 +46,15 @@ biosensor-stage1 --ingest-only
 Defaults (Granite): CPU ``granite`` / GPU ``granite-gpu``, account ``cheatham``,
 matching ``--qos``.
 
+SLURM stdout/stderr for every Stage 1 job is written under one tree:
+
+```text
+data/structures/logs/<version>/<structure_model_id>__<script_stem>.{out,err}
+```
+
+for example ``data/structures/logs/V2.4/V2.4_Boltz2_seed1_apo__boltz2_gpu.out``.
+Regenerate jobs after pulling this change (``biosensor-stage1 --jobs-only``).
+
 ## Layers
 
 ### 1A. Structure job generator

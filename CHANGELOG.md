@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``biosensor-rf3-dock`` (``biosensor-rosetta`` alias).
 - Stage 1 predictors: **Boltz2** (CHPC ``boltz2``) replaces AF2; **RF3**
   (Foundry ``rf3 fold``) replaces RoseTTAFold2. AF3 and ESMFold unchanged.
+- Stage 1 SLURM scripts now set ``#SBATCH --output`` / ``--error`` under
+  ``data/structures/logs/<version>/`` (one directory per design version).
 
 ### Added
 

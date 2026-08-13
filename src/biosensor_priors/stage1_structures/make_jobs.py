@@ -12,6 +12,7 @@ import yaml
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
 from biosensor_priors.stage1_structures.slurm_templates import (
+    resolve_slurm_log_paths,
     write_af3_step1_script,
     write_af3_step2_script,
     write_boltz2_script,
@@ -357,11 +358,16 @@ def make_structure_jobs(
                         sequence=sequence,
                     )
                     script = job_dir / "boltz2_gpu.slurm"
+                    stdout, stderr = resolve_slurm_log_paths(
+                        logs_dir, structure_model_id=mid, script_stem=script.stem
+                    )
                     write_boltz2_script(
                         script,
                         input_yaml=input_yaml.resolve(),
                         output_dir=out_dir.resolve(),
                         boltz_cfg=boltz_cfg,
+                        stdout_path=stdout,
+                        stderr_path=stderr,
                     )
                     rows.append(
                         {
@@ -396,11 +402,19 @@ def make_structure_jobs(
                     data_json = _af3_data_json_path(out_dir.resolve(), af3_name)
                     step2 = job_dir / "af3_step2_infer.slurm"
                     step1 = job_dir / "af3_step1_msa.slurm"
+                    out2, err2 = resolve_slurm_log_paths(
+                        logs_dir, structure_model_id=mid, script_stem=step2.stem
+                    )
+                    out1, err1 = resolve_slurm_log_paths(
+                        logs_dir, structure_model_id=mid, script_stem=step1.stem
+                    )
                     write_af3_step2_script(
                         step2,
                         data_json=data_json,
                         output_dir=out_dir.resolve(),
                         af3_cfg=af3_cfg,
+                        stdout_path=out2,
+                        stderr_path=err2,
                     )
                     write_af3_step1_script(
                         step1,
@@ -409,6 +423,8 @@ def make_structure_jobs(
                         af3_cfg=af3_cfg,
                         step2_script=step2.resolve(),
                         chain_gpu=chain_gpu,
+                        stdout_path=out1,
+                        stderr_path=err1,
                     )
                     rows.append(
                         {
@@ -439,11 +455,16 @@ def make_structure_jobs(
                         sequence=sequence,
                     )
                     script = job_dir / "esmfold_gpu.slurm"
+                    stdout, stderr = resolve_slurm_log_paths(
+                        logs_dir, structure_model_id=mid, script_stem=script.stem
+                    )
                     write_esmfold_script(
                         script,
                         fasta_file=fasta.resolve(),
                         output_dir=out_dir.resolve(),
                         esm_cfg=esm_cfg,
+                        stdout_path=stdout,
+                        stderr_path=stderr,
                     )
                     rows.append(
                         {
@@ -473,11 +494,16 @@ def make_structure_jobs(
                         sequence=sequence,
                     )
                     script = job_dir / "rf3_gpu.slurm"
+                    stdout, stderr = resolve_slurm_log_paths(
+                        logs_dir, structure_model_id=mid, script_stem=script.stem
+                    )
                     write_rf3_script(
                         script,
                         input_json=input_json.resolve(),
                         output_dir=out_dir.resolve(),
                         rf3_cfg=rf3_cfg,
+                        stdout_path=stdout,
+                        stderr_path=stderr,
                     )
                     rows.append(
                         {

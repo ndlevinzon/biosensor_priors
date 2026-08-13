@@ -20,6 +20,8 @@ def _sbatch_header(
     gres: str | None = None,
     qos: str | None = None,
     export_all: bool = False,
+    stdout_path: Path | str | None = None,
+    stderr_path: Path | str | None = None,
 ) -> list[str]:
     lines = [
         "#!/bin/bash",
@@ -37,8 +39,31 @@ def _sbatch_header(
         lines.append(f"#SBATCH --gres={gres}")
     if export_all:
         lines.append("#SBATCH --export=ALL")
+    if stdout_path is not None:
+        out = Path(stdout_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        lines.append(f"#SBATCH --output={out.as_posix()}")
+    if stderr_path is not None:
+        err = Path(stderr_path)
+        err.parent.mkdir(parents=True, exist_ok=True)
+        lines.append(f"#SBATCH --error={err.as_posix()}")
     lines.append("")
     return lines
+
+
+def resolve_slurm_log_paths(
+    logs_dir: Path | str | None,
+    *,
+    structure_model_id: str,
+    script_stem: str,
+) -> tuple[Path | None, Path | None]:
+    """Return ``(stdout, stderr)`` under ``logs_dir`` for one SLURM script."""
+    if logs_dir is None:
+        return None, None
+    logs = Path(logs_dir)
+    logs.mkdir(parents=True, exist_ok=True)
+    base = f"{structure_model_id}__{script_stem}"
+    return logs / f"{base}.out", logs / f"{base}.err"
 
 
 def write_af2_step1_script(
@@ -49,6 +74,8 @@ def write_af2_step1_script(
     af2_cfg: dict[str, Any],
     step2_script: Path | str | None = None,
     chain_gpu: bool = True,
+    stdout_path: Path | str | None = None,
+    stderr_path: Path | str | None = None,
 ) -> Path:
     """
     Write CHPC AF2 step-1 (CPU MSA / features) SLURM script.
@@ -69,6 +96,8 @@ def write_af2_step1_script(
         time=str(step["time"]),
         gres=step.get("gres"),
         qos=step.get("qos"),
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
     )
     lines.extend(
         [
@@ -125,6 +154,8 @@ def write_af2_step2_script(
     fasta_file: Path | str,
     output_dir: Path | str,
     af2_cfg: dict[str, Any],
+    stdout_path: Path | str | None = None,
+    stderr_path: Path | str | None = None,
 ) -> Path:
     """Write CHPC AF2 step-2 (GPU inference / relax) SLURM script."""
     step = af2_cfg["step2"]
@@ -141,6 +172,8 @@ def write_af2_step2_script(
         gres=step.get("gres"),
         qos=step.get("qos"),
         export_all=True,
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
     )
     lines.extend(
         [
@@ -192,6 +225,8 @@ def write_af3_step1_script(
     af3_cfg: dict[str, Any],
     step2_script: Path | str | None = None,
     chain_gpu: bool = True,
+    stdout_path: Path | str | None = None,
+    stderr_path: Path | str | None = None,
 ) -> Path:
     """Write CHPC AF3 step-1 (CPU MSA, ``--norun_inference``) SLURM script."""
     step = af3_cfg["step1"]
@@ -207,6 +242,8 @@ def write_af3_step1_script(
         time=str(step["time"]),
         gres=step.get("gres"),
         qos=step.get("qos"),
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
     )
     lines.extend(
         [
@@ -241,6 +278,8 @@ def write_af3_step2_script(
     data_json: Path | str,
     output_dir: Path | str,
     af3_cfg: dict[str, Any],
+    stdout_path: Path | str | None = None,
+    stderr_path: Path | str | None = None,
 ) -> Path:
     """
     Write CHPC AF3 step-2 (GPU inference, ``--norun_data_pipeline``) script.
@@ -261,6 +300,8 @@ def write_af3_step2_script(
         time=str(step["time"]),
         gres=step.get("gres"),
         qos=step.get("qos"),
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
     )
     lines.extend(
         [
@@ -294,6 +335,8 @@ def write_esmfold_script(
     output_dir: Path | str,
     esm_cfg: dict[str, Any],
     runner_script: Path | str | None = None,
+    stdout_path: Path | str | None = None,
+    stderr_path: Path | str | None = None,
 ) -> Path:
     """
     Write a single-step CHPC ESMFold GPU SLURM script.
@@ -328,6 +371,8 @@ def write_esmfold_script(
         time=str(step.get("time", "4:00:00")),
         gres=step.get("gres", "gpu:1"),
         qos=step.get("qos", "granite-gpu"),
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
     )
     lines.extend(
         [
@@ -360,6 +405,8 @@ def write_boltz2_script(
     input_yaml: Path | str,
     output_dir: Path | str,
     boltz_cfg: dict[str, Any],
+    stdout_path: Path | str | None = None,
+    stderr_path: Path | str | None = None,
 ) -> Path:
     """
     Write a CHPC Boltz-2 GPU SLURM script.
@@ -380,6 +427,8 @@ def write_boltz2_script(
         time=str(step.get("time", "8:00:00")),
         gres=step.get("gres", "gpu:1"),
         qos=step.get("qos", "granite-gpu"),
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
     )
     runner = str(boltz_cfg.get("run", "boltz"))
     msa_url = str(
@@ -427,6 +476,8 @@ def write_rf3_script(
     input_json: Path | str,
     output_dir: Path | str,
     rf3_cfg: dict[str, Any],
+    stdout_path: Path | str | None = None,
+    stderr_path: Path | str | None = None,
 ) -> Path:
     """
     Write a GPU SLURM script for RoseTTAFold3 (``rf3 fold`` / Foundry).
@@ -447,6 +498,8 @@ def write_rf3_script(
         time=str(step.get("time", "12:00:00")),
         gres=step.get("gres", "gpu:1"),
         qos=step.get("qos", "granite-gpu"),
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
     )
     lines.extend(["set -euo pipefail", "ml purge"])
     if rf3_cfg.get("module"):
