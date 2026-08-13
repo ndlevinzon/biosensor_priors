@@ -197,9 +197,9 @@ def default_ablation_matrix() -> list[AblationConfig]:
             True,
             True,
             True,
-            "AF2",
+            "Boltz2",
             True,
-            "Physics+GP + AF2 + prefilter",
+            "Physics+GP + Boltz2 + prefilter",
         ),
         AblationConfig(
             "physics_gp_conf_af3_prefilter",

@@ -1,10 +1,10 @@
 # Structure / confidence thresholds (Stage 1)
 structure:
   predictors:
-    - AF2
+    - Boltz2
     - AF3
     - ESMFold
-    - RF2
+    - RF3
   seeds: [1, 2, 3]
   states:
     - apo

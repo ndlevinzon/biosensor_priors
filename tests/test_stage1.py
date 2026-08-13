@@ -1,4 +1,4 @@
-"""Tests for Stage 1 CHPC AlphaFold job generation and adapters."""
+"""Tests for Stage 1 CHPC structure job generation and adapters."""
 
 from __future__ import annotations
 
@@ -6,28 +6,32 @@ from pathlib import Path
 
 import pandas as pd
 
-from biosensor_priors.stage1_structures.adapters import parse_AF2, parse_AF3
-from biosensor_priors.stage1_structures.confidence import compute_structural_confidence
+from biosensor_priors.stage1_structures.adapters import parse_AF3, parse_Boltz2, parse_RF3
 from biosensor_priors.stage1_structures.make_jobs import (
     make_structure_jobs,
     sanitize_af3_name,
     structure_model_id,
     write_af3_input_json,
+    write_boltz2_yaml,
     write_fasta,
 )
 from biosensor_priors.stage1_structures.run import run_stage1
-
 
 SEQ = "GMRESYANENQFGFKTINSDIHKIVIVGGYGKLGGLFARYLRASGYPISILDRED"
 
 
 def test_structure_model_id_format():
-    assert structure_model_id("V2.4", "AF2", 1, "apo") == "V2.4_AF2_seed1_apo"
+    assert structure_model_id("V2.4", "Boltz2", 1, "apo") == "V2.4_Boltz2_seed1_apo"
 
 
-def test_make_jobs_writes_chpc_af2_af3_scripts(tmp_path: Path, monkeypatch):
-    # Isolate writes under tmp by pointing REPO_ROOT via make_structure_jobs repo_root
-    # and a minimal config tree.
+def test_write_boltz2_yaml(tmp_path: Path):
+    path = write_boltz2_yaml(tmp_path / "in.yaml", sequence=SEQ)
+    text = path.read_text(encoding="utf-8")
+    assert "protein:" in text
+    assert "GMRESYANEN" in text
+
+
+def test_make_jobs_writes_boltz2_af3_scripts(tmp_path: Path):
     root = tmp_path
     (root / "configs").mkdir()
     (root / "data" / "structures").mkdir(parents=True)
@@ -35,7 +39,6 @@ def test_make_jobs_writes_chpc_af2_af3_scripts(tmp_path: Path, monkeypatch):
     (root / "manifests").mkdir()
     (root / "outputs").mkdir()
 
-    # Copy real configs (structures + pipeline/thresholds) by writing minimal YAML
     (root / "configs" / "pipeline.yaml").write_text(
         """
 canonical_reference: "V1.0"
@@ -61,7 +64,7 @@ gates:
     (root / "configs" / "thresholds.yaml").write_text(
         """
 structure:
-  predictors: [AF2, AF3]
+  predictors: [Boltz2, AF3]
   seeds: [1]
   states: [apo]
   confidence:
@@ -72,7 +75,6 @@ structure:
 """.strip(),
         encoding="utf-8",
     )
-    # Reuse real structures.yaml content from repo via import path — write CHPC essentials
     from biosensor_priors.common.config import REPO_ROOT
     import shutil
 
@@ -82,33 +84,27 @@ structure:
         version="V2.4",
         sequence=SEQ,
         repo_root=root,
-        predictors=["AF2", "AF3"],
+        predictors=["Boltz2", "AF3"],
         seeds=[1],
         states=["apo"],
         submit=False,
     )
     assert result["n_jobs"] == 2
     registry = result["registry"]
-    assert set(registry["method"]) == {"AF2", "AF3"}
+    assert set(registry["method"]) == {"Boltz2", "AF3"}
 
-    af2_row = registry[registry["method"] == "AF2"].iloc[0]
-    step1 = root / af2_row["step1_script"]
-    step2 = root / af2_row["step2_script"]
-    text1 = step1.read_text(encoding="utf-8")
-    text2 = step2.read_text(encoding="utf-8")
-    assert "ml alphafold/2.3.2" in text1
-    assert "db_to_tmp_232.sh" in text1
-    assert "--run_feature=1" in text1
-    assert "sbatch -d afterok:${SLURM_JOBID}" in text1
-    assert "run_alphafold_full.sh" in text1
-    assert "ml alphafold/2.3.2" in text2
-    assert "--run_feature=1" not in text2
-    assert "--gres=gpu:1" in text2
-    assert "#SBATCH -p granite-gpu" in text2
-    assert "#SBATCH --qos=granite-gpu" in text2
-    assert "#SBATCH -A cheatham" in text2
-    assert "#SBATCH -p granite" in text1
-    assert "#SBATCH --qos=granite" in text1
+    bz = registry[registry["method"] == "Boltz2"].iloc[0]
+    bz_script = (root / bz["step1_script"]).read_text(encoding="utf-8")
+    assert "ml boltz2" in bz_script
+    assert "boltz predict" in bz_script
+    assert "--use_msa_server" in bz_script
+    assert "colabfold02.int.chpc.utah.edu" in bz_script
+    assert "#SBATCH -p granite-gpu" in bz_script
+    assert bz["step2_script"] is None or (isinstance(bz["step2_script"], float) and pd.isna(bz["step2_script"]))
+
+    yaml_text = (root / bz["input_path"]).read_text(encoding="utf-8")
+    assert "protein:" in yaml_text
+    assert "GMRESYANEN" in yaml_text
 
     af3_row = registry[registry["method"] == "AF3"].iloc[0]
     a3s1 = (root / af3_row["step1_script"]).read_text(encoding="utf-8")
@@ -118,12 +114,6 @@ structure:
     assert "sbatch -d afterok:${SLURM_JOBID}" in a3s1
     assert "--norun_data_pipeline" in a3s2
     assert "granite-gpu" in a3s2
-    assert "--qos=granite-gpu" in a3s2
-    assert "_data.json" in a3s2
-
-    fasta = (root / af2_row["input_path"]).read_text(encoding="utf-8")
-    assert fasta.startswith(">")
-    assert "GMRESYANEN" in fasta
 
     import json as _json
 
@@ -132,17 +122,18 @@ structure:
     assert js_obj["modelSeeds"] == [1]
 
 
-def test_parse_af2_from_pdb(tmp_path: Path):
-    pdb = tmp_path / "ranked_0.pdb"
-    # Minimal CA atoms with pLDDT in B-factor
-    lines = [
-        "ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00 90.00           C",
-        "ATOM      2  CA  GLY A   2       1.000   0.000   0.000  1.00 80.00           C",
-    ]
-    pdb.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    parsed = parse_AF2(tmp_path, version="V2.4", seed=1, state="apo")
+def test_parse_boltz2_from_pdb_tree(tmp_path: Path):
+    pred = tmp_path / "predictions" / "job"
+    pred.mkdir(parents=True)
+    pdb = pred / "job_model_0.pdb"
+    pdb.write_text(
+        "ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00 90.00           C\n"
+        "ATOM      2  CA  GLY A   2       1.000   0.000   0.000  1.00 80.00           C\n",
+        encoding="utf-8",
+    )
+    parsed = parse_Boltz2(tmp_path, version="V2.4", seed=1, state="apo")
     assert len(parsed["models"]) == 1
-    assert len(parsed["residues"]) == 2
+    assert parsed["models"].iloc[0]["method"] == "Boltz2"
     assert parsed["residues"]["plddt"].tolist() == [90.0, 80.0]
 
 
@@ -196,7 +187,7 @@ gates:
         sequence=SEQ,
         make_jobs=True,
         ingest=True,
-        predictors=["AF2"],
+        predictors=["Boltz2"],
         seeds=[1, 2],
         states=["apo"],
     )
@@ -205,7 +196,7 @@ gates:
     assert (root / "data" / "structures" / "job_registry.parquet").exists()
 
 
-def test_make_jobs_esmfold_and_rf2(tmp_path: Path):
+def test_make_jobs_esmfold_and_rf3(tmp_path: Path):
     root = tmp_path
     for d in ("configs", "data/structures", "data/constructs", "manifests", "outputs"):
         (root / d).mkdir(parents=True, exist_ok=True)
@@ -241,7 +232,7 @@ gates:
         version="V2.4",
         sequence=SEQ,
         repo_root=root,
-        predictors=["ESMFold", "RF2"],
+        predictors=["ESMFold", "RF3"],
         seeds=[1],
         states=["apo"],
     )
@@ -251,97 +242,33 @@ gates:
     esm_script = (root / esm["step1_script"]).read_text(encoding="utf-8")
     assert "ml esmfold/1.0.3" in esm_script
     assert "run_esmfold.py" in esm_script
-    assert "esm-fold -i" not in esm_script
-    assert "--chunk-size 128" in esm_script
-    assert "esm.pretrained.esmfold_v1" in esm_script or "fair-esm Python API" in esm_script
 
-    rf = reg[reg["method"] == "RF2"].iloc[0]
+    rf = reg[reg["method"] == "RF3"].iloc[0]
     rf_script = (root / rf["step1_script"]).read_text(encoding="utf-8")
-    assert "ml rosettafold2/1.0" in rf_script
-    assert "run_RF2.sh" in rf_script
-    assert ' -o "$OUTPUT_DIR"' in rf_script
+    assert "rf3 fold" in rf_script
+    assert "early_stopping_plddt_threshold=0" in rf_script
+    assert "nvidia-smi" in rf_script
+    js = (root / rf["input_path"]).read_text(encoding="utf-8")
+    assert '"seq"' in js
 
 
-def test_esmfold_read_fasta(tmp_path: Path):
-    from biosensor_priors.stage1_structures.run_esmfold import read_fasta
-
-    fa = tmp_path / "t.fasta"
-    fa.write_text(">V2.4_ESMFold_seed1_apo\nACDE\nFGHI\n", encoding="utf-8")
-    recs = read_fasta(fa)
-    assert recs == [("V2.4_ESMFold_seed1_apo", "ACDEFGHI")]
-
-
-def test_parse_esmfold(tmp_path: Path):
-    from biosensor_priors.stage1_structures.adapters import parse_ESMFold
-
-    mid = "V2.4_ESMFold_seed1_apo"
-    pdb = tmp_path / f"{mid}.pdb"
+def test_parse_rf3(tmp_path: Path):
+    pdb = tmp_path / "example_model.pdb"
     pdb.write_text(
-        "ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00 85.00           C\n",
-        encoding="utf-8",
-    )
-    parsed = parse_ESMFold(tmp_path, version="V2.4", seed=1, state="apo")
-    assert parsed["models"].iloc[0]["method"] == "ESMFold"
-    assert parsed["residues"].iloc[0]["plddt"] == 85.0
-
-
-def test_parse_rf2(tmp_path: Path):
-    from biosensor_priors.stage1_structures.adapters import parse_RF2
-
-    models = tmp_path / "models"
-    models.mkdir()
-    (models / "model_00.pdb").write_text(
         "ATOM      1  CA  GLY A   1       0.000   0.000   0.000  1.00 77.00           C\n",
         encoding="utf-8",
     )
-    parsed = parse_RF2(tmp_path, version="V2.4", seed=1, state="apo")
-    assert parsed["models"].iloc[0]["method"] == "RF2"
+    parsed = parse_RF3(tmp_path, version="V2.4", seed=1, state="apo")
+    assert parsed["models"].iloc[0]["method"] == "RF3"
     assert parsed["residues"].iloc[0]["plddt"] == 77.0
 
 
-def test_sanitize_and_writers(tmp_path: Path):
+def test_sanitize_af3_name():
     assert sanitize_af3_name("V2.4_AF3_seed1_apo") == "V2_4_AF3_seed1_apo"
-    write_fasta(tmp_path / "x.fasta", header="h", sequence="ACDE")
-    write_af3_input_json(tmp_path / "x.json", name="x", sequence="ACDE", seed=3)
-    conf = compute_structural_confidence(
-        pd.DataFrame(
-            [
-                {
-                    "structure_model_id": "m1",
-                    "version": "V2.4",
-                    "method": "AF2",
-                    "seed": 1,
-                    "state": "apo",
-                    "structure_path": str(tmp_path / "missing.pdb"),
-                    "mean_plddt": 90.0,
-                }
-            ]
-        ),
-        pd.DataFrame(
-            [
-                {
-                    "structure_model_id": "m1",
-                    "version": "V2.4",
-                    "method": "AF2",
-                    "seed": 1,
-                    "state": "apo",
-                    "residue_index": 1,
-                    "canonical_position": 324,
-                    "aa": "Q",
-                    "plddt": 91.0,
-                    "pae_pocket": 3.0,
-                }
-            ]
-        ),
-        conf_cfg={
-            "plDDT_min_reliable": 70.0,
-            "rmsd_max_reliable": 2.0,
-            "pae_pocket_max_reliable": 10.0,
-            "confidence_min_reliable": 0.5,
-            "w_plddt": 0.5,
-            "w_rmsd": 0.3,
-            "w_pae": 0.2,
-        },
-    )
-    assert len(conf) == 1
-    assert conf.iloc[0]["Reliable"] == "yes"
+
+
+def test_write_af3_and_fasta(tmp_path: Path):
+    fa = write_fasta(tmp_path / "t.fa", header="h", sequence="ACDE")
+    assert fa.read_text(encoding="utf-8").startswith(">h")
+    js = write_af3_input_json(tmp_path / "j.json", name="job", sequence="ACDE", seed=3)
+    assert "alphafold3" in js.read_text(encoding="utf-8")

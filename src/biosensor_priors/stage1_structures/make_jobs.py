@@ -1,4 +1,4 @@
-"""Generate CHPC AlphaFold 2/3 inputs and two-step SLURM job scripts."""
+"""Generate CHPC structure-prediction inputs and SLURM job scripts."""
 
 from __future__ import annotations
 
@@ -8,15 +8,15 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import yaml
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
 from biosensor_priors.stage1_structures.slurm_templates import (
-    write_af2_step1_script,
-    write_af2_step2_script,
     write_af3_step1_script,
     write_af3_step2_script,
+    write_boltz2_script,
     write_esmfold_script,
-    write_rosettafold2_script,
+    write_rf3_script,
 )
 
 
@@ -24,19 +24,20 @@ def canonicalize_method(method: str) -> str:
     """Map predictor aliases to canonical Stage-1 method labels."""
     key = str(method).strip().upper().replace(" ", "").replace("_", "").replace("-", "")
     lookup = {
-        "AF2": "AF2",
+        "BOLTZ2": "Boltz2",
+        "BOLTZ": "Boltz2",
         "AF3": "AF3",
+        "ALPHAFOLD3": "AF3",
         "ESMFOLD": "ESMFold",
         "ESM": "ESMFold",
-        "RF2": "RF2",
-        "ROSETTAFOLD2": "RF2",
-        "ROSETTAFOLD": "RF2",
-        "RFAA": "RF2",
+        "RF3": "RF3",
+        "ROSETTAFOLD3": "RF3",
     }
     if key not in lookup:
         raise ValueError(
             f"Unknown structure predictor {method!r}. "
-            f"Supported: AF2, AF3, ESMFold, RF2 (RoseTTAFold2)"
+            f"Supported: Boltz2, AF3, ESMFold, RF3 "
+            f"(AF2 and RF2 were replaced by Boltz2 and RF3)"
         )
     return lookup[key]
 
@@ -80,23 +81,48 @@ def sanitize_af3_name(name: str) -> str:
     return cleaned.strip("_") or "job"
 
 
+def write_boltz2_yaml(path: Path, *, sequence: str, chain_id: str = "A") -> Path:
+    """Write a Boltz-2 protein YAML input (preferred over FASTA)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "sequences": [
+            {
+                "protein": {
+                    "id": chain_id,
+                    "sequence": "".join(str(sequence).split()),
+                }
+            }
+        ]
+    }
+    path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    return path
+
+
+def write_rf3_input_json(
+    path: Path,
+    *,
+    name: str,
+    sequence: str,
+    chain_id: str = "A",
+    msa_path: str | None = None,
+) -> Path:
+    """Write a RoseTTAFold3 Foundry JSON input (sequence ± optional MSA)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    component: dict[str, Any] = {
+        "seq": "".join(str(sequence).split()),
+        "chain_id": chain_id,
+    }
+    if msa_path:
+        component["msa_path"] = str(msa_path)
+    payload = {"name": name, "components": [component]}
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
 def write_fasta(path: Path, *, header: str, sequence: str) -> Path:
-    """Write a single-sequence FASTA file for AlphaFold 2.
-
-    Parameters
-    ----------
-    path : pathlib.Path
-        Destination FASTA path.
-    header : str
-        FASTA header without leading ``>``.
-    sequence : str
-        Protein sequence (whitespace stripped).
-
-    Returns
-    -------
-    pathlib.Path
-        Written path.
-    """
+    """Write a single-sequence FASTA file (ESMFold / generic)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     seq = "".join(str(sequence).split()).upper().rstrip("*")
@@ -281,7 +307,7 @@ def make_structure_jobs(
     version = str(version)
 
     thr_struct = thresholds.get("structure", {})
-    predictors = list(predictors or cfg.get("predictors") or thr_struct.get("predictors") or ["AF2", "AF3"])
+    predictors = list(predictors or cfg.get("predictors") or thr_struct.get("predictors") or ["Boltz2", "AF3"])
     seeds = [int(s) for s in (seeds or cfg.get("seeds") or thr_struct.get("seeds") or [1, 2, 3])]
     states = list(states or cfg.get("states") or ["apo"])
 
@@ -300,10 +326,10 @@ def make_structure_jobs(
     chain_gpu = bool(jobs_cfg.get("chain_gpu_after_msa", True))
     do_submit = bool(jobs_cfg.get("submit", False) if submit is None else submit)
 
-    af2_cfg = dict(cfg.get("af2", {}))
     af3_cfg = dict(cfg.get("af3", {}))
     esm_cfg = dict(cfg.get("esmfold", {}))
-    rf2_cfg = dict(cfg.get("rosettafold2", {}))
+    boltz_cfg = dict(cfg.get("boltz2", {}))
+    rf3_cfg = dict(cfg.get("rosettafold3", {}))
 
     rows: list[dict[str, Any]] = []
     step1_scripts: list[Path] = []
@@ -319,33 +345,23 @@ def make_structure_jobs(
                 out_dir.mkdir(parents=True, exist_ok=True)
 
                 note = None
-                if state != "apo" and method_c in {"AF2", "AF3", "ESMFold", "RF2"}:
+                if state != "apo" and method_c in {"Boltz2", "AF3", "ESMFold", "RF3"}:
                     note = (
                         f"State {state!r}: protein-only input written; "
                         "ligand CCD/SMILES not yet wired."
                     )
 
-                if method_c == "AF2":
-                    fasta = write_fasta(
-                        job_dir / f"{mid}.fasta",
-                        header=mid,
+                if method_c == "Boltz2":
+                    input_yaml = write_boltz2_yaml(
+                        job_dir / f"{mid}.yaml",
                         sequence=sequence,
                     )
-                    step2 = job_dir / "af2_step2_gpu.slurm"
-                    step1 = job_dir / "af2_step1_msa.slurm"
-                    write_af2_step2_script(
-                        step2,
-                        fasta_file=fasta.resolve(),
+                    script = job_dir / "boltz2_gpu.slurm"
+                    write_boltz2_script(
+                        script,
+                        input_yaml=input_yaml.resolve(),
                         output_dir=out_dir.resolve(),
-                        af2_cfg=af2_cfg,
-                    )
-                    write_af2_step1_script(
-                        step1,
-                        fasta_file=fasta.resolve(),
-                        output_dir=out_dir.resolve(),
-                        af2_cfg=af2_cfg,
-                        step2_script=step2.resolve(),
-                        chain_gpu=chain_gpu,
+                        boltz_cfg=boltz_cfg,
                     )
                     rows.append(
                         {
@@ -354,15 +370,19 @@ def make_structure_jobs(
                             "method": method_c,
                             "seed": int(seed),
                             "state": state,
-                            "input_path": str(fasta.relative_to(root)),
+                            "input_path": str(input_yaml.relative_to(root)),
                             "output_dir": str(out_dir.relative_to(root)),
-                            "step1_script": str(step1.relative_to(root)),
-                            "step2_script": str(step2.relative_to(root)),
+                            "step1_script": str(script.relative_to(root)),
+                            "step2_script": None,
                             "status": "scripted",
-                            "notes": note,
+                            "notes": note
+                            or (
+                                "Boltz-2 via CHPC boltz2 module + ColabFold MSA server; "
+                                "seed is for ensemble bookkeeping only."
+                            ),
                         }
                     )
-                    step1_scripts.append(step1)
+                    step1_scripts.append(script)
                 elif method_c == "AF3":
                     af3_name = sanitize_af3_name(mid)
                     input_json = write_af3_input_json(
@@ -446,18 +466,18 @@ def make_structure_jobs(
                         }
                     )
                     step1_scripts.append(script)
-                elif method_c == "RF2":
-                    fasta = write_fasta(
-                        job_dir / f"{mid}.fasta",
-                        header=mid,
+                elif method_c == "RF3":
+                    input_json = write_rf3_input_json(
+                        job_dir / f"{mid}.json",
+                        name=mid,
                         sequence=sequence,
                     )
-                    script = job_dir / "rf2_gpu.slurm"
-                    write_rosettafold2_script(
+                    script = job_dir / "rf3_gpu.slurm"
+                    write_rf3_script(
                         script,
-                        fasta_file=fasta.resolve(),
+                        input_json=input_json.resolve(),
                         output_dir=out_dir.resolve(),
-                        rf2_cfg=rf2_cfg,
+                        rf3_cfg=rf3_cfg,
                     )
                     rows.append(
                         {
@@ -466,15 +486,16 @@ def make_structure_jobs(
                             "method": method_c,
                             "seed": int(seed),
                             "state": state,
-                            "input_path": str(fasta.relative_to(root)),
+                            "input_path": str(input_json.relative_to(root)),
                             "output_dir": str(out_dir.relative_to(root)),
                             "step1_script": str(script.relative_to(root)),
                             "step2_script": None,
                             "status": "scripted",
                             "notes": note
                             or (
-                                "RoseTTAFold2 via CHPC rosettafold2/1.0 "
-                                "(run_RF2.sh). Seed is for ensemble bookkeeping."
+                                "RoseTTAFold3 via Foundry `rf3 fold` "
+                                "(install rc-foundry[rf3] if not on PATH). "
+                                "Seed is for ensemble bookkeeping only."
                             ),
                         }
                     )
@@ -489,8 +510,8 @@ def make_structure_jobs(
     submit_script = jobs_dir / "submit_all.sh"
     submit_lines = [
         "#!/bin/bash",
-        "# Submit CHPC structure jobs (AF2/AF3 step-1, ESMFold, RF2).",
-        "# AF2/AF3 step-2 GPU jobs are chained with sbatch -d afterok:$SLURM_JOBID when enabled.",
+        "# Submit CHPC structure jobs (Boltz2 / AF3 step-1 / ESMFold / RF3).",
+        "# AF3 step-2 GPU jobs are chained with sbatch -d afterok:$SLURM_JOBID when enabled.",
         "set -euo pipefail",
         "",
     ]

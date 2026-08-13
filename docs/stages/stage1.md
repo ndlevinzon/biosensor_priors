@@ -3,99 +3,79 @@
 Primarily an **HPC / workflow orchestration** problem plus structural analysis.
 Multiple predictors, seeds, per-residue confidence, PAE, and cross-model RMSD.
 
-Downstream stages never parse raw AF2/AF3/RFAA/ESMFold layouts—they read the
+Downstream stages never parse raw Boltz2/AF3/ESMFold/RF3 layouts—they read the
 standardized tables this stage emits.
 
-## CHPC (University of Utah) AlphaFold
+## CHPC (University of Utah) predictors
 
-Stage 1 writes **two-step SLURM scripts** matching CHPC documentation:
+Stage 1 writes SLURM scripts matching CHPC documentation:
 
-| Predictor | Module | Step 1 (CPU MSA) | Step 2 (GPU) |
-| --- | --- | --- | --- |
-| AF2 | ``alphafold/2.3.2`` | ``db_to_tmp_232.sh`` + ``run_alphafold_full.sh … --run_feature=1`` | ``run_alphafold_full.sh`` (no ``--run_feature``) |
-| AF3 | ``alphafold/3.0.0`` | ``run_alphafold.sh … --norun_inference`` | ``run_alphafold.sh … --norun_data_pipeline`` on ``*_data.json`` |
-| ESMFold | ``esmfold/1.0.3`` | — (single GPU job) | fair-esm Python API ``esmfold_v1().infer_pdb`` |
-| RF2 | ``rosettafold2/1.0`` | — (single GPU job) | ``run_RF2.sh FASTA -o OUT`` |
+| Predictor | Module / tool | Job shape |
+| --- | --- | --- |
+| **Boltz2** | ``boltz2/2.2.1`` | Single GPU: ``boltz predict`` + CHPC ColabFold MSA server |
+| **AF3** | ``alphafold/3.0.0`` | Two-step: ``--norun_inference`` → ``--norun_data_pipeline`` |
+| **ESMFold** | ``esmfold/1.0.3`` | Single GPU: fair-esm Python API |
+| **RF3** | Foundry ``rf3 fold`` (not a CHPC module yet) | Single GPU; install ``rc-foundry[rf3]`` |
 
-Alias ``RFAA`` / ``RoseTTAFold2`` maps to method ``RF2`` (CHPC RoseTTAFold2 module).
+AlphaFold2 and RoseTTAFold2 were **removed** (replaced by Boltz2 and RF3).
 
-Step 1 AF scripts chain step 2 with ``sbatch -d afterok:$SLURM_JOBID``. Defaults
-live in ``configs/structures.yaml`` (Granite: CPU ``granite`` / GPU
-``granite-gpu``, account ``cheatham``, matching ``--qos``).
+**AF3 access:** email ``helpdesk@chpc.utah.edu`` for weight license access.
 
-**AF3 access:** CHPC requires emailing ``helpdesk@chpc.utah.edu`` for weight
-license access before ``ml alphafold/3.0.0`` will work for your account.
+**RF3 setup (user env):**
 
 ```bash
-# Generate FASTA/JSON + SLURM (does not run AF locally)
+pip install 'rc-foundry[rf3]'
+foundry install base-models
+# optional: set configs/structures.yaml → rosettafold3.conda_activate
+```
+
+```bash
+# Generate inputs + SLURM (does not run predictors locally)
 biosensor-stage1 --jobs-only --version V2.4
 
-# ESMFold only
-biosensor-stage1 --jobs-only --predictors ESMFold --seeds 1
+# Boltz2 only
+biosensor-stage1 --jobs-only --predictors Boltz2 --seeds 1
 
-# On the cluster, after syncing the repo / data/structures tree:
+# On the cluster:
 bash data/structures/jobs/V2.4/submit_all.sh
 
-# After jobs finish, ingest PDBs/CIFs into confidence tables
+# After jobs finish:
 biosensor-stage1 --ingest-only
 ```
+
+Defaults (Granite): CPU ``granite`` / GPU ``granite-gpu``, account ``cheatham``,
+matching ``--qos``.
 
 ## Layers
 
 ### 1A. Structure job generator
 
-Reads ``Version`` + ``Sequence`` and emits jobs, e.g.:
+Emits jobs such as:
 
 ```text
-V2.4 / AF2 / seed1 / apo
-V2.4 / AF2 / seed2 / apo
+V2.4 / Boltz2 / seed1 / apo
 V2.4 / AF3 / seed1 / apo
+V2.4 / RF3 / seed1 / apo
 ```
-
-Does **not** predict structures itself. Produces predictor inputs and
-SLURM scripts under ``data/structures/jobs/``.
 
 Module: ``biosensor_priors.stage1_structures.make_jobs``
 
-Templates: ``biosensor_priors.stage1_structures.slurm_templates``
+### 1B. Adapters
 
-### 1B. Predictor-specific adapters
+``parse_Boltz2``, ``parse_AF3``, ``parse_ESMFold``, ``parse_RF3`` → common schema
+(``structure_model_id``, pLDDT, …).
 
-Each predictor has an adapter (``parse_AF2``, ``parse_AF3``, ``parse_ESMFold``,
-``parse_RF2``) converting outputs into one internal schema:
+### 1C–1D. Comparison + confidence
 
-- ``structure_model_id``, ``version``, ``method``, ``seed``, ``state``
-  (apo / AcCoA / PropCoA), PDB/mmCIF path
-- per residue: ``canonical_position``, AA, pLDDT, PAE summary
-
-Package: ``biosensor_priors.stage1_structures.adapters``
-
-### 1C. Structural comparison engine
-
-- Align models; map residues through canonical numbering
-- Superpose Cα atoms; per-position and global RMSD
-- Ligand contacts; pocket-specific PAE summaries
-
-Module: ``biosensor_priors.stage1_structures.structural_compare``
-
-### 1D. Structural-confidence calculator
-
-Combines pLDDT and cross-model RMSD (plus pocket PAE) into a confidence score
-and reliability flag.
-
-**Output:** ``structural_confidence.parquet``
-
-Module: ``biosensor_priors.stage1_structures.confidence``
+Same as before → ``structural_confidence.parquet``.
 
 ## Gate 1
 
-Completeness / quality checks on the structure ensemble and confidence table
-(``gate1.py``). Advisory vs required policy is set in ``pipeline.yaml``
-(``gates.stage1``, default ``advisory``).
+Advisory vs required in ``pipeline.yaml`` (``gates.stage1``).
 
 ## CLI
 
 ```text
-biosensor-stage1 [--version V2.4] [--sequence ...] [--jobs-only | --ingest-only]
-                 [--submit] [--predictors AF2 AF3] [--seeds 1 2 3] [--states apo]
+biosensor-stage1 [--version V2.4] [--jobs-only | --ingest-only]
+                 [--submit] [--predictors Boltz2 AF3] [--seeds 1 2 3]
 ```

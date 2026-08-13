@@ -103,7 +103,7 @@ def test_gaussian_gjf_and_log_parser(tmp_path) -> None:
 def test_mutation_scan_and_gate2(stage0_result) -> None:
     _ = stage0_result
     # Small scan for speed
-    models = default_structure_models(version="V2.4", predictors=["AF2"], seeds=[1, 2])
+    models = default_structure_models(version="V2.4", predictors=["Boltz2"], seeds=[1, 2])
     scan = run_mutation_scan(
         repo_root=REPO_ROOT,
         structure_models=models,

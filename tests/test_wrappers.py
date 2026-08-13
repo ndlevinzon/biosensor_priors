@@ -26,7 +26,7 @@ def test_rosetta_scaffold_writes_parsable_tsv(tmp_path: Path) -> None:
         ligand_name="AcCoA+PropCoA",
         out=out,
         mutations_json=muts,
-        structure_model_id="V2.4_AF2_seed1_apo",
+        structure_model_id="V2.4_Boltz2_seed1_apo",
         force_scaffold=True,
     )
     assert path.exists()

@@ -158,8 +158,8 @@ def run_stage1(
         random_seed=seed,
         gate=gate,
         notes=(
-            "CHPC AF2/AF3 two-step SLURM scripts. AF3 requires weight access "
-            "(helpdesk@chpc.utah.edu). Does not run AlphaFold locally."
+            "CHPC Boltz2 / AF3 / ESMFold / RF3 job scripts. AF3 requires weight "
+            "access (helpdesk@chpc.utah.edu). RF3 needs Foundry (`rf3`) installed."
         ),
     )
 
@@ -204,7 +204,7 @@ def main() -> None:
         "--predictors",
         nargs="+",
         default=None,
-        help="Subset of predictors (default: AF2 AF3 from config)",
+        help="Subset of predictors (default: Boltz2 AF3 ESMFold RF3 from config)",
     )
     parser.add_argument(
         "--seeds",

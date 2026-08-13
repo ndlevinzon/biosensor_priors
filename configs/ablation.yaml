@@ -45,11 +45,11 @@ configs:
     prefilter: false
 
   - id: physics_gp_conf_af2_prefilter
-    label: "Physics+GP + conf (AF2) + prefilter"
+    label: "Physics+GP + conf (Boltz2) + prefilter"
     physics: true
     gp: true
     confidence_weighting: true
-    structure_source: AF2
+    structure_source: Boltz2
     prefilter: true
 
   - id: physics_gp_conf_af3_prefilter

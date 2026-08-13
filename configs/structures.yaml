@@ -1,58 +1,42 @@
 # Stage 1 structure prediction — CHPC (University of Utah) SLURM defaults.
-# Paths and module names follow CHPC Alphafold documentation.
 # Granite allocation: account=cheatham; CPU=granite, GPU=granite-gpu (+ matching qos).
 
 provider: chpc_utah
 
-# Versions / seeds / states also listed in thresholds.yaml; these override when set.
 predictors:
-  - AF2
+  - Boltz2
   - AF3
   - ESMFold
-  - RF2
+  - RF3
 
 seeds: [1, 2, 3]
 states:
   - apo
-  # Ligand-bound AF3 jobs require CCD / SMILES entries (optional later).
+  # Ligand-bound AF3 / Boltz YAML jobs require CCD / SMILES entries (optional later).
   # - AcCoA
   # - PropCoA
 
-# Active background for design jobs (null → pipeline.active_design_background)
 default_version: null
 
-af2:
-  module: "alphafold/2.3.2"
-  # CHPC helpers
-  db_to_tmp_script: "/uufs/chpc.utah.edu/sys/installdir/alphafold/db_to_tmp_232.sh"
-  db_to_tmp_reduced_script: "/uufs/chpc.utah.edu/sys/installdir/alphafold/db_to_tmp_232_reduced.sh"
-  run_full: "run_alphafold_full.sh"
-  run_reduced: "run_alphafold_red.sh"
-  scratch_db: "/scratch/general/vast/app-repo/alphafold"
-  max_template_date: "2022-01-01"
-  use_gpu_relax: true
-  model_preset: monomer  # monomer | multimer
-  db_preset: full_dbs    # full_dbs | reduced_dbs
-  # Step 1 — MSA / features (CPU)
-  step1:
-    partition: granite
-    qos: granite
-    account: cheatham
-    ntasks: 16
-    nodes: 1
-    mem: 128G
-    time: "8:00:00"
-    gres: null
-  # Step 2 — structure / relax (GPU)
-  step2:
+# Boltz-2 (CHPC: module load boltz2). Replaces AlphaFold2 for Stage 1.
+# Docs: https://www.chpc.utah.edu/documentation/software/alphafold.php#boltz
+boltz2:
+  module: "boltz2/2.2.1"
+  run: "boltz"
+  use_msa_server: true
+  msa_server_url: "http://colabfold02.int.chpc.utah.edu:8088"
+  diffusion_samples: 1
+  recycling_steps: null
+  output_format: mmcif
+  override: true
+  job:
     partition: granite-gpu
     qos: granite-gpu
     account: cheatham
-    ntasks: 4
+    ntasks: 8
     nodes: 1
-    mem: 32G
+    mem: 64G
     time: "8:00:00"
-    # Any available GPU on granite-gpu; pin e.g. gpu:l40s:1 or gpu:h100nvl:1 if needed
     gres: "gpu:1"
 
 af3:
@@ -62,7 +46,6 @@ af3:
   scratch_db: "/scratch/general/vast/app-repo/alphafold3"
   dialect: alphafold3
   version: 1
-  # Older GPUs may need: flash_attention_implementation: xla
   flash_attention_implementation: null
   step1:
     partition: granite
@@ -83,14 +66,12 @@ af3:
     time: "24:00:00"
     gres: "gpu:1"
 
-# Single-sequence structure prediction (no MSA). CHPC: module load esmfold/1.0.3
-# Uses fair-esm Python API (esm.pretrained.esmfold_v1), not the esm-fold CLI.
 esmfold:
   module: "esmfold/1.0.3"
   python: python
   device: cuda
   num_recycles: 4
-  chunk_size: 128   # model.set_chunk_size; lower if GPU OOM; 0 disables
+  chunk_size: 128
   job:
     partition: granite-gpu
     qos: granite-gpu
@@ -101,15 +82,21 @@ esmfold:
     time: "4:00:00"
     gres: "gpu:1"
 
-# RoseTTAFold2 structure prediction. CHPC: module load rosettafold2/1.0
-rosettafold2:
-  module: "rosettafold2/1.0"
-  # Official wrapper: run_RF2.sh FASTA -o OUTDIR [--hhpred] [--pair] [--symm Cn]
-  run: "run_RF2.sh"
-  hhpred: false
-  pair: false
-  symm: null
-  extra_args: []
+# RoseTTAFold3 via RosettaCommons Foundry (`rf3 fold`). Replaces RoseTTAFold2.
+# CHPC does not currently ship an RF3 module — install in your env:
+#   pip install 'rc-foundry[rf3]'
+#   foundry install base-models   # or set ckpt_path below
+# Docs: https://github.com/RosettaCommons/foundry/blob/production/models/rf3/README.md
+rosettafold3:
+  module: null
+  # Optional: path to conda activate script that has `rf3` on PATH
+  # conda_activate: "/uufs/.../.conda/envs/rf3/bin/activate"
+  conda_activate: null
+  run: "rf3"
+  # null → Foundry default checkpoint search (~/.foundry/checkpoints)
+  ckpt_path: null
+  # Disable early-stop so apo runs always write a model CIF
+  early_stopping_plddt_threshold: 0.0
   job:
     partition: granite-gpu
     qos: granite-gpu
@@ -121,12 +108,9 @@ rosettafold2:
     gres: "gpu:1"
 
 jobs:
-  # Relative to data/structures
   jobs_subdir: jobs
   logs_subdir: logs
-  # write scripts only by default (do not sbatch from the Python process)
   submit: false
-  # Chain step2 with: sbatch -d afterok:$SLURM_JOBID step2.slurm
   chain_gpu_after_msa: true
 
 confidence:
@@ -134,7 +118,6 @@ confidence:
   rmsd_max_reliable: 2.0
   pae_pocket_max_reliable: 10.0
   confidence_min_reliable: 0.5
-  # Weights for composite confidence in [0, 1]
   w_plddt: 0.5
   w_rmsd: 0.3
   w_pae: 0.2

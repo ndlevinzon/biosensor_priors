@@ -1,4 +1,4 @@
-"""CHPC Utah SLURM script templates for AlphaFold, ESMFold, and RoseTTAFold2."""
+"""CHPC Utah SLURM script templates for Boltz-2, AlphaFold3, ESMFold, and RF3."""
 
 from __future__ import annotations
 
@@ -352,19 +352,87 @@ def write_esmfold_script(
     return path
 
 
-def write_rosettafold2_script(
+def write_boltz2_script(
     path: Path,
     *,
-    fasta_file: Path | str,
+    input_yaml: Path | str,
     output_dir: Path | str,
-    rf2_cfg: dict[str, Any],
+    boltz_cfg: dict[str, Any],
 ) -> Path:
     """
-    Write a CHPC RoseTTAFold2 GPU SLURM script.
+    Write a CHPC Boltz-2 GPU SLURM script.
 
-    Loads ``rosettafold2/1.0`` and runs ``run_RF2.sh FASTA -o OUTDIR``.
+    Loads ``boltz2`` and runs ``boltz predict`` with the CHPC ColabFold MSA
+    server (see CHPC Alphafold docs).
     """
-    step = rf2_cfg.get("job") or {}
+    step = boltz_cfg.get("job") or {}
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = _sbatch_header(
+        job_name=path.stem[:64],
+        partition=str(step.get("partition", "granite-gpu")),
+        account=str(step.get("account", "cheatham")),
+        ntasks=int(step.get("ntasks", 8)),
+        nodes=int(step.get("nodes", 1)),
+        mem=str(step.get("mem", "64G")),
+        time=str(step.get("time", "8:00:00")),
+        gres=step.get("gres", "gpu:1"),
+        qos=step.get("qos", "granite-gpu"),
+    )
+    runner = str(boltz_cfg.get("run", "boltz"))
+    msa_url = str(
+        boltz_cfg.get("msa_server_url")
+        or "http://colabfold02.int.chpc.utah.edu:8088"
+    )
+    extras: list[str] = [
+        f'--out_dir "{Path(output_dir).as_posix()}"',
+    ]
+    if boltz_cfg.get("use_msa_server", True):
+        extras.append("--use_msa_server")
+        extras.append(f"--msa_server_url={msa_url}")
+    if boltz_cfg.get("diffusion_samples") is not None:
+        extras.append(f"--diffusion_samples {int(boltz_cfg['diffusion_samples'])}")
+    if boltz_cfg.get("recycling_steps") is not None:
+        extras.append(f"--recycling_steps {int(boltz_cfg['recycling_steps'])}")
+    if boltz_cfg.get("output_format"):
+        extras.append(f"--output_format {boltz_cfg['output_format']}")
+    if boltz_cfg.get("override", True):
+        extras.append("--override")
+    for arg in boltz_cfg.get("extra_args") or []:
+        extras.append(str(arg))
+    extra = " ".join(extras)
+    lines.extend(
+        [
+            "set -euo pipefail",
+            "ml purge",
+            f"ml {boltz_cfg['module']}",
+            "",
+            f'INPUT_YAML="{Path(input_yaml).as_posix()}"',
+            f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
+            'mkdir -p "$OUTPUT_DIR"',
+            "",
+            f'{runner} predict "$INPUT_YAML" {extra}',
+            "",
+        ]
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
+def write_rf3_script(
+    path: Path,
+    *,
+    input_json: Path | str,
+    output_dir: Path | str,
+    rf3_cfg: dict[str, Any],
+) -> Path:
+    """
+    Write a GPU SLURM script for RoseTTAFold3 (``rf3 fold`` / Foundry).
+
+    CHPC does not ship RF3 as a module yet; use ``conda_activate`` or ensure
+    ``rf3`` is on PATH after optional ``module`` load.
+    """
+    step = rf3_cfg.get("job") or {}
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = _sbatch_header(
@@ -378,32 +446,44 @@ def write_rosettafold2_script(
         gres=step.get("gres", "gpu:1"),
         qos=step.get("qos", "granite-gpu"),
     )
+    lines.extend(["set -euo pipefail", "ml purge"])
+    if rf3_cfg.get("module"):
+        lines.append(f"ml {rf3_cfg['module']}")
+    conda_act = rf3_cfg.get("conda_activate")
+    if conda_act:
+        lines.extend(
+            [
+                f'source "{Path(str(conda_act)).as_posix()}"',
+            ]
+        )
+    runner = str(rf3_cfg.get("run", "rf3"))
+    early = rf3_cfg.get("early_stopping_plddt_threshold", 0.0)
+    hydra_args = [
+        f"inputs='{Path(input_json).as_posix()}'",
+        f"out_dir='{Path(output_dir).as_posix()}'",
+        f"early_stopping_plddt_threshold={float(early)}",
+    ]
+    ckpt = rf3_cfg.get("ckpt_path")
+    if ckpt:
+        hydra_args.append(f"ckpt_path='{Path(str(ckpt)).as_posix()}'")
+    for arg in rf3_cfg.get("extra_args") or []:
+        hydra_args.append(str(arg))
     lines.extend(
         [
-            "set -euo pipefail",
-            "ml purge",
-            f"ml {rf2_cfg['module']}",
             "",
-            f'FASTA_FILE="{Path(fasta_file).as_posix()}"',
+            'if ! command -v nvidia-smi >/dev/null 2>&1; then',
+            '  echo "ERROR: nvidia-smi not found — need a GPU allocation" >&2',
+            "  exit 1",
+            "fi",
+            "nvidia-smi",
+            "",
+            f'INPUT_JSON="{Path(input_json).as_posix()}"',
             f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
             'mkdir -p "$OUTPUT_DIR"',
             "",
+            f"{runner} fold " + " ".join(hydra_args),
+            "",
         ]
     )
-    runner = rf2_cfg.get("run", "run_RF2.sh")
-    extras: list[str] = []
-    if rf2_cfg.get("hhpred"):
-        extras.append("--hhpred")
-    if rf2_cfg.get("pair"):
-        extras.append("--pair")
-    symm = rf2_cfg.get("symm")
-    if symm:
-        extras.append(f"--symm {symm}")
-    for arg in rf2_cfg.get("extra_args") or []:
-        extras.append(str(arg))
-    extra = (" " + " ".join(extras)) if extras else ""
-    # Canonical RF2 usage: run_RF2.sh input.fasta -o outdir
-    lines.append(f'{runner} "$FASTA_FILE" -o "$OUTPUT_DIR"{extra}')
-    lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")
     return path

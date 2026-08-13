@@ -80,7 +80,7 @@ Optional extras:
 # Ground truth + frozen splits
 biosensor-stage0
 
-# CHPC AF2/AF3 two-step SLURM scripts (+ ingest after HPC)
+# CHPC Boltz2/AF3/ESMFold/RF3 SLURM scripts (+ ingest after HPC)
 biosensor-stage1 --jobs-only
 
 # Physics landscape (mock backend by default; see configs/physics.yaml)
@@ -130,7 +130,7 @@ data/                    experimental, constructs, structures, physics, rounds
 src/biosensor_priors/
   common/                config, IDs, manifests, gates
   stage0_ground_truth/   cleaning, fitness, splits, Gate 0
-  stage1_structures/     CHPC AF2/AF3 SLURM jobs, adapters, confidence, Gate 1
+  stage1_structures/     CHPC Boltz2/AF3/ESMFold/RF3 jobs, adapters, Gate 1
   stage2_physics/        ligands, Rosetta scores, scans, Gate 2
   stage3_surrogate/      features, μ₀, GP residual, Gate 3
   stage4_search/         design space, policies, campaigns

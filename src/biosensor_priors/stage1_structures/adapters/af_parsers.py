@@ -92,15 +92,218 @@ def _read_pdb_bfactors(path: Path) -> list[tuple[int, str, float]]:
     return rows
 
 
-def _find_af2_structure(output_dir: Path) -> Path | None:
-    """Locate ranked / relaxed PDB under an AF2 output tree."""
+def _read_cif_ca_bfactors(path: Path) -> list[tuple[int, str, float]]:
+    """Parse CA atoms from mmCIF via Bio.PDB when available; else empty."""
+    try:
+        from Bio.PDB import MMCIFParser  # type: ignore
+    except ImportError:
+        return []
+    aa_map = {
+        "ALA": "A",
+        "ARG": "R",
+        "ASN": "N",
+        "ASP": "D",
+        "CYS": "C",
+        "GLN": "Q",
+        "GLU": "E",
+        "GLY": "G",
+        "HIS": "H",
+        "ILE": "I",
+        "LEU": "L",
+        "LYS": "K",
+        "MET": "M",
+        "PHE": "F",
+        "PRO": "P",
+        "SER": "S",
+        "THR": "T",
+        "TRP": "W",
+        "TYR": "Y",
+        "VAL": "V",
+    }
+    parser = MMCIFParser(QUIET=True)
+    try:
+        structure = parser.get_structure("model", str(path))
+    except Exception:  # noqa: BLE001
+        return []
+    rows: list[tuple[int, str, float]] = []
+    seen: set[int] = set()
+    for atom in structure.get_atoms():
+        if atom.get_name().strip() != "CA":
+            continue
+        res = atom.get_parent()
+        resseq = int(res.id[1])
+        if resseq in seen:
+            continue
+        seen.add(resseq)
+        resname = res.get_resname().strip().upper()
+        bfactor = float(atom.get_bfactor())
+        rows.append((resseq, aa_map.get(resname, "X"), bfactor))
+    return rows
+
+
+def _normalize_plddt_scale(values: list[float]) -> list[float]:
+    """Map 0–1 pLDDT to 0–100 when needed (Boltz often uses 0–1)."""
+    if not values:
+        return values
+    finite = [v for v in values if v == v]
+    if not finite:
+        return values
+    if max(finite) <= 1.5:
+        return [float(v) * 100.0 for v in values]
+    return [float(v) for v in values]
+
+
+def _find_boltz2_structure(output_dir: Path) -> Path | None:
+    """Locate top-ranked Boltz prediction CIF/PDB under ``predictions/``."""
     candidates = [
-        *sorted(output_dir.rglob("ranked_0.pdb")),
-        *sorted(output_dir.rglob("*relaxed_rank_001*.pdb")),
-        *sorted(output_dir.rglob("rank_001*.pdb")),
+        *sorted(output_dir.rglob("*_model_0.cif")),
+        *sorted(output_dir.rglob("*_model_0.pdb")),
+        *sorted(output_dir.rglob("*.cif")),
         *sorted(output_dir.rglob("*.pdb")),
     ]
     return candidates[0] if candidates else None
+
+
+def _boltz_plddt_from_npz(output_dir: Path, stem_hint: str | None = None) -> list[float] | None:
+    """Load per-token pLDDT from Boltz ``plddt_*_model_0.npz`` if present."""
+    patterns = ["plddt_*_model_0.npz", "plddt_*.npz"]
+    files: list[Path] = []
+    for pat in patterns:
+        files.extend(sorted(output_dir.rglob(pat)))
+    if stem_hint:
+        preferred = [p for p in files if stem_hint in p.name]
+        files = preferred or files
+    if not files:
+        return None
+    try:
+        import numpy as np
+    except ImportError:
+        return None
+    try:
+        data = np.load(files[0])
+        arr = data[data.files[0]] if data.files else None
+        if arr is None:
+            return None
+        return [float(x) for x in np.asarray(arr).reshape(-1)]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def parse_Boltz2(
+    output_dir: str | Path,
+    *,
+    version: str,
+    seed: int,
+    state: str = "apo",
+    structure_model_id_value: str | None = None,
+) -> dict[str, pd.DataFrame]:
+    """Parse Boltz-2 outputs (``predictions/*/…_model_0.cif`` + optional npz)."""
+    out = Path(output_dir)
+    mid = structure_model_id_value or structure_model_id(version, "Boltz2", seed, state)
+    cif = _find_boltz2_structure(out)
+    if cif is None:
+        return {"models": _empty_model_frame(), "residues": _empty_residue_frame()}
+
+    ca = _read_cif_ca_bfactors(cif)
+    if not ca and cif.suffix.lower() == ".pdb":
+        ca = _read_pdb_bfactors(cif)
+    plddts = _boltz_plddt_from_npz(out, stem_hint=cif.stem.split("_model")[0])
+    if plddts:
+        plddts = _normalize_plddt_scale(plddts)
+    residue_rows = []
+    for i, (resseq, aa, bfactor) in enumerate(ca):
+        plddt = float(plddts[i]) if plddts and i < len(plddts) else float(bfactor)
+        if plddt <= 1.5:
+            plddt *= 100.0
+        residue_rows.append(
+            {
+                "structure_model_id": mid,
+                "version": version,
+                "method": "Boltz2",
+                "seed": int(seed),
+                "state": state,
+                "residue_index": int(resseq),
+                "canonical_position": int(resseq),
+                "aa": aa,
+                "plddt": plddt,
+                "pae_pocket": float("nan"),
+            }
+        )
+    residues = pd.DataFrame(residue_rows) if residue_rows else _empty_residue_frame()
+    mean_plddt = float(residues["plddt"].mean()) if not residues.empty else float("nan")
+    models = pd.DataFrame(
+        [
+            {
+                "structure_model_id": mid,
+                "version": version,
+                "method": "Boltz2",
+                "seed": int(seed),
+                "state": state,
+                "structure_path": str(cif),
+                "mean_plddt": mean_plddt,
+            }
+        ]
+    )
+    return {"models": models, "residues": residues}
+
+
+def parse_RF3(
+    output_dir: str | Path,
+    *,
+    version: str,
+    seed: int,
+    state: str = "apo",
+    structure_model_id_value: str | None = None,
+) -> dict[str, pd.DataFrame]:
+    """Parse RoseTTAFold3 Foundry outputs (``*_model.cif``)."""
+    out = Path(output_dir)
+    mid = structure_model_id_value or structure_model_id(version, "RF3", seed, state)
+    candidates = [
+        *sorted(out.glob("*_model.cif")),
+        *sorted(out.rglob("*_model.cif")),
+        *sorted(out.rglob("*.cif")),
+        *sorted(out.rglob("*.pdb")),
+    ]
+    structure = candidates[0] if candidates else None
+    if structure is None:
+        return {"models": _empty_model_frame(), "residues": _empty_residue_frame()}
+
+    ca = (
+        _read_cif_ca_bfactors(structure)
+        if structure.suffix.lower() == ".cif"
+        else _read_pdb_bfactors(structure)
+    )
+    residue_rows = [
+        {
+            "structure_model_id": mid,
+            "version": version,
+            "method": "RF3",
+            "seed": int(seed),
+            "state": state,
+            "residue_index": int(resseq),
+            "canonical_position": int(resseq),
+            "aa": aa,
+            "plddt": float(plddt if plddt > 1.5 else plddt * 100.0),
+            "pae_pocket": float("nan"),
+        }
+        for resseq, aa, plddt in ca
+    ]
+    residues = pd.DataFrame(residue_rows) if residue_rows else _empty_residue_frame()
+    mean_plddt = float(residues["plddt"].mean()) if not residues.empty else float("nan")
+    models = pd.DataFrame(
+        [
+            {
+                "structure_model_id": mid,
+                "version": version,
+                "method": "RF3",
+                "seed": int(seed),
+                "state": state,
+                "structure_path": str(structure),
+                "mean_plddt": mean_plddt,
+            }
+        ]
+    )
+    return {"models": models, "residues": residues}
 
 
 def _find_af3_structure(output_dir: Path) -> Path | None:
@@ -393,8 +596,8 @@ def parse_RF2(
 
 
 def parse_RFAA(*args: Any, **kwargs: Any) -> dict[str, pd.DataFrame]:
-    """Alias for :func:`parse_RF2` (historical RFAA name → CHPC RoseTTAFold2)."""
-    return parse_RF2(*args, **kwargs)
+    """Alias for :func:`parse_RF3` (historical RFAA / RF2 name → RF3)."""
+    return parse_RF3(*args, **kwargs)
 
 
 def parse_ESMFold(
@@ -512,8 +715,8 @@ def ingest_job_registry(
             "state": str(row["state"]),
             "structure_model_id_value": str(row["structure_model_id"]),
         }
-        if method == "AF2":
-            parsed = parse_AF2(out_dir, **kwargs)
+        if method == "Boltz2":
+            parsed = parse_Boltz2(out_dir, **kwargs)
         elif method == "AF3":
             parsed = parse_AF3(
                 out_dir,
@@ -524,8 +727,8 @@ def ingest_job_registry(
             )
         elif method == "ESMFold":
             parsed = parse_ESMFold(out_dir, **kwargs)
-        elif method == "RF2":
-            parsed = parse_RF2(out_dir, **kwargs)
+        elif method == "RF3":
+            parsed = parse_RF3(out_dir, **kwargs)
         else:
             continue
         if not parsed["models"].empty:

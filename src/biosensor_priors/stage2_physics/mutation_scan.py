@@ -179,7 +179,7 @@ def default_structure_models(
     pandas.DataFrame
         Registry with ``structure_model_id``, ``pdb_path``, and metadata.
     """
-    predictors = predictors or ["AF2", "AF3"]
+    predictors = predictors or ["Boltz2", "AF3"]
     seeds = seeds or [1, 2]
     rows = []
     for method in predictors:
