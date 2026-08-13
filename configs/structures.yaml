@@ -23,8 +23,13 @@ default_version: null
 boltz2:
   module: "boltz2/2.2.1"
   run: "boltz"
+  # CHPC example uses FASTA; yaml also supported (input_format: yaml)
+  input_format: fasta
   use_msa_server: true
+  # On-campus ColabFold MSA (try colabfold01 if 02 returns MMseqs2 ERROR)
   msa_server_url: "http://colabfold02.int.chpc.utah.edu:8088"
+  # One MSA per sequence/state; later seeds depend on the first (do not hammer MSA)
+  share_msa_across_seeds: true
   diffusion_samples: 1
   recycling_steps: null
   output_format: mmcif
@@ -33,7 +38,9 @@ boltz2:
     partition: granite-gpu
     qos: granite-gpu
     account: cheatham
-    ntasks: 8
+    # Lightning: ntasks-per-node=1; CPUs for MSA client (CHPC examples use ~16)
+    ntasks_per_node: 1
+    cpus_per_task: 16
     nodes: 1
     mem: 64G
     time: "8:00:00"
@@ -60,7 +67,7 @@ af3:
     partition: granite-gpu
     qos: granite-gpu
     account: cheatham
-    ntasks: 4
+    ntasks_per_node: 1
     nodes: 1
     mem: 32G
     time: "24:00:00"
@@ -76,7 +83,7 @@ esmfold:
     partition: granite-gpu
     qos: granite-gpu
     account: cheatham
-    ntasks: 4
+    ntasks_per_node: 1
     nodes: 1
     mem: 32G
     time: "4:00:00"
@@ -102,7 +109,8 @@ rosettafold3:
     partition: granite-gpu
     qos: granite-gpu
     account: cheatham
-    ntasks: 8
+    # Foundry/Lightning: use ntasks_per_node (not bare #SBATCH -n / --ntasks)
+    ntasks_per_node: 1
     nodes: 1
     mem: 64G
     time: "12:00:00"

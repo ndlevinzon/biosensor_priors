@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Foundry ``rf3 fold``) replaces RoseTTAFold2. AF3 and ESMFold unchanged.
 - Stage 1 SLURM scripts now set ``#SBATCH --output`` / ``--error`` under
   ``data/structures/logs/<version>/`` (one directory per design version).
+- Stage 1 / Stage 2 RF3 SLURM headers use ``#SBATCH --ntasks-per-node=1``
+  instead of ``-n 8`` so Foundry/Lightning Fabric does not abort under SLURM.
+- Stage 1 Boltz2 / ESMFold / AF3 GPU jobs likewise use ``--ntasks-per-node=1``
+  (PyTorch Lightning rejects bare ``#SBATCH -n`` when ``SLURM_NTASKS > 1``).
+- Stage 1 Boltz2 inputs follow the CHPC FASTA example; input stems are
+  sanitized (no dots); ``--cpus-per-task=16``; later seeds reuse the first
+  seed's MSA via SLURM ``afterok`` (avoids ColabFold MMseqs2 overload ERRORs).
 
 ### Added
 

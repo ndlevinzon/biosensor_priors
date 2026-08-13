@@ -61,7 +61,8 @@ rf3:
     partition: granite-gpu
     qos: granite-gpu
     account: cheatham
-    ntasks: 8
+    # Foundry/Lightning: use ntasks_per_node (not bare #SBATCH -n / --ntasks)
+    ntasks_per_node: 1
     nodes: 1
     mem: 64G
     time: "12:00:00"

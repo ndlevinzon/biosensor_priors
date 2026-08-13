@@ -82,21 +82,41 @@ def sanitize_af3_name(name: str) -> str:
     return cleaned.strip("_") or "job"
 
 
-def write_boltz2_yaml(path: Path, *, sequence: str, chain_id: str = "A") -> Path:
-    """Write a Boltz-2 protein YAML input (preferred over FASTA)."""
+def write_boltz2_yaml(
+    path: Path,
+    *,
+    sequence: str,
+    chain_id: str = "A",
+    msa: Path | str | None = None,
+) -> Path:
+    """Write a Boltz-2 protein YAML input (optional precomputed ``msa`` path)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "sequences": [
-            {
-                "protein": {
-                    "id": chain_id,
-                    "sequence": "".join(str(sequence).split()),
-                }
-            }
-        ]
+    protein: dict[str, Any] = {
+        "id": chain_id,
+        "sequence": "".join(str(sequence).split()).upper().rstrip("*"),
     }
+    if msa is not None:
+        protein["msa"] = Path(msa).as_posix()
+    payload = {"sequences": [{"protein": protein}]}
     path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    return path
+
+
+def write_boltz2_fasta(
+    path: Path,
+    *,
+    sequence: str,
+    chain_id: str = "A",
+) -> Path:
+    """Write Boltz FASTA (``>CHAIN|protein``) matching CHPC examples."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    seq = "".join(str(sequence).split()).upper().rstrip("*")
+    lines = [f">{chain_id}|protein"]
+    for i in range(0, len(seq), 80):
+        lines.append(seq[i : i + 80])
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
 
@@ -333,7 +353,10 @@ def make_structure_jobs(
     rf3_cfg = dict(cfg.get("rosettafold3", {}))
 
     rows: list[dict[str, Any]] = []
-    step1_scripts: list[Path] = []
+    # (script, depends_on_script_or_None)
+    step1_jobs: list[tuple[Path, Path | None]] = []
+    # Reuse one MSA per (version, state) across Boltz seeds
+    boltz_msa_lead: dict[tuple[str, str], dict[str, Any]] = {}
 
     for method in predictors:
         method_c = canonicalize_method(method)
@@ -353,22 +376,77 @@ def make_structure_jobs(
                     )
 
                 if method_c == "Boltz2":
-                    input_yaml = write_boltz2_yaml(
-                        job_dir / f"{mid}.yaml",
-                        sequence=sequence,
-                    )
+                    # Sanitize stems (V2.4 → V2_4): dots in Boltz target_id / MSA
+                    # temp dirs have caused flaky MMseqs2 client paths.
+                    input_stem = sanitize_af3_name(mid)
+                    share_msa = bool(boltz_cfg.get("share_msa_across_seeds", True))
+                    lead_key = (version, str(state))
+                    lead = boltz_msa_lead.get(lead_key) if share_msa else None
                     script = job_dir / "boltz2_gpu.slurm"
                     stdout, stderr = resolve_slurm_log_paths(
                         logs_dir, structure_model_id=mid, script_stem=script.stem
                     )
-                    write_boltz2_script(
-                        script,
-                        input_yaml=input_yaml.resolve(),
-                        output_dir=out_dir.resolve(),
-                        boltz_cfg=boltz_cfg,
-                        stdout_path=stdout,
-                        stderr_path=stderr,
-                    )
+                    depends_on: Path | None = None
+                    if lead is not None:
+                        # Later seeds: reuse MSA from the first seed (same sequence).
+                        input_path = write_boltz2_yaml(
+                            job_dir / f"{input_stem}.yaml",
+                            sequence=sequence,
+                            msa=lead["msa_csv"],
+                        )
+                        write_boltz2_script(
+                            script,
+                            input_path=input_path.resolve(),
+                            output_dir=out_dir.resolve(),
+                            boltz_cfg=boltz_cfg,
+                            stdout_path=stdout,
+                            stderr_path=stderr,
+                            use_msa_server=False,
+                        )
+                        depends_on = Path(lead["script"])
+                        msa_note = (
+                            f"Reuses MSA from {lead['structure_model_id']} "
+                            "(avoids hammering ColabFold MSA server)."
+                        )
+                    else:
+                        fmt = str(boltz_cfg.get("input_format", "fasta")).lower()
+                        if fmt == "yaml":
+                            input_path = write_boltz2_yaml(
+                                job_dir / f"{input_stem}.yaml",
+                                sequence=sequence,
+                            )
+                        else:
+                            # CHPC-documented path: boltz predict $FASTA_FILE ...
+                            input_path = write_boltz2_fasta(
+                                job_dir / f"{input_stem}.fasta",
+                                sequence=sequence,
+                            )
+                        write_boltz2_script(
+                            script,
+                            input_path=input_path.resolve(),
+                            output_dir=out_dir.resolve(),
+                            boltz_cfg=boltz_cfg,
+                            stdout_path=stdout,
+                            stderr_path=stderr,
+                            use_msa_server=None,
+                        )
+                        msa_csv = (
+                            out_dir.resolve()
+                            / f"boltz_results_{input_stem}"
+                            / "msa"
+                            / "A.csv"
+                        )
+                        if share_msa:
+                            boltz_msa_lead[lead_key] = {
+                                "script": script,
+                                "msa_csv": msa_csv,
+                                "structure_model_id": mid,
+                                "input_stem": input_stem,
+                            }
+                        msa_note = (
+                            "Boltz-2 via CHPC boltz2 module + ColabFold MSA server; "
+                            "seed is for ensemble bookkeeping only."
+                        )
                     rows.append(
                         {
                             "structure_model_id": mid,
@@ -376,19 +454,15 @@ def make_structure_jobs(
                             "method": method_c,
                             "seed": int(seed),
                             "state": state,
-                            "input_path": str(input_yaml.relative_to(root)),
+                            "input_path": str(input_path.relative_to(root)),
                             "output_dir": str(out_dir.relative_to(root)),
                             "step1_script": str(script.relative_to(root)),
                             "step2_script": None,
                             "status": "scripted",
-                            "notes": note
-                            or (
-                                "Boltz-2 via CHPC boltz2 module + ColabFold MSA server; "
-                                "seed is for ensemble bookkeeping only."
-                            ),
+                            "notes": note or msa_note,
                         }
                     )
-                    step1_scripts.append(script)
+                    step1_jobs.append((script, depends_on))
                 elif method_c == "AF3":
                     af3_name = sanitize_af3_name(mid)
                     input_json = write_af3_input_json(
@@ -447,7 +521,7 @@ def make_structure_jobs(
                             "notes": note,
                         }
                     )
-                    step1_scripts.append(step1)
+                    step1_jobs.append((step1, None))
                 elif method_c == "ESMFold":
                     fasta = write_fasta(
                         job_dir / f"{mid}.fasta",
@@ -486,7 +560,7 @@ def make_structure_jobs(
                             ),
                         }
                     )
-                    step1_scripts.append(script)
+                    step1_jobs.append((script, None))
                 elif method_c == "RF3":
                     input_json = write_rf3_input_json(
                         job_dir / f"{mid}.json",
@@ -525,7 +599,7 @@ def make_structure_jobs(
                             ),
                         }
                     )
-                    step1_scripts.append(script)
+                    step1_jobs.append((script, None))
 
     registry = pd.DataFrame(rows)
     registry_path = structures_root / "job_registry.parquet"
@@ -538,18 +612,39 @@ def make_structure_jobs(
         "#!/bin/bash",
         "# Submit CHPC structure jobs (Boltz2 / AF3 step-1 / ESMFold / RF3).",
         "# AF3 step-2 GPU jobs are chained with sbatch -d afterok:$SLURM_JOBID when enabled.",
+        "# Boltz2 later seeds depend on the first seed's MSA when share_msa_across_seeds=true.",
         "set -euo pipefail",
         "",
     ]
-    for script in step1_scripts:
-        submit_lines.append(f'sbatch "{script.resolve().as_posix()}"')
+    script_to_var: dict[Path, str] = {}
+    for i, (script, depends_on) in enumerate(step1_jobs):
+        var = f"JID_{i}"
+        script_to_var[script.resolve()] = var
+        sp = script.resolve().as_posix()
+        if depends_on is None:
+            submit_lines.append(f'{var}=$(sbatch --parsable "{sp}")')
+            submit_lines.append(f'echo "submitted {script.name} -> ${{{var}}}"')
+        else:
+            dep_var = script_to_var[depends_on.resolve()]
+            submit_lines.append(
+                f'{var}=$(sbatch --parsable -d afterok:${{{dep_var}}} "{sp}")'
+            )
+            submit_lines.append(
+                f'echo "submitted {script.name} -> ${{{var}}} (afterok ${{{dep_var}}})"'
+            )
     submit_script.write_text("\n".join(submit_lines) + "\n", encoding="utf-8")
 
     if do_submit:
         import subprocess
 
-        for script in step1_scripts:
-            subprocess.run(["sbatch", str(script)], check=True)
+        submitted: dict[Path, str] = {}
+        for script, depends_on in step1_jobs:
+            cmd = ["sbatch", "--parsable"]
+            if depends_on is not None:
+                cmd.extend(["-d", f"afterok:{submitted[depends_on.resolve()]}"])
+            cmd.append(str(script))
+            jid = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            submitted[script.resolve()] = jid.stdout.strip()
 
     return {
         "registry": registry,

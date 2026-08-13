@@ -12,10 +12,10 @@ Stage 1 writes SLURM scripts matching CHPC documentation:
 
 | Predictor | Module / tool | Job shape |
 | --- | --- | --- |
-| **Boltz2** | ``boltz2/2.2.1`` | Single GPU: ``boltz predict`` + CHPC ColabFold MSA server |
-| **AF3** | ``alphafold/3.0.0`` | Two-step: ``--norun_inference`` → ``--norun_data_pipeline`` |
-| **ESMFold** | ``esmfold/1.0.3`` | Single GPU: fair-esm Python API |
-| **RF3** | Foundry ``rf3 fold`` (not a CHPC module yet) | Single GPU; install ``rc-foundry[rf3]`` |
+| **Boltz2** | ``boltz2/2.2.1`` | Single GPU FASTA (CHPC-style) + ColabFold MSA; ``--ntasks-per-node=1``; seeds share one MSA |
+| **AF3** | ``alphafold/3.0.0`` | Two-step: CPU MSA → GPU infer (``--ntasks-per-node=1`` on GPU step) |
+| **ESMFold** | ``esmfold/1.0.3`` | Single GPU: fair-esm Python API; ``--ntasks-per-node=1`` |
+| **RF3** | Foundry ``rf3 fold`` (not a CHPC module yet) | Single GPU; ``--ntasks-per-node=1`` (Lightning Fabric); install ``rc-foundry[rf3]`` |
 
 AlphaFold2 and RoseTTAFold2 were **removed** (replaced by Boltz2 and RF3).
 

@@ -31,6 +31,79 @@ def test_write_boltz2_yaml(tmp_path: Path):
     assert "GMRESYANEN" in text
 
 
+def test_boltz2_shares_msa_across_seeds(tmp_path: Path):
+    root = tmp_path
+    (root / "configs").mkdir()
+    (root / "data" / "structures").mkdir(parents=True)
+    (root / "data" / "constructs").mkdir(parents=True)
+    (root / "manifests").mkdir()
+    (root / "outputs").mkdir()
+    (root / "configs" / "pipeline.yaml").write_text(
+        """
+canonical_reference: "V1.0"
+active_design_background: "V2.4"
+random_seed: 42
+paths:
+  experimental: "data/experimental"
+  constructs: "data/constructs"
+  structures: "data/structures"
+  physics: "data/physics"
+  rounds: "data/rounds"
+  processed: "data/processed"
+  splits: "data/processed/splits"
+  manifests: "manifests"
+  outputs: "outputs"
+constructs:
+  versions_pickle: "biosensor_versions_clean.pkl"
+gates:
+  stage1: advisory
+""".strip(),
+        encoding="utf-8",
+    )
+    (root / "configs" / "thresholds.yaml").write_text(
+        """
+structure:
+  predictors: [Boltz2]
+  seeds: [1, 2]
+  states: [apo]
+  confidence:
+    plDDT_min_reliable: 70.0
+    rmsd_max_reliable: 2.0
+    pae_pocket_max_reliable: 10.0
+    confidence_min_reliable: 0.5
+""".strip(),
+        encoding="utf-8",
+    )
+    from biosensor_priors.common.config import REPO_ROOT
+    import shutil
+
+    shutil.copy(REPO_ROOT / "configs" / "structures.yaml", root / "configs" / "structures.yaml")
+
+    result = make_structure_jobs(
+        version="V2.4",
+        sequence=SEQ,
+        repo_root=root,
+        predictors=["Boltz2"],
+        seeds=[1, 2],
+        states=["apo"],
+        submit=False,
+    )
+    reg = result["registry"].sort_values("seed")
+    s1, s2 = reg.iloc[0], reg.iloc[1]
+    script1 = (root / s1["step1_script"]).read_text(encoding="utf-8")
+    script2 = (root / s2["step1_script"]).read_text(encoding="utf-8")
+    assert "--use_msa_server" in script1
+    assert "--use_msa_server" not in script2
+    assert str(s1["input_path"]).endswith(".fasta")
+    assert str(s2["input_path"]).endswith(".yaml")
+    yaml2 = (root / s2["input_path"]).read_text(encoding="utf-8")
+    assert "msa:" in yaml2
+    assert "boltz_results_V2_4_Boltz2_seed1_apo" in yaml2.replace("\\", "/")
+    submit = (result["submit_script"]).read_text(encoding="utf-8")
+    assert "sbatch --parsable" in submit
+    assert "afterok:" in submit
+
+
 def test_make_jobs_writes_boltz2_af3_scripts(tmp_path: Path):
     root = tmp_path
     (root / "configs").mkdir()
@@ -100,14 +173,19 @@ structure:
     assert "--use_msa_server" in bz_script
     assert "colabfold02.int.chpc.utah.edu" in bz_script
     assert "#SBATCH -p granite-gpu" in bz_script
+    assert "#SBATCH --ntasks-per-node=1" in bz_script
+    assert "#SBATCH --cpus-per-task=16" in bz_script
+    assert "#SBATCH -n " not in bz_script
     assert "#SBATCH --output=" in bz_script
     assert "/logs/V2.4/V2.4_Boltz2_seed1_apo__boltz2_gpu.out" in bz_script.replace("\\", "/")
     assert "#SBATCH --error=" in bz_script
     assert bz["step2_script"] is None or (isinstance(bz["step2_script"], float) and pd.isna(bz["step2_script"]))
 
-    yaml_text = (root / bz["input_path"]).read_text(encoding="utf-8")
-    assert "protein:" in yaml_text
-    assert "GMRESYANEN" in yaml_text
+    # CHPC-style FASTA input (sanitized stem; no dots)
+    assert str(bz["input_path"]).endswith(".fasta")
+    fasta_text = (root / bz["input_path"]).read_text(encoding="utf-8")
+    assert fasta_text.startswith(">A|protein")
+    assert "GMRESYANEN" in fasta_text
 
     af3_row = registry[registry["method"] == "AF3"].iloc[0]
     a3s1 = (root / af3_row["step1_script"]).read_text(encoding="utf-8")
@@ -117,6 +195,7 @@ structure:
     assert "sbatch -d afterok:${SLURM_JOBID}" in a3s1
     assert "--norun_data_pipeline" in a3s2
     assert "granite-gpu" in a3s2
+    assert "#SBATCH --ntasks-per-node=1" in a3s2
     assert "/logs/V2.4/V2.4_AF3_seed1_apo__af3_step1_msa.out" in a3s1.replace("\\", "/")
     assert "/logs/V2.4/V2.4_AF3_seed1_apo__af3_step2_infer.out" in a3s2.replace("\\", "/")
     import json as _json
@@ -252,6 +331,8 @@ gates:
     assert "rf3 fold" in rf_script
     assert "early_stopping_plddt_threshold=0" in rf_script
     assert "nvidia-smi" in rf_script
+    assert "#SBATCH --ntasks-per-node=1" in rf_script
+    assert "#SBATCH -n " not in rf_script
     js = (root / rf["input_path"]).read_text(encoding="utf-8")
     assert '"seq"' in js
 

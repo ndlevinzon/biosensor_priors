@@ -22,17 +22,33 @@ def _sbatch_header(
     export_all: bool = False,
     stdout_path: Path | str | None = None,
     stderr_path: Path | str | None = None,
+    ntasks_per_node: int | None = None,
+    cpus_per_task: int | None = None,
 ) -> list[str]:
+    """Build common ``#SBATCH`` lines.
+
+    Prefer ``ntasks_per_node`` for Foundry/Lightning RF3 jobs: Fabric rejects
+    bare ``#SBATCH -n`` / ``--ntasks`` when ``SLURM_NTASKS > 1``.
+    """
     lines = [
         "#!/bin/bash",
         f"#SBATCH -J {job_name}",
         f"#SBATCH -t {time}",
-        f"#SBATCH -n {ntasks}",
-        f"#SBATCH -N {nodes}",
-        f"#SBATCH -p {partition}",
-        f"#SBATCH -A {account}",
-        f"#SBATCH --mem={mem}",
     ]
+    if ntasks_per_node is not None:
+        lines.append(f"#SBATCH --ntasks-per-node={int(ntasks_per_node)}")
+    else:
+        lines.append(f"#SBATCH -n {ntasks}")
+    lines.extend(
+        [
+            f"#SBATCH -N {nodes}",
+            f"#SBATCH -p {partition}",
+            f"#SBATCH -A {account}",
+            f"#SBATCH --mem={mem}",
+        ]
+    )
+    if cpus_per_task is not None:
+        lines.append(f"#SBATCH --cpus-per-task={int(cpus_per_task)}")
     if qos:
         lines.append(f"#SBATCH --qos={qos}")
     if gres:
@@ -64,6 +80,13 @@ def resolve_slurm_log_paths(
     logs.mkdir(parents=True, exist_ok=True)
     base = f"{structure_model_id}__{script_stem}"
     return logs / f"{base}.out", logs / f"{base}.err"
+
+
+def _single_gpu_ntasks_per_node(step: dict[str, Any], *, default: int = 1) -> int:
+    """Tasks/node for single-GPU Lightning/Boltz/RF3 jobs (not bare ``#SBATCH -n``)."""
+    if step.get("ntasks_per_node") is not None:
+        return int(step["ntasks_per_node"])
+    return int(default)
 
 
 def write_af2_step1_script(
@@ -290,11 +313,13 @@ def write_af3_step2_script(
     step = af3_cfg["step2"]
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    ntpn = _single_gpu_ntasks_per_node(step, default=1)
     lines = _sbatch_header(
         job_name=path.stem[:64],
         partition=str(step["partition"]),
         account=str(step["account"]),
-        ntasks=int(step["ntasks"]),
+        ntasks=ntpn,
+        ntasks_per_node=ntpn,
         nodes=int(step["nodes"]),
         mem=str(step["mem"]),
         time=str(step["time"]),
@@ -365,7 +390,8 @@ def write_esmfold_script(
         job_name=path.stem[:64],
         partition=str(step.get("partition", "granite-gpu")),
         account=str(step.get("account", "cheatham")),
-        ntasks=int(step.get("ntasks", 4)),
+        ntasks=_single_gpu_ntasks_per_node(step, default=1),
+        ntasks_per_node=_single_gpu_ntasks_per_node(step, default=1),
         nodes=int(step.get("nodes", 1)),
         mem=str(step.get("mem", "32G")),
         time=str(step.get("time", "4:00:00")),
@@ -402,26 +428,33 @@ def write_esmfold_script(
 def write_boltz2_script(
     path: Path,
     *,
-    input_yaml: Path | str,
+    input_path: Path | str,
     output_dir: Path | str,
     boltz_cfg: dict[str, Any],
     stdout_path: Path | str | None = None,
     stderr_path: Path | str | None = None,
+    use_msa_server: bool | None = None,
 ) -> Path:
     """
     Write a CHPC Boltz-2 GPU SLURM script.
 
-    Loads ``boltz2`` and runs ``boltz predict`` with the CHPC ColabFold MSA
-    server (see CHPC Alphafold docs).
+    Matches CHPC docs: ``boltz predict`` + ``--use_msa_server`` against the
+    on-campus ColabFold MSA URL. Uses ``--ntasks-per-node=1`` (Lightning) and
+    optional ``--cpus-per-task`` for the MSA client / folding process.
     """
     step = boltz_cfg.get("job") or {}
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # PyTorch Lightning (Boltz Trainer) rejects bare #SBATCH -n when NTASKS > 1.
+    ntpn = _single_gpu_ntasks_per_node(step, default=1)
+    cpus = step.get("cpus_per_task")
     lines = _sbatch_header(
         job_name=path.stem[:64],
         partition=str(step.get("partition", "granite-gpu")),
         account=str(step.get("account", "cheatham")),
-        ntasks=int(step.get("ntasks", 8)),
+        ntasks=ntpn,
+        ntasks_per_node=ntpn,
+        cpus_per_task=int(cpus) if cpus is not None else 16,
         nodes=int(step.get("nodes", 1)),
         mem=str(step.get("mem", "64G")),
         time=str(step.get("time", "8:00:00")),
@@ -435,12 +468,21 @@ def write_boltz2_script(
         boltz_cfg.get("msa_server_url")
         or "http://colabfold02.int.chpc.utah.edu:8088"
     )
+    do_msa = (
+        bool(boltz_cfg.get("use_msa_server", True))
+        if use_msa_server is None
+        else bool(use_msa_server)
+    )
     extras: list[str] = [
         f'--out_dir "{Path(output_dir).as_posix()}"',
     ]
-    if boltz_cfg.get("use_msa_server", True):
+    if do_msa:
         extras.append("--use_msa_server")
         extras.append(f"--msa_server_url={msa_url}")
+        if boltz_cfg.get("msa_pairing_strategy"):
+            extras.append(
+                f"--msa_pairing_strategy={boltz_cfg['msa_pairing_strategy']}"
+            )
     if boltz_cfg.get("diffusion_samples") is not None:
         extras.append(f"--diffusion_samples {int(boltz_cfg['diffusion_samples'])}")
     if boltz_cfg.get("recycling_steps") is not None:
@@ -452,17 +494,18 @@ def write_boltz2_script(
     for arg in boltz_cfg.get("extra_args") or []:
         extras.append(str(arg))
     extra = " ".join(extras)
+    inp = Path(input_path)
     lines.extend(
         [
             "set -euo pipefail",
             "ml purge",
             f"ml {boltz_cfg['module']}",
             "",
-            f'INPUT_YAML="{Path(input_yaml).as_posix()}"',
+            f'INPUT_FILE="{inp.as_posix()}"',
             f'OUTPUT_DIR="{Path(output_dir).as_posix()}"',
             'mkdir -p "$OUTPUT_DIR"',
             "",
-            f'{runner} predict "$INPUT_YAML" {extra}',
+            f'{runner} predict "$INPUT_FILE" {extra}',
             "",
         ]
     )
@@ -488,11 +531,14 @@ def write_rf3_script(
     step = rf3_cfg.get("job") or {}
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Lightning Fabric (Foundry rf3) requires --ntasks-per-node, not -n.
+    ntasks_per_node = _single_gpu_ntasks_per_node(step, default=1)
     lines = _sbatch_header(
         job_name=path.stem[:64],
         partition=str(step.get("partition", "granite-gpu")),
         account=str(step.get("account", "cheatham")),
-        ntasks=int(step.get("ntasks", 8)),
+        ntasks=ntasks_per_node,
+        ntasks_per_node=ntasks_per_node,
         nodes=int(step.get("nodes", 1)),
         mem=str(step.get("mem", "64G")),
         time=str(step.get("time", "12:00:00")),
