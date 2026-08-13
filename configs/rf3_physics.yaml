@@ -18,7 +18,9 @@ rf3:
   # Optional: conda activate script that puts `rf3` on PATH
   # conda_activate: "/uufs/.../.conda/envs/biosensor_priors/bin/activate"
   conda_activate: null
-  ckpt_path: null
+  # In-repo Foundry checkpoint (gitignored; not touched by clean_pipeline_artifacts).
+  # Install: mkdir -p weights/rf3 && foundry install base-models --checkpoint-dir "$PWD/weights/rf3"
+  ckpt_path: "weights/rf3/rf3_foundry_01_24_latest_remapped.ckpt"
   early_stopping_plddt_threshold: 0.0
   diffusion_batch_size: 1
   num_steps: 50

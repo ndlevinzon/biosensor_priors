@@ -76,6 +76,32 @@ Optional extras:
 
 ## Quick start
 
+### Fresh HPC redeploy (wipe generated artifacts)
+
+Keeps ``data/experimental/``, ``data/constructs/``, ``configs/``, and
+``weights/`` (RF3 checkpoints). Removes Stage 0–6 outputs under
+``data/processed``, ``data/structures``, ``data/physics``, ``data/rounds``,
+``outputs/``, and ``manifests/*.json``.
+
+```bash
+# On CHPC, from the clone under scratch:
+cd /scratch/.../biosensor_priors
+python scripts/clean_pipeline_artifacts.py --dry-run   # preview
+python scripts/clean_pipeline_artifacts.py --yes        # delete
+# optional: also clear __pycache__ / pytest caches
+python scripts/clean_pipeline_artifacts.py --yes --caches
+
+pip install -e ".[dev,chem]"
+biosensor-stage0
+biosensor-stage1 --jobs-only --version V2.4
+# submit data/structures/jobs/.../submit_all.sh, then:
+# biosensor-stage1 --ingest-only
+biosensor-stage2   # mock until RF3 backend: external
+biosensor-stage3
+```
+
+### Normal stage entry points
+
 ```bash
 # Ground truth + frozen splits
 biosensor-stage0
@@ -127,6 +153,7 @@ analysis constants in Python.
 ```text
 configs/                 YAML analysis contracts (preregistered)
 data/                    experimental, constructs, structures, physics, rounds
+scripts/                 HPC helpers (e.g. clean_pipeline_artifacts)
 src/biosensor_priors/
   common/                config, IDs, manifests, gates
   stage0_ground_truth/   cleaning, fitness, splits, Gate 0

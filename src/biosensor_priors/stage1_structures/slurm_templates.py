@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from biosensor_priors.common.config import REPO_ROOT, resolve_path
+
 
 def _sbatch_header(
     *,
@@ -465,7 +467,8 @@ def write_rf3_script(
     ]
     ckpt = rf3_cfg.get("ckpt_path")
     if ckpt:
-        hydra_args.append(f"ckpt_path='{Path(str(ckpt)).as_posix()}'")
+        ckpt_abs = resolve_path(str(ckpt), REPO_ROOT)
+        hydra_args.append(f"ckpt_path='{ckpt_abs.as_posix()}'")
     for arg in rf3_cfg.get("extra_args") or []:
         hydra_args.append(str(arg))
     lines.extend(

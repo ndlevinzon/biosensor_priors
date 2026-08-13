@@ -93,8 +93,9 @@ rosettafold3:
   # conda_activate: "/uufs/.../.conda/envs/rf3/bin/activate"
   conda_activate: null
   run: "rf3"
-  # null → Foundry default checkpoint search (~/.foundry/checkpoints)
-  ckpt_path: null
+  # In-repo Foundry checkpoint (gitignored; not touched by clean_pipeline_artifacts).
+  # Install: mkdir -p weights/rf3 && foundry install base-models --checkpoint-dir "$PWD/weights/rf3"
+  ckpt_path: "weights/rf3/rf3_foundry_01_24_latest_remapped.ckpt"
   # Disable early-stop so apo runs always write a model CIF
   early_stopping_plddt_threshold: 0.0
   job:

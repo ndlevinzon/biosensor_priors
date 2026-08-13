@@ -316,7 +316,8 @@ def build_rf3_fold_command(
     ]
     ckpt = cfg.get("ckpt_path")
     if ckpt:
-        hydra.append(f"ckpt_path='{Path(str(ckpt)).as_posix()}'")
+        ckpt_abs = resolve_path(str(ckpt), REPO_ROOT)
+        hydra.append(f"ckpt_path='{ckpt_abs.as_posix()}'")
     for arg in cfg.get("extra_args") or []:
         hydra.append(str(arg))
     return [runner, "fold", *hydra]

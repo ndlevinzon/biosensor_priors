@@ -40,6 +40,16 @@ manifests/*
 outputs/*
 !outputs/.gitkeep
 
+# Large model weights (RF3 / Foundry checkpoints). Install under weights/
+# on CHPC; never commit. Example:
+#   foundry install base-models --checkpoint-dir "$PWD/weights/rf3"
+# Then set ckpt_path in configs/structures.yaml / rf3_physics.yaml.
+weights/*
+!weights/.gitkeep
+*.ckpt
+*.pt
+!**/tests/**/*.pt
+
 # OS / IDE
 .DS_Store
 Thumbs.db

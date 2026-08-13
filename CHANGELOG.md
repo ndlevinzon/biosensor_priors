@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``scripts/clean_pipeline_artifacts.py`` (+ ``.sh`` wrapper) to wipe
+  generated Stage 0–6 artifacts for a fresh HPC redeploy while keeping
+  experimental inputs, constructs, and configs.
 - Stage 1 CHPC AlphaFold 2.3.2 / 3.0.0 two-step SLURM job generator
   (``configs/structures.yaml``, FASTA/JSON inputs, ``parse_AF2`` / ``parse_AF3``,
   structural confidence + Gate 1, CLI ``biosensor-stage1``); ESMFold

@@ -1,0 +1,9 @@
+# Place Foundry / RF3 checkpoints here (gitignored; clean_pipeline_artifacts skips this tree).
+#
+# On CHPC from the repo root:
+#   mkdir -p weights/rf3
+#   foundry install base-models --checkpoint-dir "$PWD/weights/rf3"
+#
+# Configs expect:
+#   weights/rf3/rf3_foundry_01_24_latest_remapped.ckpt
+# (structures.yaml + rf3_physics.yaml → ckpt_path)
