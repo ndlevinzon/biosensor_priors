@@ -311,7 +311,9 @@ def write_af3_step1_script(
     if chain_gpu and step2_script is not None:
         lines.extend(
             [
-                f'sbatch -d afterok:${{SLURM_JOBID}} "{Path(step2_script).as_posix()}"',
+                "# --export=NONE: CPU MSA jobs often have empty CUDA_VISIBLE_DEVICES;",
+                "# do not pass that into the GPU inference job.",
+                f'sbatch --export=NONE -d afterok:${{SLURM_JOBID}} "{Path(step2_script).as_posix()}"',
                 "",
             ]
         )
@@ -343,12 +345,14 @@ def write_af3_step2_script(
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     ntpn = _single_gpu_ntasks_per_node(step, default=1)
+    cpus = step.get("cpus_per_task", 4)
     lines = _sbatch_header(
         job_name=path.stem[:64],
         partition=str(step["partition"]),
         account=str(step["account"]),
         ntasks=ntpn,
         ntasks_per_node=ntpn,
+        cpus_per_task=int(cpus) if cpus is not None else 4,
         nodes=int(step["nodes"]),
         mem=str(step["mem"]),
         time=str(step["time"]),

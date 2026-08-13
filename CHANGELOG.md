@@ -27,7 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   seed's MSA via SLURM ``afterok`` (avoids ColabFold MMseqs2 overload ERRORs).
 - Stage 1 GPU SLURM scripts use ``#SBATCH --export=NONE`` plus ``nvidia-smi``
   checks so an empty login-shell ``CUDA_VISIBLE_DEVICES`` does not hide GPUs
-  from PyTorch (ESMFold / Boltz2 / RF3 / AF3 step-2).
+  from PyTorch (ESMFold / Boltz2 / RF3 / AF3 step-2). AF3 step-1 chains step-2
+  with ``sbatch --export=NONE`` so the CPU MSA job cannot pass an empty
+  ``CUDA_VISIBLE_DEVICES`` into inference.
 
 ### Added
 

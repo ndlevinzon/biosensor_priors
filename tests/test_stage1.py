@@ -192,10 +192,12 @@ structure:
     a3s2 = (root / af3_row["step2_script"]).read_text(encoding="utf-8")
     assert "ml alphafold/3.0.0" in a3s1
     assert "--norun_inference" in a3s1
-    assert "sbatch -d afterok:${SLURM_JOBID}" in a3s1
+    assert "sbatch --export=NONE -d afterok:${SLURM_JOBID}" in a3s1
     assert "--norun_data_pipeline" in a3s2
     assert "granite-gpu" in a3s2
     assert "#SBATCH --ntasks-per-node=1" in a3s2
+    assert "#SBATCH --export=NONE" in a3s2
+    assert "nvidia-smi -L" in a3s2
     assert "/logs/V2.4/V2.4_AF3_seed1_apo__af3_step1_msa.out" in a3s1.replace("\\", "/")
     assert "/logs/V2.4/V2.4_AF3_seed1_apo__af3_step2_infer.out" in a3s2.replace("\\", "/")
     import json as _json
