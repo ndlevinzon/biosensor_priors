@@ -150,9 +150,9 @@ content hash + schema version. Catalog:
 
 #### 4.2 RoseTTAFold3 docking wrappers (2B)
 
-Stage-2 priors are **RoseTTAFold3** (Foundry ``rf3 fold``) apo + ligand
-docking confidences, negated into schema columns ``rif_ac``, ``rif_prop``,
-and ``rpx`` so the frozen ``more_negative_is_better`` direction holds.
+Stage-2 priors are **RoseTTAFold3** (Foundry ``rf3 fold``) ligand
+docking confidences, negated into schema columns ``rif_ac`` and ``rif_prop``
+so the frozen ``more_negative_is_better`` direction holds.
 
 For each `structure_model_id` and ligand ensemble the Python layer:
 
@@ -188,7 +188,7 @@ $$
 \mathrm{SD}(m)=\sqrt{\frac{1}{N-1}\sum_{i=1}^{N}\bigl(\mathrm{RIF}_i-\overline{\mathrm{RIF}}\bigr)^2}
 $$
 
-(and likewise for RPX / $\Delta\mathrm{RIF}_{\mathrm{sel}}$), joined to
+(and likewise for $\Delta\mathrm{RIF}_{\mathrm{sel}}$), joined to
 $C_{\mathrm{structure}}$ when available.
 
 #### 4.5 Gate 2 (2E)
@@ -209,7 +209,7 @@ For construct $x$, features may include:
 
 - sequence encodings: one-hot, Georgiev (19-D physchem), hybrid, or mutation-bag
 - physics block: $\mathrm{RIF}_{\mathrm{Ac}}$, $\mathrm{RIF}_{\mathrm{Prop}}$,
-  $\Delta\mathrm{RIF}_{\mathrm{sel}}$, $\mathrm{RPX}$
+  $\Delta\mathrm{RIF}_{\mathrm{sel}}$
 - structural confidence $C_{\mathrm{structure}}$
 
 Standardization statistics are fit **inside each training split only**.
@@ -231,7 +231,7 @@ Physics mean (train-only linear / ridge, or intercept if physics absent):
 $$
 \mu_0(x)
   = w_{\mathrm{RIF\,Ac}}\,\mathrm{RIF}_{\mathrm{Ac}}(x)
-  + w_{\mathrm{RPX}}\,\mathrm{RPX}(x)
+  + w_{\mathrm{RIF\,Prop}}\,\mathrm{RIF}_{\mathrm{Prop}}(x)
   + w_{\Delta}\,\Delta\mathrm{RIF}_{\mathrm{sel}}(x)
   + b
 $$
@@ -366,7 +366,7 @@ Only after Gate 4 (freeze integrity + matched observations + finite metrics):
 
 Physics coefficients are logged by round:
 
-| Round | $w_{\mathrm{RIF\,Ac}}$ | $w_{\mathrm{RPX}}$ | $w_{\Delta\mathrm{RIF}}$ |
+| Round | $w_{\mathrm{RIF\,Ac}}$ | $w_{\mathrm{RIF\,Prop}}$ | $w_{\Delta\mathrm{RIF}}$ |
 
 Weights trending toward zero as labeled data accumulate is a legitimate
 scientific outcome and is recorded, not suppressed.

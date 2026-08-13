@@ -10,10 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Stage 2 physics priors use **RoseTTAFold3 docking** (Foundry ``rf3 fold``)
-  instead of PyRosetta (``configs/rf3_physics.yaml``,
-  ``wrappers/run_rf3_dock.py`` / ``run_rpx.py``). Schema columns ``rif_ac`` /
-  ``rif_prop`` / ``rpx`` retained for Stage 3 (negated RF3 confidence).
-  CLIs: ``biosensor-rf3-dock``, ``biosensor-rpx`` (``biosensor-rosetta`` alias).
+  (``configs/rf3_physics.yaml``, ``wrappers/run_rf3_dock.py``). Schema columns
+  ``rif_ac`` / ``rif_prop`` / ``delta_rif_sel`` (negated RF3 confidence). The
+  separate RPX packing path was removed as redundant with RF3. CLI:
+  ``biosensor-rf3-dock`` (``biosensor-rosetta`` alias).
 - Stage 1 predictors: **Boltz2** (CHPC ``boltz2``) replaces AF2; **RF3**
   (Foundry ``rf3 fold``) replaces RoseTTAFold2. AF3 and ESMFold unchanged.
 
@@ -27,8 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stage 2 physics landscape orchestration: ligand conformer pipeline with
   permanent ``conformer_id``s, **RDKit ETKDG** conformer generator (OMEGA
   replacement), **Gaussian16** (``gaussian16/SSE4.C01``) GJF/SLURM writers,
-  Rosetta job wrappers + provenance, **RF3 docking CLIs**
-  (``biosensor-rf3-dock`` / ``biosensor-rpx``) for Foundry RoseTTAFold3,
+  Rosetta job wrappers + provenance, **RF3 docking CLI**
+  (``biosensor-rf3-dock``) for Foundry RoseTTAFold3,
   20-AA scan
   long table with ``delta_rif_sel = rif_ac − rif_prop`` (negated RF3
   confidences),

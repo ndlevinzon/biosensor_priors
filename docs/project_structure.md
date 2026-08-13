@@ -45,7 +45,6 @@ biosensor_priors/
         stage2_physics/
             ligand_ensemble.py
             rif_jobs.py
-            rpx_jobs.py
             mutation_scan.py
             score_parser.py
             physics_uncertainty.py

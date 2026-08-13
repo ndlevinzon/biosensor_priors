@@ -112,7 +112,13 @@ def test_mutation_scan_and_gate2(stage0_result) -> None:
     )
     long_table = scan["long_table"]
     assert not long_table.empty
-    assert {"rif_ac", "rif_prop", "rpx", "delta_rif_sel", "mutation"}.issubset(long_table.columns)
+    assert {
+        "rif_ac",
+        "rif_prop",
+        "delta_rif_sel",
+        "mutation",
+    }.issubset(long_table.columns)
+    assert "rpx" not in long_table.columns
     # Controls present
     assert "Q324R" in set(long_table["mutation"])
     assert "A355R" in set(long_table["mutation"])

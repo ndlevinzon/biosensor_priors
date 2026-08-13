@@ -20,13 +20,11 @@ structure:
 physics:
   # Freeze score direction before coding. Downstream must not guess.
   # Convention: more negative = better. RF3 docking maps −confidence into
-  # rif_ac / rif_prop / rpx so this direction stays valid (was ref2015-like).
+  # rif_ac / rif_prop so this direction stays valid.
   score_direction: more_negative_is_better
   rif:
     accoa_threshold: null  # set from calibration
     propcoa_threshold: null
-  rpx:
-    packing_threshold: null
   controls:
     - mutation: Q324R
       expected_direction: favorable_AcCoA
@@ -39,6 +37,6 @@ gp:
   encoding: hybrid   # onehot | georgiev | hybrid | mutation_bag
   physics_mean_weights:
     w_rif_ac: null
-    w_rpx: null
+    w_rif_prop: null
     w_delta_rif_sel: null
   leave_one_construct_out: true

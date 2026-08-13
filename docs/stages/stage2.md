@@ -39,31 +39,29 @@ Modules: ``ligand_ensemble.py``, ``conformer_generator.py``, ``gaussian_qm.py``
 Programmatic wrapper around **RoseTTAFold3** (Foundry ``rf3 fold``):
 
 - mutate sequence → optional backbone template from Stage-1 structure
-- apo fold confidence → ``rpx`` (negated)
 - protein + AcCoA / PropCoA docking confidence → ``rif_ac`` / ``rif_prop``
-  (negated; legacy column names kept for Stage 3)
+  (negated for the frozen score direction)
 - write shell/sbatch scripts, capture logs, parse scores, store ``job.json``
 
 Config: ``configs/rf3_physics.yaml`` (ligand SMILES/SDF, template flags,
 metric keys, GPU job defaults).
 
 Inputs: ``structure_model_id`` + ligand SMILES (from ``physics.yaml``) or SDF  
-Outputs: ``data/physics/rif/.../rif_scores.tsv``, ``data/physics/rpx/...``
+Outputs: ``data/physics/rif/.../rif_scores.tsv``
 
-Modules: ``rif_jobs.py``, ``rpx_jobs.py``, ``wrappers/run_rf3_dock.py``,
-``score_parser.py``
+Modules: ``rif_jobs.py``, ``wrappers/run_rf3_dock.py``, ``score_parser.py``
 
 ### 2C. 20-AA scan engine
 
 For every allowed canonical position × amino acid, generate a mutation
-specification and score through RF3 apo + ligand docking.
+specification and score through RF3 ligand docking.
 
 Long-format table:
 
-| Version | Position | WT | Mutant | RIF_Ac | RIF_Prop | RPX | delta_RIF_sel |
-| --- | --- | --- | --- | --- | --- | --- | --- |
+| Version | Position | WT | Mutant | RIF_Ac | RIF_Prop | delta_RIF_sel |
+| --- | --- | --- | --- | --- | --- | --- |
 
-(Column names are legacy; values are negated RF3 confidences.)
+(Values are negated RF3 docking confidences.)
 
 Derived selectivity:
 
@@ -102,9 +100,6 @@ check_Q324R_direction()  PASS / FAIL
 check_A355R_direction()  PASS / FAIL
 ```
 
-(These are the Gate-2 regression checks; implemented as ``check_*`` so pytest
-does not collect them as unit tests from the package namespace.)
-
 If either fails: ``physics_gate = FAIL`` and Stage 3 falls back to
 ``gp_zero_mean`` (no silent full physics weight).
 
@@ -126,23 +121,17 @@ python -m biosensor_priors.stage2_physics.run --require-gate
    ``foundry install base-models`` (same as Stage 1).
 3. Optional: set ``configs/rf3_physics.yaml`` → ``conda_activate`` and/or
    per-ligand SDF ``path`` under ``ligands.*.path``.
-4. In ``configs/physics.yaml``: drop ``--scaffold`` from ``rif`` / ``rpx``
-   command templates; set ``backend: external``; keep jobs on
+4. In ``configs/physics.yaml``: drop ``--scaffold`` from the ``rif``
+   command template; set ``backend: external``; keep jobs on
    ``granite-gpu`` with ``gres: gpu:1``.
 5. Gate 2 must still pass on real scores before Stage 3 trusts physics weights.
 
-## Wrapper CLIs
+## Wrapper CLI
 
 ```bash
-# Ligand docking + optional apo (writes rif_scores.tsv; optional --write-rpx)
 python -m biosensor_priors.stage2_physics.wrappers.run_rf3_dock \
   --structure model.pdb --ligands data/physics/ligands \
   --ligand-name 'AcCoA+PropCoA' --out /tmp/rf3 --scaffold
-
-# Apo only → rpx_scores.tsv
-python -m biosensor_priors.stage2_physics.wrappers.run_rpx \
-  --structure model.pdb --mutation Q324R --out /tmp/rpx --scaffold
 ```
 
-Entry points: ``biosensor-rf3-dock``, ``biosensor-rpx``
-(``biosensor-rosetta`` remains as an alias to RF3 dock).
+Entry point: ``biosensor-rf3-dock`` (``biosensor-rosetta`` is an alias).

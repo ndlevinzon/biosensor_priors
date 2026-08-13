@@ -44,7 +44,7 @@ Explicit policies are required for:
 **Frozen convention** (``configs/thresholds.yaml``):
 
 > More negative physics score = better interaction
-> (RF3 docking writes −confidence into ``rif_*`` / ``rpx``).
+> (RF3 docking writes −confidence into ``rif_ac`` / ``rif_prop``).
 
 Downstream code must not guess sign convention. Derived selectivity is:
 

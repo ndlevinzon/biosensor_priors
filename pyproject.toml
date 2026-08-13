@@ -54,7 +54,6 @@ biosensor-ligand-conformers = "biosensor_priors.stage2_physics.conformer_generat
 biosensor-gaussian-qm = "biosensor_priors.stage2_physics.gaussian_qm:main"
 biosensor-rf3-dock = "biosensor_priors.stage2_physics.wrappers.run_rf3_dock:main"
 biosensor-rosetta = "biosensor_priors.stage2_physics.wrappers.run_rf3_dock:main"
-biosensor-rpx = "biosensor_priors.stage2_physics.wrappers.run_rpx:main"
 
 [project.optional-dependencies]
 dev = [

@@ -4,7 +4,7 @@ Stage 2 physics wrapper: RoseTTAFold3 (Foundry) docking → schema scores.
 Maps RF3 confidence onto frozen Stage-2 / Stage-3 columns:
 
 * ``rif_ac`` / ``rif_prop`` — negated interface confidence for AcCoA / PropCoA
-* ``rpx`` — negated apo confidence after mutation (packing / fold proxy)
+* ``delta_rif_sel`` — ``rif_ac - rif_prop`` (computed downstream)
 
 Requires Foundry ``rf3`` on PATH (``pip install 'rc-foundry[rf3]'``). Without
 RF3 (or with ``--scaffold``), writes parser-compatible NaN TSVs for job wiring.
@@ -508,7 +508,6 @@ def scaffold_rows(
                 "structure_pdb": str(structure_pdb),
                 "rif_ac": math.nan,
                 "rif_prop": math.nan,
-                "rpx": math.nan,
                 "backend": "scaffold",
             }
         )
@@ -528,29 +527,6 @@ def write_interface_scores_tsv(path: Path, rows: list[dict[str, Any]]) -> Path:
         "structure_model_id",
         "rif_ac",
         "rif_prop",
-        "rpx",
-        "backend",
-        "structure_pdb",
-    ]
-    df = pd.DataFrame(rows)
-    for c in cols:
-        if c not in df.columns:
-            df[c] = None
-    df[cols].to_csv(path, sep="\t", index=False)
-    return path
-
-
-def write_rpx_only_tsv(path: Path, rows: list[dict[str, Any]]) -> Path:
-    """Write RPX-only TSV for the packing half of Stage 2."""
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    cols = [
-        "mutation",
-        "position",
-        "wt",
-        "mutant",
-        "structure_model_id",
-        "rpx",
         "backend",
         "structure_pdb",
     ]
@@ -571,10 +547,8 @@ def score_mutation_rf3(
     work_dir: Path,
     ligands_dir: Path | None = None,
     repo_root: Path | None = None,
-    score_apo: bool = True,
-    score_ligands: bool = True,
 ) -> dict[str, Any]:
-    """Run RF3 apo + AcCoA/PropCoA docking for one mutation; return score row."""
+    """Run RF3 AcCoA/PropCoA docking for one mutation; return score row."""
     root = repo_root or REPO_ROOT
     if isinstance(mutation, str):
         mutation = parse_mutation_string(mutation)
@@ -600,63 +574,41 @@ def score_mutation_rf3(
         cfg.get("interface_metric_keys")
         or ["iptm", "interface_ptm", "ranking_score", "ptm"]
     )
-    apo_keys = list(cfg.get("apo_metric_keys") or ["ptm", "ranking_score", "plddt"])
 
     rif_ac = math.nan
     rif_prop = math.nan
-    rpx = math.nan
     detail: dict[str, Any] = {}
 
-    if score_apo:
-        apo_dir = work / "apo"
-        apo_json = write_rf3_dock_json(
-            work / "apo_input.json",
-            name=f"{mut_code}_apo",
+    for ligand_key, col in (("AcCoA", "rif_ac"), ("PropCoA", "rif_prop")):
+        lig_dir = work / ligand_key
+        lig_comp = resolve_ligand_component(
+            ligand_key, cfg=cfg, ligands_dir=ligands_dir, repo_root=root
+        )
+        lig_json = write_rf3_dock_json(
+            work / f"{ligand_key}_input.json",
+            name=f"{mut_code}_{ligand_key}",
             sequence=mut_seq,
             protein_template=template,
-            ligand_component={},
+            ligand_component=lig_comp,
             cfg=cfg,
-            apo=True,
+            apo=False,
         )
-        proc = run_rf3_fold(apo_json, apo_dir, cfg)
-        (apo_dir / "rf3_stdout.txt").write_text(proc.stdout or "", encoding="utf-8")
-        (apo_dir / "rf3_stderr.txt").write_text(proc.stderr or "", encoding="utf-8")
-        metrics = parse_rf3_confidence(apo_dir)
-        raw = pick_metric(metrics, apo_keys)
-        rpx = confidence_to_score(raw, negate=negate)
-        detail["apo"] = {"returncode": proc.returncode, "raw": raw, "metrics": metrics}
-
-    if score_ligands:
-        for ligand_key, col in (("AcCoA", "rif_ac"), ("PropCoA", "rif_prop")):
-            lig_dir = work / ligand_key
-            lig_comp = resolve_ligand_component(
-                ligand_key, cfg=cfg, ligands_dir=ligands_dir, repo_root=root
-            )
-            lig_json = write_rf3_dock_json(
-                work / f"{ligand_key}_input.json",
-                name=f"{mut_code}_{ligand_key}",
-                sequence=mut_seq,
-                protein_template=template,
-                ligand_component=lig_comp,
-                cfg=cfg,
-                apo=False,
-            )
-            proc = run_rf3_fold(lig_json, lig_dir, cfg)
-            (lig_dir / "rf3_stdout.txt").write_text(proc.stdout or "", encoding="utf-8")
-            (lig_dir / "rf3_stderr.txt").write_text(proc.stderr or "", encoding="utf-8")
-            metrics = parse_rf3_confidence(lig_dir)
-            raw = pick_metric(metrics, iface_keys)
-            score = confidence_to_score(raw, negate=negate)
-            if col == "rif_ac":
-                rif_ac = score
-            else:
-                rif_prop = score
-            detail[ligand_key] = {
-                "returncode": proc.returncode,
-                "raw": raw,
-                "metrics": metrics,
-                "ligand": lig_comp,
-            }
+        proc = run_rf3_fold(lig_json, lig_dir, cfg)
+        (lig_dir / "rf3_stdout.txt").write_text(proc.stdout or "", encoding="utf-8")
+        (lig_dir / "rf3_stderr.txt").write_text(proc.stderr or "", encoding="utf-8")
+        metrics = parse_rf3_confidence(lig_dir)
+        raw = pick_metric(metrics, iface_keys)
+        score = confidence_to_score(raw, negate=negate)
+        if col == "rif_ac":
+            rif_ac = score
+        else:
+            rif_prop = score
+        detail[ligand_key] = {
+            "returncode": proc.returncode,
+            "raw": raw,
+            "metrics": metrics,
+            "ligand": lig_comp,
+        }
 
     (work / "score_detail.json").write_text(
         json.dumps(detail, indent=2, default=str) + "\n", encoding="utf-8"
@@ -672,12 +624,11 @@ def score_mutation_rf3(
         "structure_pdb": str(structure_pdb),
         "rif_ac": rif_ac,
         "rif_prop": rif_prop,
-        "rpx": rpx,
         "backend": "rf3",
     }
 
 
-# Back-compat aliases used by older imports / run_rpx
+# Back-compat aliases used by older imports
 load_rosetta_cfg = load_rf3_cfg
 score_mutation_rosetta = score_mutation_rf3
 
@@ -692,9 +643,6 @@ def run(
     structure_model_id: str | None = None,
     force_scaffold: bool = False,
     score_filename: str = "rif_scores.tsv",
-    write_rpx: bool = False,
-    rpx_filename: str = "rpx_scores.tsv",
-    apo_only: bool = False,
 ) -> Path:
     """Score mutations with RF3 docking or write scaffold TSV."""
     out = Path(out)
@@ -745,8 +693,6 @@ def run(
                         structure_model_id=structure_model_id,
                         work_dir=work,
                         ligands_dir=ligands,
-                        score_apo=True,
-                        score_ligands=not apo_only,
                     )
                 )
             except Exception as exc:  # noqa: BLE001 — per-mutant isolation
@@ -770,10 +716,7 @@ def run(
             detail={"n_rows": len(rows), "errors": errors[:20]},
         )
 
-    primary = write_interface_scores_tsv(out / score_filename, rows)
-    if write_rpx or apo_only:
-        write_rpx_only_tsv(out / rpx_filename, rows)
-    return primary
+    return write_interface_scores_tsv(out / score_filename, rows)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -793,17 +736,6 @@ def main(argv: list[str] | None = None) -> None:
         help="Force scaffold TSV even if rf3 is available",
     )
     parser.add_argument("--score-filename", default="rif_scores.tsv")
-    parser.add_argument(
-        "--write-rpx",
-        action="store_true",
-        help="Also write rpx_scores.tsv from apo RF3 confidence",
-    )
-    parser.add_argument("--rpx-filename", default="rpx_scores.tsv")
-    parser.add_argument(
-        "--apo-only",
-        action="store_true",
-        help="Score apo fold only (rpx); skip ligand docking",
-    )
     args = parser.parse_args(argv)
     path = run(
         structure=args.structure,
@@ -814,9 +746,6 @@ def main(argv: list[str] | None = None) -> None:
         structure_model_id=args.structure_model_id,
         force_scaffold=args.scaffold,
         score_filename=args.score_filename,
-        write_rpx=args.write_rpx,
-        rpx_filename=args.rpx_filename,
-        apo_only=args.apo_only,
     )
     print(f"Wrote {path}")
 

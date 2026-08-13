@@ -62,7 +62,7 @@ Only **after** evaluation (Gate 4):
 
 Store physics coefficients by round:
 
-| Round | w_RIF_Ac | w_RPX | w_ΔRIF |
+| Round | w_RIF_Ac | w_RIF_Prop | w_ΔRIF |
 | --- | --- | --- | --- |
 
 Physics weights trending toward zero as real data accumulates is a

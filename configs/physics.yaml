@@ -71,9 +71,9 @@ ligands:
   # Bump only when the *definition* of conformer_id content changes.
   conformer_id_schema_version: 1
 
-# Interface + packing priors via RoseTTAFold3 docking (configs/rf3_physics.yaml).
-# Schema columns keep legacy names: rif_ac / rif_prop / rpx / delta_rif_sel.
-# Keep backend: mock until Gate 2 passes on real RF3 confidence scores.
+# Interface priors via RoseTTAFold3 docking (configs/rf3_physics.yaml).
+# Schema columns: rif_ac / rif_prop / delta_rif_sel (negated RF3 confidence).
+# Keep backend: mock until Gate 2 passes on real RF3 docking scores.
 rif:
   executable: "python -m biosensor_priors.stage2_physics.wrappers.run_rf3_dock"
   command_template: >-
@@ -89,22 +89,10 @@ rif:
     - AcCoA
     - PropCoA
 
-rpx:
-  # Apo RF3 confidence (negated) → rpx column.
-  executable: "python -m biosensor_priors.stage2_physics.wrappers.run_rpx"
-  command_template: >-
-    {executable}
-    --structure {structure_pdb}
-    --mutation {mutation}
-    --out {out_dir}
-    --structure-model-id {structure_model_id}
-    --scaffold
-  output_score_filename: rpx_scores.tsv
-
 # CHPC RF3 docking next steps:
 # 1. pip install 'rc-foundry[rf3]'; foundry install base-models
 # 2. Optional: set configs/rf3_physics.yaml conda_activate / ligand SDF paths
-# 3. Drop --scaffold from command_templates above; set backend: external
+# 3. Drop --scaffold from command_template above; set backend: external
 # 4. jobs: granite-gpu + gres (below); Gate 2 on Q324R / A355R
 
 scan:
@@ -146,5 +134,4 @@ mock:
     Q324R: -2.5
     A355R: -2.0
   base_rif_prop: -8.0
-  base_rpx: -5.0
   structure_noise_sd: 0.4

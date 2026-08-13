@@ -156,7 +156,6 @@ def generate_design_space(
                         "rif_ac": 0.0,
                         "rif_prop": 0.0,
                         "delta_rif_sel": 0.0,
-                        "rpx": 0.0,
                         "structural_confidence": 1.0,
                         **deltas,
                     }

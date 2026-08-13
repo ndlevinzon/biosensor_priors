@@ -154,9 +154,15 @@ def test_gate4_and_weight_history(tmp_path: Path, stage0_result) -> None:
     hist = append_physics_weights_row(
         tmp_path / "physics_weights_by_round.csv",
         round_id=1,
-        weights={"rif_ac": 0.1, "rpx": -0.2, "delta_rif_sel": 0.05, "intercept": 0.0, "mode": "physics_linear"},
+        weights={
+            "rif_ac": 0.1,
+            "rif_prop": -0.05,
+            "delta_rif_sel": 0.05,
+            "intercept": 0.0,
+            "mode": "physics_linear",
+        },
     )
-    assert list(hist.columns)[:4] == ["Round", "w_RIF_Ac", "w_RPX", "w_ΔRIF"]
+    assert list(hist.columns)[:4] == ["Round", "w_RIF_Ac", "w_RIF_Prop", "w_ΔRIF"]
 
     fit = master[master["fitness"].notna()].copy()
     surrogate, meta = refit_surrogate(fit, encoding="hybrid", random_seed=0)

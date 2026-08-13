@@ -17,7 +17,6 @@ PHYSICS_FEATURE_COLUMNS = (
     "rif_ac",
     "rif_prop",
     "delta_rif_sel",
-    "rpx",
 )
 
 STRUCT_CONF_COLUMN = "structural_confidence"

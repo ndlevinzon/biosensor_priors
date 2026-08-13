@@ -18,7 +18,7 @@ class PhysicsJob:
     """One external (or mock) physics job with full provenance hooks."""
 
     job_id: str
-    kind: str  # rif | rpx | ligand | scan
+    kind: str  # rif | ligand | scan
     command: list[str]
     work_dir: Path
     stdout_path: Path

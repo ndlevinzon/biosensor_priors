@@ -11,8 +11,10 @@ import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
 from biosensor_priors.stage2_physics.rif_jobs import prepare_rif_jobs_for_models
-from biosensor_priors.stage2_physics.rpx_jobs import submit_or_mock_rpx_batch
-from biosensor_priors.stage2_physics.score_parser import compute_delta_rif_sel, standardize_scan_row
+from biosensor_priors.stage2_physics.score_parser import (
+    compute_delta_rif_sel,
+    standardize_scan_row,
+)
 
 
 AA20 = list("ACDEFGHIKLMNPQRSTVWY")
@@ -198,20 +200,17 @@ def default_structure_models(
     return pd.DataFrame(rows)
 
 
-def merge_rif_rpx_to_long(
+def rif_scores_to_long(
     rif_scores: pd.DataFrame,
-    rpx_scores: pd.DataFrame,
     *,
     physics_scan_id: str,
 ) -> pd.DataFrame:
-    """Join RIF and RPX on mutation × structure_model_id.
+    """Convert RF3 docking score table to long-format scan rows.
 
     Parameters
     ----------
     rif_scores : pandas.DataFrame
-        RIF score table with ``rif_ac`` and ``rif_prop``.
-    rpx_scores : pandas.DataFrame
-        RPX score table with ``rpx`` column.
+        Score table with ``rif_ac`` and ``rif_prop``.
     physics_scan_id : str
         Scan batch identifier attached to each row.
 
@@ -222,20 +221,9 @@ def merge_rif_rpx_to_long(
     """
     if rif_scores.empty:
         return pd.DataFrame()
-    rif = rif_scores.copy()
-    rpx = rpx_scores.copy() if rpx_scores is not None else pd.DataFrame()
-    if not rpx.empty:
-        merged = rif.merge(
-            rpx[["mutation", "structure_model_id", "rpx"]],
-            on=["mutation", "structure_model_id"],
-            how="left",
-        )
-    else:
-        merged = rif.copy()
-        merged["rpx"] = float("nan")
 
     rows = []
-    for _, row in merged.iterrows():
+    for _, row in rif_scores.iterrows():
         rif_ac = float(row["rif_ac"])
         rif_prop = float(row["rif_prop"])
         rows.append(
@@ -246,12 +234,10 @@ def merge_rif_rpx_to_long(
                 mutant=str(row["mutant"]),
                 rif_ac=rif_ac,
                 rif_prop=rif_prop,
-                rpx=float(row["rpx"]) if pd.notna(row.get("rpx")) else float("nan"),
                 structure_model_id=str(row.get("structure_model_id")),
                 physics_scan_id=physics_scan_id,
                 extra={
                     "backend": row.get("backend"),
-                    # Explicitly store derived term (also inside standardize)
                     "delta_rif_sel": compute_delta_rif_sel(rif_ac, rif_prop),
                 },
             )
@@ -271,7 +257,7 @@ def run_mutation_scan(
     """Stage 2C — generate specs, score via RF3 docking, and write long table.
 
     Long-format columns include Version, Position, WT, Mutant, rif_ac,
-    rif_prop, rpx, and delta_rif_sel (negated RF3 docking / apo confidence).
+    rif_prop, and delta_rif_sel (negated RF3 docking confidence).
 
     Parameters
     ----------
@@ -292,7 +278,7 @@ def run_mutation_scan(
     -------
     dict
         Keys ``physics_scan_id``, ``specs``, ``long_table``, ``path``,
-        ``meta``, ``rif_jobs``, ``rpx_jobs``, and ``structure_models``.
+        ``meta``, ``rif_jobs``, and ``structure_models``.
     """
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")
@@ -358,30 +344,7 @@ def run_mutation_scan(
         seed=seed,
     )
 
-    rpx_frames = []
-    rpx_jobs = []
-    path_col = "pdb_path" if "pdb_path" in structure_models.columns else "path"
-    for _, model in structure_models.iterrows():
-        mid = str(model["structure_model_id"])
-        pdb = Path(str(model[path_col]))
-        if not pdb.is_absolute():
-            pdb = root / pdb
-        job, scores = submit_or_mock_rpx_batch(
-            structure_model_id=mid,
-            structure_pdb=pdb,
-            mutations=specs,
-            physics_scan_id=scan_id,
-            physics_cfg=physics_cfg,
-            physics_root=physics_root,
-            seed=seed,
-        )
-        rpx_jobs.append(job)
-        rpx_frames.append(scores)
-
-    rpx_scores = pd.concat(rpx_frames, ignore_index=True) if rpx_frames else pd.DataFrame()
-    long_table = merge_rif_rpx_to_long(
-        rif_result["scores"], rpx_scores, physics_scan_id=scan_id
-    )
+    long_table = rif_scores_to_long(rif_result["scores"], physics_scan_id=scan_id)
 
     out_dir = physics_root / "scans" / scan_id
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -396,7 +359,6 @@ def run_mutation_scan(
             "mutant": "Mutant",
             "rif_ac": "RIF_Ac",
             "rif_prop": "RIF_Prop",
-            "rpx": "RPX",
             "delta_rif_sel": "delta_RIF_sel",
         }
     )
@@ -428,6 +390,5 @@ def run_mutation_scan(
         "path": long_path,
         "meta": meta,
         "rif_jobs": rif_result["jobs"],
-        "rpx_jobs": rpx_jobs,
         "structure_models": structure_models,
     }

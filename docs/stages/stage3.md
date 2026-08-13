@@ -3,7 +3,7 @@
 Pure Python / statistical ML. Formulation:
 
 $$
-\mu_0(x) = w_1\,\mathrm{RIF}_{\mathrm{Ac}}(x) + w_2\,\mathrm{RPX}(x) + w_3\,\Delta\mathrm{RIF}_{\mathrm{sel}}(x)
+\mu_0(x) = w_1\,\mathrm{RIF}_{\mathrm{Ac}}(x) + w_2\,\mathrm{RIF}_{\mathrm{Prop}}(x) + w_3\,\Delta\mathrm{RIF}_{\mathrm{sel}}(x)
 $$
 
 $$
@@ -26,7 +26,7 @@ prediction: F̂(x) = μ̂₀(x) + f̂_GP(x)
 Inputs: canonical sequence, physchem, physics scan, structural confidence.
 
 Feature vector (illustrative): one-hot AA, physchem descriptors, RIF Ac/Prop,
-ΔRIF, RPX, burial/SASA (later), structural confidence.
+ΔRIF, burial/SASA (later), structural confidence.
 
 **Preprocessing parameters are fitted inside each training split**—no global
 standardization before cross-validation.

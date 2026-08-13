@@ -24,7 +24,7 @@ from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
 
 
 
-SCORE_COLS = ("rif_ac", "rif_prop", "rpx", "delta_rif_sel")
+SCORE_COLS = ("rif_ac", "rif_prop", "delta_rif_sel")
 
 
 
@@ -370,15 +370,11 @@ def aggregate_physics_uncertainty(
 
     summary["rif_prop"] = summary.get("rif_prop_mean")
 
-    summary["rpx"] = summary.get("rpx_mean")
-
     summary["delta_rif_sel"] = summary.get("delta_rif_sel_mean")
 
     summary["rif_ac_sd"] = summary.get("rif_ac_std")
 
     summary["delta_rif_sel_sd"] = summary.get("delta_rif_sel_std")
-
-    summary["rpx_sd"] = summary.get("rpx_std")
 
     return summary
 

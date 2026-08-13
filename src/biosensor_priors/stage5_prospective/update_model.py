@@ -21,7 +21,7 @@ from biosensor_priors.stage4_search.mcmc import MCMCPolicy
 from biosensor_priors.stage4_search.random_search import RandomSearchPolicy
 
 # Round history columns (w_ΔRIF is the selectivity ΔRIF weight).
-WEIGHT_HISTORY_COLUMNS = ("Round", "w_RIF_Ac", "w_RPX", "w_ΔRIF", "intercept", "mode")
+WEIGHT_HISTORY_COLUMNS = ("Round", "w_RIF_Ac", "w_RIF_Prop", "w_ΔRIF", "intercept", "mode")
 
 
 def append_physics_weights_row(
@@ -32,7 +32,7 @@ def append_physics_weights_row(
 ) -> pd.DataFrame:
     """Append one round of fitted physics coefficients to the history CSV.
 
-    Columns: Round, w_RIF_Ac, w_RPX, w_ΔRIF (+ intercept/mode extras).
+    Columns: Round, w_RIF_Ac, w_RIF_Prop, w_ΔRIF (+ intercept/mode extras).
     Weights trending toward zero as labeled data accumulates is a legitimate
     outcome and is recorded, not suppressed.
 
@@ -55,7 +55,7 @@ def append_physics_weights_row(
     row = {
         "Round": round_id,
         "w_RIF_Ac": weights.get("rif_ac", weights.get("w_RIF_Ac")),
-        "w_RPX": weights.get("rpx", weights.get("w_RPX")),
+        "w_RIF_Prop": weights.get("rif_prop", weights.get("w_RIF_Prop")),
         "w_ΔRIF": weights.get(
             "delta_rif_sel",
             weights.get("w_ΔRIF", weights.get("w_delta_RIF")),
