@@ -119,6 +119,7 @@ Encodings: ``onehot``, ``georgiev`` (19-D AAIndex-style stand-in), ``hybrid``,
 **Campaigns stay paper-faithful.** ``biosensor-stage4-campaign`` forces
 ``kind=gp_zero_mean``, scalar fitness, Matern-5/2, and no version intercept.
 Operational ``biosensor-stage4`` uses the Stage-3 fused surrogate.
+Gate dashboard: ``outputs/gate_reports/stage4/``.
 
 Multi-round paired campaigns:
 

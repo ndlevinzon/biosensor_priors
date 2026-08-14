@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
+from biosensor_priors.common.gate_reports import write_stage5_report
 from biosensor_priors.common.gates import require_gate
 from biosensor_priors.common.provenance import sha256_file, write_manifest
 from biosensor_priors.stage5_prospective.freeze_predictions import (
@@ -20,7 +21,9 @@ from biosensor_priors.stage5_prospective.import_results import (
     append_to_experiment_master,
     load_and_clean_results_file,
 )
-from biosensor_priors.stage5_prospective.prospective_validation import prospective_validation
+from biosensor_priors.stage5_prospective.prospective_validation import (
+    prospective_validation,
+)
 from biosensor_priors.stage5_prospective.update_model import (
     append_physics_weights_row,
     generate_next_batch,
@@ -193,6 +196,13 @@ def ingest_and_validate_round(
         validation["joined"].to_csv(out_dir / f"round_{round_id}_joined.csv", index=False)
 
     gate = evaluate_gate4(validation, rounds_dir=rounds_dir, round_id=round_id)
+    gate_report = write_stage5_report(
+        gate,
+        validation=validation,
+        joined=validation.get("joined"),
+        round_id=round_id,
+        repo_root=root,
+    )
     gate_policy = str(pipeline.get("gates", {}).get("stage5", "required_before_model_update"))
 
     result: dict[str, Any] = {
@@ -283,6 +293,7 @@ def ingest_and_validate_round(
         outputs={
             "validation_report": validation_rel,
             "cleaned_results": cleaned_rel,
+            "gate_report": gate_report,
         },
         random_seed=seed,
         gate=gate,

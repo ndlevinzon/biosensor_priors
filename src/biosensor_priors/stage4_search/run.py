@@ -8,6 +8,7 @@ from typing import Any
 import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
+from biosensor_priors.common.gate_reports import write_stage4_report
 from biosensor_priors.common.provenance import write_manifest
 from biosensor_priors.stage0_ground_truth.fitness import FoldFitnessScaler
 from biosensor_priors.stage3_surrogate.attach_priors import (
@@ -321,6 +322,36 @@ def run_stage4(
                 to_freeze, round_id=freeze_round, repo_root=root
             )
 
+    gate = {
+        "passed": True,
+        "notes": "Stage 4 advisory; proposals generated.",
+        "checks": [
+            {
+                "name": "design_candidates",
+                "passed": int(len(design)) > 0,
+                "n": int(len(design)),
+            },
+            {
+                "name": "exploit_batch",
+                "passed": not exploit.empty,
+                "n": int(len(exploit)),
+            },
+            {
+                "name": "explore_batch",
+                "passed": not explore.empty,
+                "n": int(len(explore)),
+            },
+        ],
+    }
+    gate_report = write_stage4_report(
+        gate,
+        observed=observed,
+        design=design,
+        exploit=exploit,
+        explore=explore,
+        repo_root=root,
+    )
+
     manifest = write_manifest(
         resolve_path(pipeline["paths"]["manifests"], root) / "stage4_manifest.json",
         stage="stage4_search",
@@ -346,9 +377,10 @@ def run_stage4(
                 for k, v in proposal_paths.items()
             },
             "freeze": freeze_meta,
+            "gate_report": gate_report,
         },
         random_seed=seed,
-        gate={"passed": True, "notes": "Stage 4 advisory; proposals generated."},
+        gate=gate,
     )
 
     return {

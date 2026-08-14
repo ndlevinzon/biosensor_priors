@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
+from biosensor_priors.common.gate_reports import write_stage6_report
 from biosensor_priors.common.provenance import write_manifest
 from biosensor_priors.stage3_surrogate.cross_validate import ensure_splits_for_fitness
 from biosensor_priors.stage6_ablation.experiments import (
@@ -16,7 +17,10 @@ from biosensor_priors.stage6_ablation.experiments import (
     run_ablation_matrix,
 )
 from biosensor_priors.stage6_ablation.report import write_report
-from biosensor_priors.stage6_ablation.statistics import run_ablation_statistics
+from biosensor_priors.stage6_ablation.statistics import (
+    comparisons_to_frame,
+    run_ablation_statistics,
+)
 
 
 def _load_master(root: Path) -> pd.DataFrame:
@@ -149,6 +153,29 @@ def run_stage6(
             "n_configs": len(configs),
         },
     )
+    gate = {
+        "passed": True,
+        "notes": "Stage 6 is evidentiary; it does not replace Gates 0-5.",
+        "n_significant_holm": stats.get("n_significant_holm"),
+        "checks": [
+            {
+                "name": "ablation_metrics",
+                "passed": not matrix["metrics_table"].empty,
+                "n": int(len(matrix["metrics_table"])),
+            },
+            {
+                "name": "paired_comparisons",
+                "passed": bool(stats.get("comparisons")),
+                "n": int(len(stats.get("comparisons") or [])),
+            },
+        ],
+    }
+    gate_report = write_stage6_report(
+        gate,
+        metrics=matrix["metrics_table"],
+        comparisons=comparisons_to_frame(stats),
+        repo_root=root,
+    )
 
     manifest = write_manifest(
         resolve_path(pipeline["paths"]["manifests"], root) / "stage6_manifest.json",
@@ -172,13 +199,10 @@ def run_stage6(
             "report": artifacts.get("report_md"),
             "metrics": artifacts.get("metrics_csv"),
             "comparisons": artifacts.get("comparisons_csv"),
+            "gate_report": gate_report,
         },
         random_seed=seed,
-        gate={
-            "passed": True,
-            "notes": "Stage 6 is evidentiary; it does not replace Gates 0–5.",
-            "n_significant_holm": stats.get("n_significant_holm"),
-        },
+        gate=gate,
         notes="Ablation matrix run under identical splits and seeds.",
     )
 

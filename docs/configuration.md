@@ -38,6 +38,9 @@ Frozen splits default to ``leave_one_construct_out``. Modeling labels are
 refit inside each training fold; the master-table ``fitness`` column is a
 catalog score only.
 
+Gate dashboards land in ``outputs/gate_reports/`` (``pipeline.yaml``
+``paths.gate_reports``).
+
 ## Observation policies
 
 Explicit policies are required for:

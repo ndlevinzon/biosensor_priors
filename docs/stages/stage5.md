@@ -85,6 +85,7 @@ Module: ``update_model.py``
 ``gate4.py`` records freeze integrity + prospective validation status before
 allowing model update into the next round
 (``pipeline.gates.stage5: required_before_model_update``).
+Gate dashboard: ``outputs/gate_reports/stage5/``.
 
 ## CLI
 

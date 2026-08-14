@@ -13,7 +13,7 @@ mirror a copy beside its primary outputs).
 | ``parameters`` | Resolved config snapshot (not just a path) |
 | ``software`` | Package and external tool versions |
 | ``random_seed`` | Seed(s) used |
-| ``outputs`` | Paths + hashes of produced artifacts |
+| ``outputs`` | Paths + hashes of produced artifacts (including ``gate_report``) |
 | ``gate`` | ``passed`` / ``failed`` / ``skipped`` + details |
 | ``notes`` | Optional free text |
 

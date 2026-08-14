@@ -167,7 +167,7 @@ src/biosensor_priors/
 tests/                   regression + gate controls (Q324R / A355R)
 docs/                    Sphinx / Read the Docs source
 manifests/               per-stage provenance
-outputs/                 derived reports and figures
+outputs/                 derived reports; gate dashboards in gate_reports/
 ```
 
 ---

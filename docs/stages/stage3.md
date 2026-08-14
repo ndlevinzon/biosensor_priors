@@ -134,7 +134,8 @@ Defaults (``gp:``): ``kernel: hamming``, ``encoding: mutation_bag``,
 ``shrinkage: ridge_cv``, ``physics_in_gp: false``, ``fit_physics_alpha: true``,
 ``version_intercept: true``, ``multi_output: true``.
 
-Artifacts under ``outputs/stage3/`` and ``manifests/stage3_manifest.json``.
+Artifacts under ``outputs/stage3/``, ``manifests/stage3_manifest.json``,
+and ``outputs/gate_reports/stage3/``.
 
 Until Stage 2 physics columns exist, ``physics_only`` is an intercept/mean
 baseline; fused = mean + GP residual. Gate records both hard statistical

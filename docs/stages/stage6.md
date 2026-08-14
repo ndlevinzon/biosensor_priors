@@ -58,6 +58,7 @@ Modules: ``figures.py``, ``report.py``
 Stage 6 does not replace Gates 0-5; it provides the scientific evidence matrix
 (including confidence-weighting and structure-source ablations) that those
 gates summarize for operational decisions.
+Gate dashboard: ``outputs/gate_reports/stage6/``.
 
 Until Stage-1 Boltz2/AF3 confidence tables exist, those structure-source slots
 use a documented deterministic proxy (``structure_available=false``) so the

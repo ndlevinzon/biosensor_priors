@@ -32,6 +32,7 @@ biosensor_priors/
             provenance.py
             canonical.py
             gates.py
+            gate_reports.py
             config.py
             ipsae.py
 
@@ -107,6 +108,7 @@ biosensor_priors/
 
     manifests/
     outputs/
+        gate_reports/
 ```
 
 Package import root: ``biosensor_priors`` (src layout). Configuration and data

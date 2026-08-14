@@ -67,6 +67,7 @@ KEEP_RELATIVE = (
     "data/physics/.gitkeep",
     "data/rounds/.gitkeep",
     "outputs/.gitkeep",
+    "outputs/gate_reports/.gitkeep",
     "manifests/.gitkeep",
 )
 

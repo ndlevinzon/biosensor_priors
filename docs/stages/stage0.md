@@ -96,6 +96,7 @@ Artifacts:
 - ``data/processed/experiment_master.parquet`` (+ ``.pkl`` with full Python objects)
 - ``data/processed/splits/split_XXX.json``
 - ``manifests/stage0_manifest.json``
+- ``outputs/gate_reports/stage0/`` (overview figure, stats, gate JSON)
 
 ## Primary scientific criterion
 

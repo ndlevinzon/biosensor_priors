@@ -55,6 +55,11 @@ descriptions via ``sphinx-autodoc-typehints``.
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: biosensor_priors.common.gate_reports
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: biosensor_priors.common.schemas
    :members:
    :undoc-members:

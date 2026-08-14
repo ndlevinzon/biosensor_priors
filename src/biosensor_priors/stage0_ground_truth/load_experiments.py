@@ -12,6 +12,7 @@ from biosensor_priors.common.config import (
     load_stage0_configs,
     resolve_path,
 )
+from biosensor_priors.common.gate_reports import write_stage0_report
 from biosensor_priors.common.provenance import sha256_file, write_manifest
 from biosensor_priors.stage0_ground_truth.align_constructs import (
     build_canonical_mapping,
@@ -326,6 +327,9 @@ def build_experiment_master(
         fitness_cfg=fitness_cfg,
         required_controls=fitness_cfg.get("required_control_mutations", ["Q324R", "A355R"]),
     )
+    gate_report = write_stage0_report(
+        clean, gate, splits=splits, repo_root=root
+    )
 
     input_hashes = {
         "experimental_workbook": {
@@ -360,6 +364,7 @@ def build_experiment_master(
             "dir": str(splits_dir.relative_to(root)),
             "files": [p.name for p in split_paths],
         },
+        "gate_report": gate_report,
     }
     manifest_path = manifests_dir / "stage0_manifest.json"
     write_manifest(
@@ -385,6 +390,7 @@ def build_experiment_master(
         "splits_dir": splits_dir,
         "manifest_path": manifest_path,
         "gate": gate,
+        "gate_report": gate_report,
         "n_rows": len(clean),
     }
     return clean, meta
@@ -408,6 +414,9 @@ def main() -> None:
     print(f"splits: {meta['splits_dir']}")
     print(f"manifest: {meta['manifest_path']}")
     print(f"gate passed: {meta['gate']['passed']}")
+    report = meta.get("gate_report") or {}
+    if report.get("directory"):
+        print(f"gate report: {report['directory']}")
 
 
 if __name__ == "__main__":

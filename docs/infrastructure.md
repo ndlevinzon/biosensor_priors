@@ -38,6 +38,11 @@ hashes, parameters, software versions, seeds, outputs, and gate pass/fail.
 required gates must block silent use of that stage's outputs (e.g. Gate 2 fail
 -> Stage 3 must not use physics at full weight without recording the failure).
 
+At the end of each stage, ``biosensor_priors.common.gate_reports`` writes a
+visual report under ``outputs/gate_reports/stageN/``: overview figure,
+``index.md``, ``gate.json``, and ``stats.json`` (observations, metrics,
+statistics, and confidence for that stage).
+
 ## Canonical numbering
 
 ``biosensor_priors.common.canonical`` maps version positions <-> canonical

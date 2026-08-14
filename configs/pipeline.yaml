@@ -19,6 +19,7 @@ paths:
   splits: "data/processed/splits"
   manifests: "manifests"
   outputs: "outputs"
+  gate_reports: "outputs/gate_reports"
 
 experimental:
   workbook: "AllmutantsTested.xlsx"

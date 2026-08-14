@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
+from biosensor_priors.common.gate_reports import write_stage1_report
 from biosensor_priors.common.provenance import write_manifest
 from biosensor_priors.stage1_structures.adapters import ingest_job_registry
 from biosensor_priors.stage1_structures.confidence import (
@@ -147,6 +148,13 @@ def run_stage1(
     (structures_root / "gate1.json").write_text(
         json.dumps(gate, indent=2, default=str), encoding="utf-8"
     )
+    gate_report = write_stage1_report(
+        gate,
+        registry=registry,
+        models=models,
+        confidence=confidence,
+        repo_root=root,
+    )
 
     manifest = write_manifest(
         resolve_path(pipeline["paths"]["manifests"], root) / "stage1_manifest.json",
@@ -175,6 +183,7 @@ def run_stage1(
             if (structures_root / "structural_confidence.parquet").exists()
             else None,
             "gate1": str(gate_path.relative_to(root)),
+            "gate_report": gate_report,
         },
         random_seed=seed,
         gate=gate,

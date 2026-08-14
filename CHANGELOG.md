@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   preregistered fitness weights; RidgeCV/horseshoe shrinkage mu_0 with
   alpha in [0, 1]; version intercept; Hamming mutation-set residual kernel;
   LOCO conformal / lambda calibration of sigma_eff.
-- Canonical edit codes for substitutions **and** insertions/deletions
+- Stage-end gate dashboards under ``outputs/gate_reports/stageN/``
+  (observations, metrics, statistics, and confidence figures).
+- Canonical edit codes for substitutions and insertions/deletions
   (``ins104``, ``insNterm``, ``delNterm``), with a per-edit mutation cost.
 - Stage 4 exploit / explore proposal CSVs
   (``proposals_exploit.csv``, ``proposals_explore.csv``).

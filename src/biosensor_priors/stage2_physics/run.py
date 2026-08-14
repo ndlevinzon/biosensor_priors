@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
+from biosensor_priors.common.gate_reports import write_stage2_report
 from biosensor_priors.common.provenance import write_manifest
 from biosensor_priors.stage2_physics.gate2 import evaluate_gate2
 from biosensor_priors.stage2_physics.ligand_ensemble import run_ligand_ensemble
@@ -74,6 +75,13 @@ def run_stage2(
     (physics_root / "gate2.json").write_text(
         json.dumps(gate, indent=2, default=str), encoding="utf-8"
     )
+    gate_report = write_stage2_report(
+        gate,
+        summary=uncertainty["summary"],
+        long_table=scan["long_table"],
+        conformers=ligands.conformers,
+        repo_root=root,
+    )
 
     gate_policy = str(pipeline.get("gates", {}).get("stage2", "required_for_physics_weight"))
     if gate_policy == "required_for_physics_weight" and not skip_gate_enforce:
@@ -101,6 +109,7 @@ def run_stage2(
             "physics_summary": str(Path(uncertainty["path"]).relative_to(root)),
             "processed_physics": str(Path(uncertainty["processed_path"]).relative_to(root)),
             "gate2": str(gate_path.relative_to(root)),
+            "gate_report": gate_report,
         },
         random_seed=seed,
         gate=gate,

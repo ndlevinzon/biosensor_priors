@@ -97,6 +97,7 @@ Module: ``biosensor_priors.stage1_structures.ipsae_compare``
 ## Gate 1
 
 Advisory vs required in ``pipeline.yaml`` (``gates.stage1``).
+Gate dashboard: ``outputs/gate_reports/stage1/``.
 
 ## CLI
 

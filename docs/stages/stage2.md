@@ -109,6 +109,8 @@ If either fails: ``physics_gate = FAIL`` and Stage 3 falls back to
 
 Module: ``gate2.py``
 
+Gate dashboard: ``outputs/gate_reports/stage2/``.
+
 ## CLI
 
 ```bash

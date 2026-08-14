@@ -39,6 +39,9 @@ manifests/*
 !manifests/stage0_manifest.json
 outputs/*
 !outputs/.gitkeep
+!outputs/gate_reports/
+outputs/gate_reports/**
+!outputs/gate_reports/.gitkeep
 
 # Large model weights (RF3 / Foundry checkpoints). Install under weights/
 # on CHPC; never commit. Example:

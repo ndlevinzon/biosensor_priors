@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
+from biosensor_priors.common.gate_reports import write_stage3_report
 from biosensor_priors.common.provenance import sha256_file, write_manifest
 from biosensor_priors.stage0_ground_truth.fitness import FoldFitnessScaler
 from biosensor_priors.stage3_surrogate.attach_priors import (
@@ -182,6 +183,17 @@ def run_stage3(
         encoding="utf-8",
     )
 
+    cal_payload = None
+    if fused.calibrator_ is not None:
+        cal_payload = fused.calibrator_.as_dict()
+    gate_report = write_stage3_report(
+        gate,
+        predictions=predictions,
+        summary=summary,
+        calibrator=cal_payload,
+        repo_root=root,
+    )
+
     manifest = write_manifest(
         resolve_path(pipeline["paths"]["manifests"], root) / "stage3_manifest.json",
         stage="stage3_surrogate",
@@ -207,6 +219,7 @@ def run_stage3(
             "cv_predictions": {"path": str(pred_path.relative_to(root)), "sha256": sha256_file(pred_path)},
             "metrics": {"path": str(summary_path.relative_to(root))},
             "fused_metadata": {"path": str(meta_path.relative_to(root))},
+            "gate_report": gate_report,
         },
         random_seed=seed,
         gate=gate,
