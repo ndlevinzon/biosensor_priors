@@ -7,48 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from biosensor_priors.stage0_ground_truth.version_resolve import get_row_mutations
-
-
-def parse_mutation_list(row: pd.Series) -> list[tuple[str, int, str]]:
-    """Extract normalized mutation triples from a construct row.
-
-    ``mutation_audit == MISMATCH`` returns an empty list (no fallback to
-    ``mut_codes_construct``). Otherwise prefers trusted
-    :func:`~biosensor_priors.stage0_ground_truth.version_resolve.get_row_mutations`,
-    then ``mutation_codes``-style strings of the form ``A123B`` (design rows).
-
-    Parameters
-    ----------
-    row : pd.Series
-        Single construct row from an experiment or design table.
-
-    Returns
-    -------
-    list of tuple of (str, int, str)
-        Parsed mutations as ``(aa_from, position, aa_to)``; empty when none found.
-    """
-    if str(row.get("mutation_audit", "") or "") == "MISMATCH":
-        return []
-    muts = get_row_mutations(row)
-    if muts is None:
-        return []
-    if muts:
-        return list(muts)
-    for col in ("mut_codes_construct", "mut_codes_description", "mutation_codes"):
-        val = row.get(col)
-        if isinstance(val, list) and val:
-            parsed = []
-            for code in val:
-                s = str(code)
-                if len(s) >= 3 and s[0].isalpha() and s[-1].isalpha():
-                    try:
-                        parsed.append((s[0].upper(), int(s[1:-1]), s[-1].upper()))
-                    except ValueError:
-                        continue
-            if parsed:
-                return parsed
-    return []
+from biosensor_priors.stage0_ground_truth.edits import parse_mutation_list
 
 
 @dataclass
@@ -142,9 +101,17 @@ def build_landscape_view(df: pd.DataFrame) -> LandscapeView:
     observed_at_pos: dict[int, set[str]] = {}
     for muts in mut_lists:
         for aa_from, pos, aa_to in muts:
-            wt_at_pos.setdefault(pos, aa_from)
-            observed_at_pos.setdefault(pos, set()).add(aa_from)
-            observed_at_pos[pos].add(aa_to)
+            if aa_from in {"+", "I"}:
+                wt_at_pos.setdefault(pos, "-")
+                observed_at_pos.setdefault(pos, set()).update({"-", "I"})
+            elif aa_from in {"-", "D"}:
+                wt = aa_to if aa_to.isalpha() else "X"
+                wt_at_pos.setdefault(pos, wt)
+                observed_at_pos.setdefault(pos, set()).update({wt, "-"})
+            else:
+                wt_at_pos.setdefault(pos, aa_from)
+                observed_at_pos.setdefault(pos, set()).add(aa_from)
+                observed_at_pos[pos].add(aa_to)
 
     if not wt_at_pos:
         # Degenerate: single-site placeholder so policies still run.
@@ -165,7 +132,13 @@ def build_landscape_view(df: pd.DataFrame) -> LandscapeView:
     for muts in mut_lists:
         state = {p: wt_at_pos[p] for p in site_positions}
         for aa_from, pos, aa_to in muts:
-            if pos in state:
+            if pos not in state:
+                continue
+            if aa_from in {"+", "I"}:
+                state[pos] = "I"
+            elif aa_from in {"-", "D"}:
+                state[pos] = "-"
+            else:
                 state[pos] = aa_to
         sequences.append("".join(state[p] for p in site_positions))
 

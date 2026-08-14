@@ -22,6 +22,11 @@ from biosensor_priors.stage0_ground_truth.clean import (
     load_raw_experimental_workbook,
     prepare_database,
 )
+from biosensor_priors.stage0_ground_truth.edits import (
+    attach_canonical_edits,
+    construct_edits,
+    format_edit,
+)
 from biosensor_priors.stage0_ground_truth.fitness import fitness_transform
 from biosensor_priors.stage0_ground_truth.physicochemical import (
     build_aa_property_table,
@@ -35,7 +40,6 @@ from biosensor_priors.stage0_ground_truth.splits import (
 from biosensor_priors.stage0_ground_truth.validate import run_stage0_gates
 from biosensor_priors.stage0_ground_truth.version_resolve import (
     attach_resolved_versions,
-    get_row_mutations,
 )
 
 
@@ -163,11 +167,10 @@ def _attach_mutation_codes(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     codes = []
     for _, row in out.iterrows():
-        muts = get_row_mutations(row)
-        if muts is None:
+        if str(row.get("mutation_audit", "") or "") == "MISMATCH":
             codes.append(None)
         else:
-            codes.append([f"{a}{p}{b}" for a, p, b in muts])
+            codes.append([format_edit(*e) for e in construct_edits(row)])
     out["mutation_codes"] = codes
     return out
 
@@ -283,6 +286,7 @@ def build_experiment_master(
         version_aliases=pipeline_cfg.get("version_aliases") or {},
     )
     clean = _attach_mutation_codes(clean)
+    clean = attach_canonical_edits(clean, residue_mapping)
     clean = fitness_transform(
         clean,
         weights=fitness_cfg["weights"],

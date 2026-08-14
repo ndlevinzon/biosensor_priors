@@ -7,15 +7,9 @@ from collections.abc import Mapping
 import numpy as np
 import pandas as pd
 
-PHENOTYPES = ("selectivity", "affinity", "fc", "brightness")
-AUX_PHENOTYPES = ("fc_prop",)
+from biosensor_priors.stage0_ground_truth.fitness import DEFAULT_WEIGHTS, PHENOTYPES
 
-DEFAULT_WEIGHTS: dict[str, float] = {
-    "selectivity": 0.40,
-    "affinity": 0.25,
-    "fc": 0.20,
-    "brightness": 0.15,
-}
+AUX_PHENOTYPES: tuple[str, ...] = ()
 
 SCORE_COLUMNS: dict[str, str] = {
     "selectivity": "_fitness_selectivity_score",
@@ -31,8 +25,8 @@ def phenotype_weights(weights: Mapping[str, float] | None = None) -> dict[str, f
     weight_map = dict(weights or DEFAULT_WEIGHTS)
     if set(weight_map) != set(PHENOTYPES):
         raise ValueError(
-            "Fitness weights must define selectivity, affinity, fc, and brightness "
-            f"(got {sorted(weight_map)})."
+            "Fitness weights must define selectivity, affinity, fc, "
+            f"brightness, and fc_prop (got {sorted(weight_map)})."
         )
     return {name: float(weight_map[name]) for name in PHENOTYPES}
 
@@ -143,9 +137,10 @@ def constraint_probability(
     *,
     minimum: float,
 ) -> np.ndarray:
-    """P(y ≥ minimum) under an independent Gaussian posterior."""
+    """P(y >= minimum) under an independent Gaussian posterior."""
     from scipy.stats import norm
 
     mu = np.asarray(mean, dtype=float)
     sig = np.maximum(np.asarray(std, dtype=float), 1e-8)
     return 1.0 - norm.cdf(minimum, loc=mu, scale=sig)
+

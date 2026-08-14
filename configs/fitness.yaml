@@ -3,14 +3,17 @@
 
 formulation: weighted_scalar
 
-# F = 0.40*S + 0.25*A + 0.20*FC + 0.15*B. Catalog scores on the master table
-# use global percentiles; Stage 3/4 CV refits percentiles and minmax on the
-# training fold only. FC PropCoA is stored as an off-target head (not in F).
+# F = 0.20*S + 0.20*A + 0.15*FC_Ac + 0.25*B + 0.20*FC_Prop.
+# Catalog scores on the master table use global percentiles; Stage 3/4 CV
+# refits percentiles and minmax on the training fold only. FC PropCoA is in F
+# (higher score = lower off-target response). Brightness is the largest weight
+# and is also a hard Thompson floor (ordinal 1 / brighter-than-similar).
 weights:
-  selectivity: 0.40
-  affinity: 0.25
-  fc: 0.20
-  brightness: 0.15
+  selectivity: 0.20
+  affinity: 0.20
+  fc: 0.15
+  brightness: 0.25
+  fc_prop: 0.20
 
 min_components: 2
 
@@ -24,6 +27,10 @@ observations:
     exact: use_as_is                    # log10(FC); higher is better
     right_censored: use_bound_conservative  # >x -> use x
     left_censored: omit
+  fc_prop:
+    exact: use_as_is                    # -log10(FC Prop); higher is better (less response)
+    right_censored: use_bound_conservative
+    left_censored: omit
   selectivity:
     # Use positive lower bound of Kd(Prop)/Kd(Ac) interval (conservative).
     exact: use_lower_bound
@@ -33,14 +40,41 @@ observations:
     qualitative: map_to_ordinal_then_normalize
   missing_phenotype: redistribute_weights
 
+# Per-edit costs so exploit proposals must compensate for the edit.
+# N-term block (242-residue insertion/deletion) is one event, not 242.
+mutation_cost:
+  substitution: 1.0
+  insertion: 3.0
+  deletion: 3.0
+  block: 4.0
+  lambda: 0.08
+
 # Design constraints used by Stage 0 validation and Stage 4 design space
 design:
-  # Version-local mutable positions for active design background (see pipeline.yaml).
-  # Defaults are control hotspots Q324 / A355 in canonical numbering mapped to
-  # the active background sequence positions when available.
+  parents:
+    - V1.0
+    - V2.4
+  # Canonical sites: V1-V2.4 substitutions plus experimental / control hotspots.
+  # Stage 4 skips a site when it is unmapped on a given parent.
   allowed_mutable_positions:
+    - 44
+    - 45
+    - 66
+    - 70
+    - 71
+    - 170
+    - 196
+    - 313
+    - 314
+    - 318
     - 324
+    - 341
+    - 343
+    - 344
+    - 347
+    - 348
     - 355
+    - 358
   allowed_amino_acids:
     - A
     - C
@@ -62,7 +96,19 @@ design:
     - V
     - W
     - Y
-  maximum_mutations_per_construct: 3
+  # Cap at 2 with 20 amino acids (max 3 would be millions of triples).
+  maximum_mutations_per_construct: 2
+  indel_events:
+    - code: insNterm
+      on_parents:
+        - V1.0
+    - code: delNterm
+      on_parents:
+        - V2.4
+    - code: ins104
+      on_parents:
+        - V1.0
+        - V2.4
 
 # Control mutations that must appear in the experimental database
 required_control_mutations:

@@ -18,11 +18,15 @@ from biosensor_priors.stage3_surrogate.surrogate import (
     FusedSurrogate,
     surrogate_kwargs_from_cfg,
 )
-from biosensor_priors.stage4_search.design_space import design_space_from_config
+from biosensor_priors.stage4_search.design_space import build_design_library
 from biosensor_priors.stage4_search.policy import build_search_policies
 from biosensor_priors.stage4_search.prefilter import (
     physics_prefilter,
     select_search_pools,
+)
+from biosensor_priors.stage4_search.proposals import (
+    split_exploit_explore,
+    write_stage4_proposals,
 )
 
 
@@ -56,7 +60,7 @@ def run_stage4(
     mutable_positions: list[int] | None = None,
     use_measured_holdout_pool: bool = True,
     freeze_round: int | str | None = None,
-    freeze_strategy: str = "bo",
+    freeze_strategy: str = "exploit",
 ) -> dict[str, Any]:
     """Fit fused surrogate on observed fitness rows and propose batches.
 
@@ -65,8 +69,9 @@ def run_stage4(
     positions are provided (or set in fitness.yaml design), also generates a
     combinatorial design-space batch.
 
-    If ``freeze_round`` is set, the design-space batch for ``freeze_strategy``
-    is written immutably under ``data/rounds/`` (Stage 5A) before synthesis.
+    If ``freeze_round`` is set, the exploit proposal batch (or
+    ``freeze_strategy``) is written immutably under ``data/rounds/``
+    (Stage 5A) before synthesis.
 
     Parameters
     ----------
@@ -78,8 +83,8 @@ def run_stage4(
         When True, run retrospective holdout-pool proposals (default True).
     freeze_round : int, str, or None, optional
         Round identifier for immutable prediction freeze before wet lab.
-    freeze_strategy : str, optional
-        Design-space strategy batch to freeze (default ``"bo"``).
+        freeze_strategy : str, optional
+        Design-space batch to freeze (default ``"exploit"``).
 
     Returns
     -------
@@ -182,39 +187,33 @@ def run_stage4(
             batch_tables.append(batch)
             batch.to_csv(out_dir / f"batch_measured_{name}.csv", index=False)
 
-    # Combinatorial design space if positions configured
-    positions = mutable_positions or list(fitness_cfg.get("design", {}).get("allowed_mutable_positions") or [])
-    if not positions:
-        # Sensible default hotspots from controls until campaign config is filled.
-        positions = [324, 355]
+    # Combinatorial design space (multi-parent substitutions + indels)
+    positions = mutable_positions or list(
+        fitness_cfg.get("design", {}).get("allowed_mutable_positions") or []
+    )
+    if mutable_positions:
+        fitness_cfg = dict(fitness_cfg)
+        design_cfg = dict(fitness_cfg.get("design") or {})
+        design_cfg["allowed_mutable_positions"] = list(mutable_positions)
+        fitness_cfg["design"] = design_cfg
 
-    versions_path = resolve_path(pipeline["paths"]["constructs"], root) / pipeline["constructs"][
-        "versions_pickle"
-    ]
-    mapping_path = resolve_path(pipeline["paths"]["constructs"], root) / pipeline["constructs"][
-        "residue_mapping_pickle"
-    ]
+    versions_path = resolve_path(pipeline["paths"]["constructs"], root) / pipeline[
+        "constructs"
+    ]["versions_pickle"]
+    mapping_path = resolve_path(pipeline["paths"]["constructs"], root) / pipeline[
+        "constructs"
+    ]["residue_mapping_pickle"]
     versions = pd.read_pickle(versions_path)
     residue_mapping = pd.read_pickle(mapping_path)
     parent = pipeline.get("active_design_background", "V2.4")
-    # Fall back if V2.4 missing
     if parent not in set(versions["Version"].astype(str)):
         parent = str(versions["Version"].iloc[-1])
 
-    max_mut = int(fitness_cfg.get("design", {}).get("maximum_mutations_per_construct", 2))
-    # Keep combinatorial explosion bounded for default positions.
-    max_mut = min(max_mut, 2)
-    design = design_space_from_config(
+    design = build_design_library(
         versions,
-        parent_version=parent,
-        mutable_positions=positions,
-        allowed_amino_acids=list(
-            fitness_cfg.get("design", {}).get("allowed_amino_acids")
-            or list("ACDEFGHIKLMNPQRSTVWY")
-        ),
-        max_mutations=max_mut,
-        residue_mapping=residue_mapping,
-        positions_are_canonical=True,
+        residue_mapping,
+        fitness_cfg,
+        default_parent=parent,
     )
     design = attach_physics_and_confidence(
         design,
@@ -222,16 +221,22 @@ def run_stage4(
         multi_mutant=multi_mutant,
     )
     # Exclude already-observed mutation sets
-    observed_sets = {
-        tuple(sorted(map(str, codes)))
-        for codes in observed.get("mutation_codes", [])
-        if isinstance(codes, list)
+    observed_keys = {
+        (
+            str(row.get("version") or ""),
+            tuple(sorted(map(str, row["mutation_codes"]))),
+        )
+        for _, row in observed.iterrows()
+        if isinstance(row.get("mutation_codes"), list)
     }
-    if observed_sets:
+    if observed_keys and not design.empty:
         keep = []
         for _, row in design.iterrows():
-            key = tuple(sorted(map(str, row.get("mutation_codes") or [])))
-            keep.append(key not in observed_sets)
+            key = (
+                str(row.get("parent_version") or row.get("version") or ""),
+                tuple(sorted(map(str, row.get("mutation_codes") or []))),
+            )
+            keep.append(key not in observed_keys)
         design = design.loc[keep].reset_index(drop=True)
 
     design = physics_prefilter(
@@ -244,6 +249,25 @@ def run_stage4(
     main_pool = pools["main"]
     # Refit on all observed for design proposals
     surrogate.fit(observed, observed["fitness"].to_numpy(dtype=float))
+    exploit = pd.DataFrame()
+    explore = pd.DataFrame()
+    proposal_paths: dict[str, str] = {}
+    if not main_pool.empty:
+        exploit, explore = split_exploit_explore(
+            observed,
+            main_pool,
+            surrogate,
+            search_cfg=search_cfg,
+            fitness_cfg=fitness_cfg,
+        )
+        proposal_paths = write_stage4_proposals(exploit, explore, out_dir)
+        for table, role in ((exploit, "exploit"), (explore, "explore")):
+            if table.empty:
+                continue
+            tagged = table.copy()
+            tagged["search_strategy"] = role
+            tagged["pool_type"] = "design_space"
+            batch_tables.append(tagged)
     for name in strategy_names:
         policy = policies[name]
         batch = policy.propose(observed, main_pool, surrogate, batch_size)
@@ -265,29 +289,47 @@ def run_stage4(
     if freeze_round is not None:
         from biosensor_priors.stage5_prospective.run import freeze_round_batch
 
-        design_batches = [
-            b
-            for b in batch_tables
-            if "pool_type" in b.columns and (b["pool_type"] == "design_space").all()
-        ]
         to_freeze = None
-        for b in design_batches:
-            if "search_strategy" in b.columns and (b["search_strategy"] == freeze_strategy).all():
-                to_freeze = b.copy()
-                break
-        if to_freeze is None and design_batches:
-            to_freeze = design_batches[0].copy()
+        if freeze_strategy == "exploit" and not exploit.empty:
+            to_freeze = exploit.copy()
+        elif freeze_strategy == "explore" and not explore.empty:
+            to_freeze = explore.copy()
+        if to_freeze is None and not exploit.empty:
+            to_freeze = exploit.copy()
+        if to_freeze is None:
+            design_batches = [
+                b
+                for b in batch_tables
+                if "pool_type" in b.columns and (b["pool_type"] == "design_space").all()
+            ]
+            for b in design_batches:
+                if "search_strategy" in b.columns and (
+                    b["search_strategy"] == freeze_strategy
+                ).all():
+                    to_freeze = b.copy()
+                    break
+            if to_freeze is None and design_batches:
+                to_freeze = design_batches[0].copy()
         if to_freeze is not None:
-            to_freeze["selection_algorithm"] = to_freeze.get(
-                "search_strategy", freeze_strategy
+            if "selection_algorithm" not in to_freeze.columns:
+                to_freeze["selection_algorithm"] = to_freeze.get(
+                    "search_strategy", freeze_strategy
+                )
+            if "selection_rank" not in to_freeze.columns:
+                to_freeze["selection_rank"] = range(1, len(to_freeze) + 1)
+            freeze_meta = freeze_round_batch(
+                to_freeze, round_id=freeze_round, repo_root=root
             )
-            to_freeze["selection_rank"] = range(1, len(to_freeze) + 1)
-            freeze_meta = freeze_round_batch(to_freeze, round_id=freeze_round, repo_root=root)
 
     manifest = write_manifest(
         resolve_path(pipeline["paths"]["manifests"], root) / "stage4_manifest.json",
         stage="stage4_search",
-        inputs={"n_observed": int(len(observed)), "parent_version": parent, "mutable_positions": positions},
+        inputs={
+            "n_observed": int(len(observed)),
+            "parent_version": parent,
+            "mutable_positions": positions,
+            "n_design_candidates": int(len(design)),
+        },
         parameters={
             "search": search_cfg,
             "batch_size": batch_size,
@@ -297,6 +339,12 @@ def run_stage4(
         outputs={
             "all_batches": str(all_path.relative_to(root)),
             "n_batch_rows": int(len(all_batches)),
+            "n_exploit": int(len(exploit)),
+            "n_explore": int(len(explore)),
+            "proposals": {
+                k: str(Path(v).relative_to(root)) if Path(v).is_absolute() else v
+                for k, v in proposal_paths.items()
+            },
             "freeze": freeze_meta,
         },
         random_seed=seed,
@@ -309,6 +357,8 @@ def run_stage4(
         "output_dir": out_dir,
         "surrogate": surrogate,
         "n_design_candidates": int(len(design)),
+        "exploit": exploit,
+        "explore": explore,
         "freeze": freeze_meta,
     }
 
@@ -336,8 +386,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--freeze-strategy",
-        default="bo",
-        help="Which design-space strategy batch to freeze (default: bo)",
+        default="exploit",
+        help="Which design-space batch to freeze (default: exploit)",
     )
     args = parser.parse_args()
     result = run_stage4(freeze_round=args.freeze_round, freeze_strategy=args.freeze_strategy)

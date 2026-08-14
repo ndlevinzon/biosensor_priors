@@ -29,16 +29,26 @@ uncertainty:
   lambda_physics: 1.0
 
 # Thompson sampling (primary phenotype + optional constraints)
+# Constraints apply to Thompson and to Stage-4 exploit proposals.
+# Brightness min 0.55 sits above the similar (ordinal 0) cluster so
+# proposals must be brighter than Pan1.0-like, not merely not-dim.
+# fc_prop min 0.50 uses the off-target head rather than 7 Kd-ratio labels.
 thompson:
-  primary: selectivity
+  primary: fitness
   min_feasibility: 0.0
   constraints:
-    affinity:
-      min: 0.30
-      min_prob: 0.25
     brightness:
-      min: 0.20
-      min_prob: 0.25
+      min: 0.55
+      min_prob: 0.50
+    fc_prop:
+      min: 0.50
+      min_prob: 0.50
+
+# Primary Stage-4 artifacts: constructs to improve F, and constructs to
+# reduce design-space uncertainty. Cost filter applies to exploit only.
+proposals:
+  exploit_size: 8
+  explore_size: 8
 
 prefilter:
   hard_fail_exclude: true

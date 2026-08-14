@@ -134,7 +134,7 @@ def test_combine_phenotypes_redistributes() -> None:
         "brightness": np.array([np.nan, np.nan]),
     }
     out = combine_phenotype_means(means)
-    assert np.isclose(out[0], 1.0 * 0.40 / 0.65)
+    assert np.isclose(out[0], 0.20 / 0.40)
     assert np.isfinite(out[1])
 
 

@@ -20,17 +20,19 @@ For the first real pipeline, retain **scalar weighted fitness** with weights
 frozen before modeling:
 
 $$
-F = 0.40\,S + 0.25\,A + 0.20\,\mathrm{FC} + 0.15\,B
+F = 0.20\,S + 0.20\,A + 0.15\,\mathrm{FC}_{\mathrm{Ac}} + 0.25\,B + 0.20\,\mathrm{FC}_{\mathrm{Prop}}
 $$
 
 with components normalized to $[0,1]$. Changing weights after seeing results is
 not allowed within an analysis round; open a new round instead.
 
-Stage 3 can still fit **multi-output phenotype heads** ($S,A,\mathrm{FC},B$)
-and combine them with these weights. Affinity / brightness constraints in
-Thompson sampling use those heads; they are not a Pareto / multi-objective
-search. FC PropCoA is an optional off-target auxiliary head, not a fifth
-weight in $F$. Pareto formulations remain a future option, not the default.
+Stage 3 fits **multi-output phenotype heads**
+($S,A,\mathrm{FC}_{\mathrm{Ac}},B,\mathrm{FC}_{\mathrm{Prop}}$)
+and combine them with these weights. Brightness and FC PropCoA constraints in
+Thompson sampling / exploit proposals use those heads; they are not a Pareto /
+multi-objective search. $\mathrm{FC}_{\mathrm{Prop}}$ is oriented so higher is
+better (lower off-target response). Pareto formulations remain a future option,
+not the default.
 
 Frozen splits default to ``leave_one_construct_out``. Modeling labels are
 refit inside each training fold; the master-table ``fitness`` column is a

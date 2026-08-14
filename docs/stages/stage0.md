@@ -35,11 +35,15 @@ experimental measurements
  normalized fitness in [0, 1]
 ```
 
-Default: preregistered scalar weights (see {doc}`../configuration`).
+Default: preregistered scalar weights
+($0.20/0.20/0.15/0.25/0.20$ for
+$S, A, \mathrm{FC}_{\mathrm{Ac}}, B, \mathrm{FC}_{\mathrm{Prop}}$;
+see {doc}`../configuration`).
 Policies cover exact, left-/right-censored, missing, and qualitative
 observations. Catalog ``fitness`` uses global percentiles; modeling CV
 uses train-fold ranks (``FoldFitnessScaler``). ``MISMATCH`` audits are
-unlabeled.
+unlabeled. Canonical edit bags include insertions/deletions
+(``ins104``, ``insNterm``).
 
 Module: ``biosensor_priors.stage0_ground_truth.fitness``
 

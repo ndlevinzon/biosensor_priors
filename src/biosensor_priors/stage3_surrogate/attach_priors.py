@@ -9,7 +9,12 @@ import numpy as np
 import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT
-from biosensor_priors.stage4_search.landscape import parse_mutation_list
+from biosensor_priors.stage0_ground_truth.edits import (
+    edit_kind,
+    format_edit,
+    parse_edit_code,
+    parse_mutation_list,
+)
 
 MultiMutant = Literal["sum", "max_abs"]
 
@@ -29,9 +34,12 @@ def resolve_multi_mutant(value: str | None) -> MultiMutant:
 
 
 def mutation_codes_from_row(row: pd.Series) -> list[str]:
-    """Return canonical mutation codes for a construct or design row."""
+    """Return construct-local mutation codes (not the parent scaffold bag)."""
+    val = row.get("mutation_codes")
+    if isinstance(val, list):
+        return [str(c) for c in val]
     muts = parse_mutation_list(row)
-    return [f"{a}{p}{b}" for a, p, b in muts]
+    return [format_edit(a, p, b) for a, p, b in muts]
 
 
 def load_physics_lookup(repo_root: Path | None = None) -> pd.DataFrame:
@@ -213,6 +221,9 @@ def attach_physics_and_confidence(
         codes = mutation_codes_from_row(row)
         parts: list[dict[str, float]] = []
         for code in codes:
+            parsed = parse_edit_code(str(code))
+            if parsed is not None and edit_kind(parsed) != "substitution":
+                continue
             hit = _lookup_mutation(physics, mutation=code, version=version)
             pos = int(code[1:-1]) if len(code) >= 3 and code[1:-1].isdigit() else None
             conf = (

@@ -1,6 +1,6 @@
 {
   "stage": "stage0_ground_truth",
-  "created_at": "2026-08-14T18:46:06.240009+00:00",
+  "created_at": "2026-08-14T19:10:30.998612+00:00",
   "inputs": {
     "experimental_workbook": {
       "path": "data\\experimental\\AllmutantsTested.xlsx",
@@ -68,10 +68,11 @@
     "fitness": {
       "formulation": "weighted_scalar",
       "weights": {
-        "selectivity": 0.4,
-        "affinity": 0.25,
-        "fc": 0.2,
-        "brightness": 0.15
+        "selectivity": 0.2,
+        "affinity": 0.2,
+        "fc": 0.15,
+        "brightness": 0.25,
+        "fc_prop": 0.2
       },
       "min_components": 2,
       "observations": {
@@ -81,6 +82,11 @@
           "right_censored": "omit"
         },
         "fc": {
+          "exact": "use_as_is",
+          "right_censored": "use_bound_conservative",
+          "left_censored": "omit"
+        },
+        "fc_prop": {
           "exact": "use_as_is",
           "right_censored": "use_bound_conservative",
           "left_censored": "omit"
@@ -95,10 +101,37 @@
         },
         "missing_phenotype": "redistribute_weights"
       },
+      "mutation_cost": {
+        "substitution": 1.0,
+        "insertion": 3.0,
+        "deletion": 3.0,
+        "block": 4.0,
+        "lambda": 0.08
+      },
       "design": {
+        "parents": [
+          "V1.0",
+          "V2.4"
+        ],
         "allowed_mutable_positions": [
+          44,
+          45,
+          66,
+          70,
+          71,
+          170,
+          196,
+          313,
+          314,
+          318,
           324,
-          355
+          341,
+          343,
+          344,
+          347,
+          348,
+          355,
+          358
         ],
         "allowed_amino_acids": [
           "A",
@@ -122,7 +155,28 @@
           "W",
           "Y"
         ],
-        "maximum_mutations_per_construct": 3
+        "maximum_mutations_per_construct": 2,
+        "indel_events": [
+          {
+            "code": "insNterm",
+            "on_parents": [
+              "V1.0"
+            ]
+          },
+          {
+            "code": "delNterm",
+            "on_parents": [
+              "V2.4"
+            ]
+          },
+          {
+            "code": "ins104",
+            "on_parents": [
+              "V1.0",
+              "V2.4"
+            ]
+          }
+        ]
       },
       "required_control_mutations": [
         "Q324R",
@@ -149,13 +203,13 @@
   "outputs": {
     "experiment_master": {
       "path": "data\\processed\\experiment_master.parquet",
-      "sha256": "ce130ab26f0b6da56ab3e76bb739ec81b3432295d470ce73700da9a01f4a98d1",
+      "sha256": "87a28f38aaea142b2bab902265961bab3c952da1ee6d3b7946ff3345ea0d8dc5",
       "n_rows": 68,
-      "n_with_fitness": 28
+      "n_with_fitness": 37
     },
     "experiment_master_pickle": {
       "path": "data\\processed\\experiment_master.pkl",
-      "sha256": "28beec7b2dbf253b4c79c8fd9fc09472dfae1c5a40dfd7c880ee8a2a949282d7"
+      "sha256": "11a9dc5b6a6ad2246e5fdcdfb5d43aaff7ab5e772249558f5c22011c913a6d29"
     },
     "splits": {
       "dir": "data\\processed\\splits",
@@ -187,7 +241,16 @@
         "split_025.json",
         "split_026.json",
         "split_027.json",
-        "split_028.json"
+        "split_028.json",
+        "split_029.json",
+        "split_030.json",
+        "split_031.json",
+        "split_032.json",
+        "split_033.json",
+        "split_034.json",
+        "split_035.json",
+        "split_036.json",
+        "split_037.json"
       ]
     }
   },
@@ -215,18 +278,19 @@
       {
         "name": "fitness_reproducible",
         "passed": true,
-        "n_with_fitness": 28,
+        "n_with_fitness": 37,
         "weights": {
-          "selectivity": 0.4,
-          "affinity": 0.25,
-          "fc": 0.2,
-          "brightness": 0.15
+          "selectivity": 0.2,
+          "affinity": 0.2,
+          "fc": 0.15,
+          "brightness": 0.25,
+          "fc_prop": 0.2
         }
       },
       {
         "name": "no_train_test_overlap",
         "passed": true,
-        "n_splits": 28,
+        "n_splits": 37,
         "errors": []
       },
       {

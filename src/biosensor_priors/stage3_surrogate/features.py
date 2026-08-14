@@ -8,12 +8,15 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
+from biosensor_priors.stage0_ground_truth.edits import (
+    format_edit,
+    parse_mutation_list,
+)
 from biosensor_priors.stage0_ground_truth.physicochemical import (
     build_aa_property_table,
 )
 from biosensor_priors.stage4_search.landscape import (
     build_landscape_view,
-    parse_mutation_list,
 )
 
 EncodingMode = Literal["mutation_bag", "onehot", "georgiev", "hybrid"]
@@ -102,7 +105,8 @@ def _mutation_delta_vector(muts: list[tuple[str, int, str]], aa_props: dict) -> 
         d = [float(aa_props[aa_to][k]) - float(aa_props[aa_from][k]) for k in PHYSCHEM_DELTA_KEYS]
         deltas.append(d)
     if not deltas:
-        return np.zeros(len(PHYSCHEM_DELTA_KEYS) + 1, dtype=float)
+        zeros = np.zeros(len(PHYSCHEM_DELTA_KEYS), dtype=float)
+        return np.concatenate([zeros, [float(len(muts))]])
     mean_delta = np.mean(np.asarray(deltas, dtype=float), axis=0)
     return np.concatenate([mean_delta, [float(len(muts))]])
 
@@ -213,14 +217,26 @@ class FeatureBuilder:
             sequences = []
             wt = {}
             for muts in (parse_mutation_list(row) for _, row in df.iterrows()):
-                for aa_from, pos, _ in muts:
-                    wt.setdefault(pos, aa_from)
+                for aa_from, pos, aa_to in muts:
+                    if aa_from in {"+", "I"}:
+                        wt.setdefault(pos, "-")
+                    elif aa_from in {"-", "D"}:
+                        wt.setdefault(pos, aa_to if aa_to.isalpha() else "X")
+                    else:
+                        wt.setdefault(pos, aa_from)
             for _, row in df.iterrows():
                 muts = parse_mutation_list(row)
                 state = {p: wt.get(p, "X") for p in self.site_positions}
-                # Fill missing WT from fitted training if needed
                 for aa_from, pos, aa_to in muts:
-                    if pos in state:
+                    if pos not in state:
+                        continue
+                    if aa_from in {"+", "I"}:
+                        state[pos] = "I"
+                        wt.setdefault(pos, "-")
+                    elif aa_from in {"-", "D"}:
+                        state[pos] = "-"
+                        wt.setdefault(pos, aa_to if aa_to.isalpha() else "X")
+                    else:
                         state[pos] = aa_to
                         wt.setdefault(pos, aa_from)
                 sequences.append("".join(state[p] for p in self.site_positions))
@@ -291,14 +307,20 @@ class FeatureBuilder:
             Feature names aligned with columns of ``X``.
         """
         rows = []
-        base_names = [f"delta_{k}" for k in PHYSCHEM_DELTA_KEYS] + ["n_mutations"]
+        base_names = (
+            [f"delta_{k}" for k in PHYSCHEM_DELTA_KEYS]
+            + ["n_mutations", "n_insertions", "n_deletions"]
+        )
         mut_names = [f"mut_{code}" for code in self.mutation_vocab] if self.onehot_mutations else []
         names = base_names + mut_names
         for _, row in df.iterrows():
             muts = parse_mutation_list(row)
             vec = list(_mutation_delta_vector(muts, self.aa_props))
+            n_ins = sum(1 for a, _, _ in muts if a in {"+", "I"})
+            n_del = sum(1 for a, _, _ in muts if a in {"-", "D"})
+            vec.extend([float(n_ins), float(n_del)])
             if self.onehot_mutations:
-                codes = {f"{a}{p}{b}" for a, p, b in muts}
+                codes = {format_edit(a, p, b) for a, p, b in muts}
                 vec.extend(1.0 if code in codes else 0.0 for code in self.mutation_vocab)
             rows.append(vec)
         return np.asarray(rows, dtype=float), names
@@ -397,7 +419,7 @@ class FeatureBuilder:
             if self.onehot_mutations:
                 for _, row in df.iterrows():
                     for a, p, b in parse_mutation_list(row):
-                        vocab.add(f"{a}{p}{b}")
+                        vocab.add(format_edit(a, p, b))
             self.mutation_vocab = sorted(vocab)
             self.site_positions = []
         else:

@@ -17,9 +17,9 @@ from biosensor_priors.stage4_search.policy import attach_predictions, predict_po
 class ThompsonPolicy:
     """Batch Thompson sampling: one posterior draw per candidate, take top B.
 
-    Optional phenotype constraints (affinity / brightness) reject draws that
-    fall below preregistered minima. If every candidate is infeasible, rank
-    by constraint probability × sampled primary score.
+    Optional phenotype constraints (brightness / FC PropCoA) reject draws that
+    fall below preregistered minima. Constraints apply to Thompson and to
+    Stage-4 exploit proposals; exploration batches ignore them.
     """
 
     name = "thompson"

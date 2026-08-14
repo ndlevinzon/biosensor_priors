@@ -44,7 +44,7 @@ For equations, gates, and the architecture diagram, see
 
 ## Features
 
-- Preregistered fitness $F = 0.40S + 0.25A + 0.20\mathrm{FC} + 0.15B$ with explicit censoring policies  
+- Preregistered fitness $F = 0.20S + 0.20A + 0.15\mathrm{FC}_{Ac} + 0.25B + 0.20\mathrm{FC}_{Prop}$ with explicit censoring policies  
 - Canonical numbering across biosensor versions (e.g. V1.0 -> V2.4)
 - Physics-informed GP: RidgeCV $\mu_0$, version intercept, Hamming mutation-set residual
 - Dunbrack ipSAE for cross-model holo interfaces (preferred RF3 dock metric)

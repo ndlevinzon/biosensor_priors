@@ -16,7 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   preregistered fitness weights; RidgeCV/horseshoe shrinkage mu_0 with
   alpha in [0, 1]; version intercept; Hamming mutation-set residual kernel;
   LOCO conformal / lambda calibration of sigma_eff.
-- Stage 4 Thompson sampling with optional affinity/brightness constraints.
+- Canonical edit codes for substitutions **and** insertions/deletions
+  (``ins104``, ``insNterm``, ``delNterm``), with a per-edit mutation cost.
+- Stage 4 exploit / explore proposal CSVs
+  (``proposals_exploit.csv``, ``proposals_explore.csv``).
 - ``scripts/clean_pipeline_artifacts.py`` (+ ``.sh`` wrapper) to wipe
   generated Stage 0-6 artifacts for a fresh HPC redeploy while keeping
   experimental inputs, constructs, and configs.
@@ -80,8 +83,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ``MISMATCH`` mutation audits (including Pan1.0 Q324R) are excluded from
   fitness labels and are not parsed as mutation bags.
 - Binary physchem flags are not z-scored; Georgiev ``_z`` slots load
-  continuous AA z-scores. FC PropCoA is an off-target auxiliary head, not
-  part of scalar F.
+  continuous AA z-scores.
+- Scalar fitness is
+  $F = 0.20S + 0.20A + 0.15\mathrm{FC}_{Ac} + 0.25B + 0.20\mathrm{FC}_{Prop}$
+  (new analysis round). Brightness is a hard Thompson / exploit floor
+  (min 0.55, above the similar cluster). FC PropCoA is in $F$ and a
+  Thompson constraint; do not rely on the 7 Kd-ratio labels alone.
+- Stage 4 design space uses parents V1.0 and V2.4, version-diff plus
+  experimental mutable sites, and indel events. Exploit ranking subtracts
+  mutation cost so only compensating edits are suggested.
 - Stage 2 physics priors use **RoseTTAFold3 docking** (Foundry ``rf3 fold``)
   (``configs/rf3_physics.yaml``, ``wrappers/run_rf3_dock.py``). Schema columns
   ``rif_ac`` / ``rif_prop`` / ``delta_rif_sel`` (negated RF3 confidence). The

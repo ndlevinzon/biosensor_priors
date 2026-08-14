@@ -8,18 +8,20 @@ surrogate.
 
 ### 4A. Design-space generator
 
-From active background (e.g. V2.4):
+From parents **V1.0 and V2.4**:
 
 ```text
-mutable positions x allowed amino acids x allowed mutation counts
+parents x mutable positions x allowed amino acids x indel events x mutation counts
 ```
 
-Examples: all singles; doubles among selected positions; selected triples.
-Do **not** enumerate the unconstrained full sequence space.
+Mutable sites include V1-V2.4 diffs and experimental hotspots. Indels
+(``insNterm``, ``delNterm``, ``ins104``) occupy a mutation slot. Do **not**
+enumerate the unconstrained full sequence space ($M_{\max}=2$ with 20 AA).
 
-Each candidate receives: ``candidate_id``, parent sequence, mutations, canonical
-positions, physchem features, then Stage 1/2 physics and confidence joined
-from mutation tables (``sum`` / ``max_abs``). Missing physics is not treated
+Each candidate receives: ``candidate_id``, parent sequence, proposed
+mutations, canonical edit bag (scaffold + proposed), ``mutation_cost``,
+physchem features, then Stage 1/2 physics and confidence joined from
+mutation tables (``sum`` / ``max_abs``). Missing physics is not treated
 as a favorable 0; prefilter missing scores as ``PASS``.
 
 Module: ``design_space.py``
@@ -99,7 +101,17 @@ Paper-faithful solvers (BO-EVO SI) are implemented:
   children beating the corresponding parent, top-B by $\mu$
 * **MCMC** - parallel MH with $\pi \propto \exp(\mu/T)$, collect M, rank by $\mu$, top B
 * **BO** - enumerative UCB $\mu + \kappa\sigma$, top B (uses calibrated $\sigma$ when Stage 3 wrote $\lambda, q$)
-* **Thompson** - one posterior draw per candidate, top B; optional affinity / brightness constraints (``search.yaml`` -> ``thompson``)
+* **Thompson** - one posterior draw per candidate, top B; optional brightness / FC PropCoA constraints (``search.yaml`` -> ``thompson``)
+
+Primary outputs of ``biosensor-stage4``:
+
+* ``outputs/stage4/proposals_exploit.csv`` - constructs likely to improve $F$
+  (brightness / FC PropCoA floors; $\mu - \lambda\,\mathrm{cost}$ must
+  compensate for the edit)
+* ``outputs/stage4/proposals_explore.csv`` - constructs that reduce
+  design-space uncertainty (rank by $\sigma$; no cost filter)
+
+Per-strategy CSVs are still written. Freeze defaults to the exploit batch.
 
 Encodings: ``onehot``, ``georgiev`` (19-D AAIndex-style stand-in), ``hybrid``,
 ``mutation_bag``.

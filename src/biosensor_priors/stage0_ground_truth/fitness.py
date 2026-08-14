@@ -7,6 +7,15 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+PHENOTYPES = ("selectivity", "affinity", "fc", "brightness", "fc_prop")
+DEFAULT_WEIGHTS: dict[str, float] = {
+    "selectivity": 0.20,
+    "affinity": 0.20,
+    "fc": 0.15,
+    "brightness": 0.25,
+    "fc_prop": 0.20,
+}
+
 
 def finite_positive(value: Any) -> bool:
     """Return whether a value is a finite positive number.
@@ -159,8 +168,9 @@ def fitness_transform(
     clean : pandas.DataFrame
         Cleaned experimental table with parsed phenotype columns.
     weights : dict[str, float] | None, optional
-        Component weights for ``selectivity``, ``affinity``, ``fc``, and
-        ``brightness``. Must sum to 1.0. Defaults to preregistered weights.
+        Component weights for ``selectivity``, ``affinity``, ``fc``,
+        ``brightness``, and ``fc_prop``. Must sum to 1.0. Defaults to
+        preregistered weights.
     min_components : int, optional
         Minimum number of measured components required to assign fitness.
         Default is 2.
@@ -182,17 +192,12 @@ def fitness_transform(
         If weights are incomplete, do not sum to 1.0, or if
         ``require_range`` checks fail.
     """
-    weight_map = weights or {
-        "selectivity": 0.40,
-        "affinity": 0.25,
-        "fc": 0.20,
-        "brightness": 0.15,
-    }
+    weight_map = weights or dict(DEFAULT_WEIGHTS)
     expected = set(weight_map)
-    if expected != {"selectivity", "affinity", "fc", "brightness"}:
+    if expected != set(PHENOTYPES):
         raise ValueError(
-            "Fitness weights must define selectivity, affinity, fc, and brightness "
-            f"(got {sorted(weight_map)})."
+            "Fitness weights must define selectivity, affinity, fc, "
+            f"brightness, and fc_prop (got {sorted(weight_map)})."
         )
     if not np.isclose(sum(weight_map.values()), 1.0):
         raise ValueError(
@@ -207,6 +212,7 @@ def fitness_transform(
         "affinity": "_fitness_affinity_raw",
         "fc": "_fitness_fc_raw",
         "brightness": "_fitness_brightness_raw",
+        "fc_prop": "_fitness_fc_prop_raw",
     }
     score_cols: dict[str, str] = {}
     for name, col in raw_cols.items():
@@ -215,10 +221,6 @@ def fitness_transform(
         series.loc[mismatch] = np.nan
         df[score_col] = percentile_score(series)
         score_cols[name] = score_col
-    if "_fitness_fc_prop_raw" in df.columns:
-        aux = pd.to_numeric(df["_fitness_fc_prop_raw"], errors="coerce").copy()
-        aux.loc[mismatch] = np.nan
-        df["_fitness_fc_prop_score"] = percentile_score(aux)
 
     fitness: list[float] = []
     n_components: list[int] = []
@@ -248,6 +250,7 @@ def fitness_transform(
     df["Fitness_weight_affinity"] = weight_map["affinity"]
     df["Fitness_weight_fc"] = weight_map["fc"]
     df["Fitness_weight_brightness"] = weight_map["brightness"]
+    df["Fitness_weight_fc_prop"] = weight_map["fc_prop"]
 
     valid = df["Fitness_raw_weighted"].notna()
     if require_range and int(valid.sum()) < 5:
@@ -315,8 +318,8 @@ class FoldFitnessScaler:
     test so held-out raw values never enter the label scale.
     """
 
-    FITNESS_PHENOTYPES = ("selectivity", "affinity", "fc", "brightness")
-    AUX_PHENOTYPES = ("fc_prop",)
+    FITNESS_PHENOTYPES = PHENOTYPES
+    AUX_PHENOTYPES: tuple[str, ...] = ()
 
     def __init__(
         self,
@@ -324,12 +327,7 @@ class FoldFitnessScaler:
         weights: dict[str, float] | None = None,
         min_components: int = 2,
     ) -> None:
-        self.weights = weights or {
-            "selectivity": 0.40,
-            "affinity": 0.25,
-            "fc": 0.20,
-            "brightness": 0.15,
-        }
+        self.weights = weights or dict(DEFAULT_WEIGHTS)
         self.min_components = int(min_components)
         self.reference_: dict[str, np.ndarray] = {}
         self.raw_lo_: float = 0.0
@@ -379,6 +377,8 @@ class FoldFitnessScaler:
             denom = 0.0
             count = 0
             for name in self.FITNESS_PHENOTYPES:
+                if name not in self.weights:
+                    continue
                 col = self._score_col(name)
                 if col not in df.columns:
                     continue

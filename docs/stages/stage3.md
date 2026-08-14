@@ -15,9 +15,10 @@ OLS). Physics features are **mean only** - they are not extra ARD kernel
 dimensions. The residual kernel is a Hamming mutation-set kernel on
 ``{pos,AA}`` bags plus a small physicochemical Matern.
 
-Optional **multi-output** heads model percentile scores for $S, A, FC, B$
-and combine with preregistered weights ($0.40/0.25/0.20/0.15$). Acquisition
-can treat affinity / brightness as constraints.
+Optional **multi-output** heads model percentile scores for
+$S, A, \mathrm{FC}_{\mathrm{Ac}}, B, \mathrm{FC}_{\mathrm{Prop}}$
+and combine with preregistered weights ($0.20/0.20/0.15/0.25/0.20$).
+Acquisition can treat brightness / FC PropCoA as constraints.
 
 LOCO residuals calibrate $\lambda_s, \lambda_p$ and a CV+ conformal quantile
 so Stage 4 uses $\sigma_{\mathrm{cal}} = q\,\sigma_{\mathrm{eff}}$.

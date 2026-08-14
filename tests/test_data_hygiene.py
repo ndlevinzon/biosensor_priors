@@ -39,6 +39,19 @@ def test_mismatch_not_parsed_and_unlabeled(stage0_result) -> None:
     assert parse_mutation_list(fake) == []
 
 
+def test_d104_insertion_is_an_edit() -> None:
+    row = pd.Series(
+        {
+            "mutation_audit": "match",
+            "Construct": "PancACe 2.0 D104 insertion AS-AS Linker",
+            "Description": "D104 insertion",
+            "mut_from_construct": [],
+            "mut_from_description": [],
+        }
+    )
+    assert parse_mutation_list(row) == [("+", 104, "X")]
+
+
 def test_frozen_splits_are_loco(stage0_result) -> None:
     _, meta = stage0_result
     paths = sorted(Path(meta["splits_dir"]).glob("split_*.json"))
@@ -50,10 +63,13 @@ def test_frozen_splits_are_loco(stage0_result) -> None:
         assert len(split["held_out_construct_ids"]) == 1
 
 
-def test_fc_prop_raw_present(stage0_result) -> None:
+def test_fc_prop_in_fitness(stage0_result) -> None:
     master, _ = stage0_result
     assert "_fitness_fc_prop_raw" in master.columns
     assert "_fitness_fc_prop_score" in master.columns
+    assert "Fitness_weight_fc_prop" in master.columns
+    assert np.isclose(float(master["Fitness_weight_fc_prop"].iloc[0]), 0.20)
+    assert np.isclose(float(master["Fitness_weight_brightness"].iloc[0]), 0.25)
 
 
 def test_fold_scaler_does_not_leak_held_out() -> None:

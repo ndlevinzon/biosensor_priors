@@ -74,11 +74,13 @@ Phenotype components are oriented so **higher is better**, then mapped to
 $[0,1]$ (percentile / ordinal normalization). Default weights:
 
 $$
-F = 0.40\,S + 0.25\,A + 0.20\,\mathrm{FC} + 0.15\,B
+F = 0.20\,S + 0.20\,A + 0.15\,\mathrm{FC}_{\mathrm{Ac}} + 0.25\,B + 0.20\,\mathrm{FC}_{\mathrm{Prop}}
 $$
 
-where $S$ is selectivity, $A$ affinity, $\mathrm{FC}$ fold-change, and $B$
-brightness. Missing phenotypes are **not imputed**. Weights of missing
+where $S$ is selectivity, $A$ affinity, $\mathrm{FC}_{\mathrm{Ac}}$ AcCoA
+fold-change, $B$ brightness, and $\mathrm{FC}_{\mathrm{Prop}}$ off-target
+PropCoA fold-change (oriented $-\log_{10}$ so **higher is better** / less
+response). Missing phenotypes are **not imputed**. Weights of missing
 components are redistributed over available components (policy
 `missing_phenotype: redistribute_weights`), subject to a minimum number of
 components (`min_components`, default 2).
@@ -90,7 +92,10 @@ the global-best label). Stage 3/4 cross-validation refits percentiles and
 minmax on the **training fold only**, then scores the held-out fold against
 those train ranks (`FoldFitnessScaler`).
 
-FC PropCoA is stored as an off-target auxiliary head and is **not** in $F$.
+Canonical edit bags include parent-scaffold substitutions plus insertions /
+deletions (`ins104`, `insNterm`, `delNterm`) so D104-style constructs are not
+empty mutation bags. V1-V2.4 differences are features of the parent, not only
+a version intercept.
 
 Censoring policies (frozen in `fitness.yaml`) include, among others:
 
@@ -307,10 +312,11 @@ $$
   + \hat f_{\mathrm{GP}}(x).
 $$
 
-**Multi-output heads** (default): percentile scores for $S,A,\mathrm{FC},B$
+**Multi-output heads** (default): percentile scores for
+$S,A,\mathrm{FC}_{\mathrm{Ac}},B,\mathrm{FC}_{\mathrm{Prop}}$
 are modeled with the same stack, then combined with preregistered fitness
-weights (missing-weight redistribution). Acquisition can treat affinity /
-brightness as constraints rather than folding everything into a single
+weights (missing-weight redistribution). Acquisition can treat brightness
+and FC PropCoA as constraints rather than folding everything into a single
 scalar.
 
 Operational residual pipeline (train only):
@@ -360,15 +366,27 @@ evidence that the fused model improves on both baselines.
 
 #### 6.1 Design space
 
-From the active background (e.g. V2.4), enumerate constrained mutants:
+Enumerate constrained mutants on **V1.0 and V2.4** (N-term block off vs on):
 
 $$
-\{\text{mutable positions}\} \times \{\text{allowed AAs}\} \times \{1,\ldots,M_{\max}\}
+\{\text{parents}\} \times \{\text{mutable positions}\} \times \{\text{allowed AAs}\}
+\times \{\text{indel events}\} \times \{1,\ldots,M_{\max}\}
 $$
 
-Positions use canonical numbering mapped to version-local indices. Each
-candidate gets `candidate_id`, mutations, physics placeholders / scores, and
-confidence.
+Mutable sites include V1-V2.4 substitution positions and experimental
+hotspots (not only 324/355). Insertion/deletion events (`insNterm`,
+`delNterm`, `ins104`) occupy a mutation slot. $M_{\max}=2$ with 20 amino
+acids. Positions use canonical numbering mapped to version-local indices
+(unmapped sites are skipped per parent). Each candidate gets
+`candidate_id`, proposed `mutation_codes`, parent `canonical_edit_codes`,
+`mutation_cost`, physics placeholders / scores, and confidence.
+
+Exploit ranking uses $\mu - \lambda\,\mathrm{cost}$ so only edits that
+compensate for their cost are suggested. Explore ranking uses
+$\sigma$ and does **not** apply the cost filter.
+
+Primary artifacts: `outputs/stage4/proposals_exploit.csv` and
+`outputs/stage4/proposals_explore.csv`.
 
 #### 6.2 Physics prefilter categories
 
@@ -401,8 +419,12 @@ Paper-faithful solvers share `propose(observed, pool, surrogate, B)`:
   rank by $\mu$; take top $B$.
 - **BO:** enumerative UCB over the pool; top $B$.
 - **Thompson:** one posterior draw per candidate; top $B$. Optional
-  affinity / brightness constraints (`search.yaml` -> `thompson`); primary
-  head defaults to selectivity.
+  brightness / FC PropCoA constraints (`search.yaml` -> `thompson`); primary
+  head defaults to fitness.
+
+Each operational Stage-4 run also writes an **exploit** batch (improve $F$,
+cost-compensating, constraint-feasible) and an **explore** batch (reduce
+design-space uncertainty).
 
 **Campaigns stay paper-faithful.** `biosensor-stage4-campaign` forces
 `kind=gp_zero_mean`, scalar fitness, Matern-5/2, and no version intercept
