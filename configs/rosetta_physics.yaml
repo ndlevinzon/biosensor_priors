@@ -1,4 +1,4 @@
-# Stage 2 physics priors — DEPRECATED.
+# Stage 2 physics priors - DEPRECATED.
 #
 # PyRosetta packing/interface scoring was replaced by RoseTTAFold3 docking.
 # See configs/rf3_physics.yaml and:

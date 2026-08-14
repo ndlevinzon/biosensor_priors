@@ -1,7 +1,8 @@
-# Stage 4 — Active-learning engine
+# Stage 4 - Active-learning engine
 
-Pure Python combinatorial / search code. Physics filtering, uncertainty
-adjustment, and AdaLead / MCMC / BO on the augmented surrogate.
+Pure Python combinatorial / search code. Physics filtering, calibrated
+uncertainty, and Random / AdaLead / MCMC / UCB BO / Thompson on the fused
+surrogate.
 
 ## Components
 
@@ -10,7 +11,7 @@ adjustment, and AdaLead / MCMC / BO on the augmented surrogate.
 From active background (e.g. V2.4):
 
 ```text
-mutable positions × allowed amino acids × allowed mutation counts
+mutable positions x allowed amino acids x allowed mutation counts
 ```
 
 Examples: all singles; doubles among selected positions; selected triples.
@@ -32,8 +33,8 @@ Return **categories**, not silent deletion:
 | ``HARD_FAIL`` | Usually excluded when confidence is high |
 | ``EXPLORATION_RESERVED`` | Budget for physics-misspecification protection |
 
-Bad physics + high confidence → usually exclude  
-Bad physics + low confidence → exploration pool
+Bad physics + high confidence -> usually exclude
+Bad physics + low confidence -> exploration pool
 
 Module: ``prefilter.py``
 
@@ -45,8 +46,9 @@ All methods implement:
 propose(observed, candidate_pool, surrogate, batch_size) -> batch
 ```
 
-Plug-ins: Random, AdaLead, MCMC, BO (UCB), Thompson sampling—without changing
-downstream consumers.
+Plug-ins: Random, AdaLead, MCMC, BO (UCB), Thompson sampling - without changing
+downstream consumers. ``build_search_policies()`` is shared by ``run.py``,
+``campaign.py``, and Stage 5 ``update_model.py``.
 
 Modules: ``policy.py``, ``random_search.py``, ``adalead.py``, ``mcmc.py``,
 ``bo.py``, ``thompson.py``, ``bo_evo.py``
@@ -59,14 +61,19 @@ $$
 \mathrm{UCB}(x) = \mu(x) + \kappa\,\sigma(x)
 $$
 
-with **explicit** uncertainty decomposition:
+with **explicit** uncertainty decomposition and Stage-3 conformal scale:
 
 $$
 \sigma_{\mathrm{eff}}^2 = \sigma_{\mathrm{GP}}^2 + \lambda_s\,\sigma_{\mathrm{structure}}^2 + \lambda_p\,\sigma_{\mathrm{physics}}^2
 $$
 
-Acquisition uses $\sigma_{\mathrm{eff}}$ rather than burying structural uncertainty
-inside the GP kernel.
+$$
+\sigma_{\mathrm{cal}} = q\,\sigma_{\mathrm{eff}}
+$$
+
+BO uses $\sigma_{\mathrm{cal}}$ when ``outputs/stage3/uncertainty_calibration.json``
+exists (``search.yaml`` -> ``uncertainty.use_effective: true``). Structural
+uncertainty is not buried inside the GP kernel.
 
 Module: ``acquisition.py``
 
@@ -85,15 +92,19 @@ Module: ``batch_design.py``
 
 Paper-faithful solvers (BO-EVO SI) are implemented:
 
-* **Random** — parent mutation at rate 1/N → collect M → sample B
-* **AdaLead** — parents with $F \\ge (1-\\kappa)F_{\\max}$, local/recombinant
-  children beating the corresponding parent, top-B by $\\mu$
-* **MCMC** — parallel MH with $\\pi \\propto \\exp(\\mu/T)$, collect M, rank by $\\mu$, top B
-* **BO** — enumerative UCB $\\mu + \\kappa\\sigma$, top B (uses calibrated $\\sigma$ when Stage 3 wrote $\\lambda, q$)
-* **Thompson** — one posterior draw per candidate, top B; optional affinity / brightness constraints (`search.yaml` → `thompson`)
+* **Random** - parent mutation at rate 1/N -> collect M -> sample B
+* **AdaLead** - parents with $F \ge (1-\kappa)F_{\max}$, local/recombinant
+  children beating the corresponding parent, top-B by $\mu$
+* **MCMC** - parallel MH with $\pi \propto \exp(\mu/T)$, collect M, rank by $\mu$, top B
+* **BO** - enumerative UCB $\mu + \kappa\sigma$, top B (uses calibrated $\sigma$ when Stage 3 wrote $\lambda, q$)
+* **Thompson** - one posterior draw per candidate, top B; optional affinity / brightness constraints (``search.yaml`` -> ``thompson``)
 
 Encodings: ``onehot``, ``georgiev`` (19-D AAIndex-style stand-in), ``hybrid``,
 ``mutation_bag``.
+
+**Campaigns stay paper-faithful.** ``biosensor-stage4-campaign`` forces
+``kind=gp_zero_mean``, scalar fitness, Matern-5/2, and no version intercept.
+Operational ``biosensor-stage4`` uses the Stage-3 fused surrogate.
 
 Multi-round paired campaigns:
 

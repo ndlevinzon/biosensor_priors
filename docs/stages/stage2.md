@@ -1,4 +1,4 @@
-# Stage 2 — Physics landscape
+# Stage 2 - Physics landscape
 
 Ligand conformers, **RoseTTAFold3 docking** scores for AcCoA and PropCoA,
 20-AA scans, selectivity term, and uncertainty across structural models.
@@ -20,11 +20,15 @@ submit QM with ``bash data/physics/ligands/AcCoA/qm/submit_all.sh``.
 
 ```text
 AcCoA / PropCoA starting structure (or SMILES)
-       ↓ conformer generation (RDKit ETKDG — OMEGA replacement)
-       ↓ geometry cleanup (MMFF)
-       ↓ QM refinement (Gaussian16 Opt on CHPC)
-       ↓ deduplication / clustering
-       ↓ approved conformer ensemble
+       | conformer generation (RDKit ETKDG - OMEGA replacement)
+       v
+       | geometry cleanup (MMFF)
+       v
+       | QM refinement (Gaussian16 Opt on CHPC)
+       v
+       | deduplication / clustering
+       v
+       approved conformer ensemble
 ```
 
 Each conformer receives a permanent ``conformer_id``.
@@ -38,22 +42,22 @@ Modules: ``ligand_ensemble.py``, ``conformer_generator.py``, ``gaussian_qm.py``
 
 Programmatic wrapper around **RoseTTAFold3** (Foundry ``rf3 fold``):
 
-- mutate sequence → optional backbone template from Stage-1 structure
-- protein + AcCoA / PropCoA docking → Dunbrack **ipSAE** from PAE (fallback
-  native ipTM) → ``rif_ac`` / ``rif_prop`` (negated for the frozen score direction)
+- mutate sequence -> optional backbone template from Stage-1 structure
+- protein + AcCoA / PropCoA docking -> Dunbrack **ipSAE** from PAE (fallback
+  native ipTM) -> ``rif_ac`` / ``rif_prop`` (negated for the frozen score direction)
 - write shell/sbatch scripts, capture logs, parse scores, store ``job.json``
 
 Config: ``configs/rf3_physics.yaml`` (ligand SMILES/SDF, template flags,
 metric keys, GPU job defaults).
 
-Inputs: ``structure_model_id`` + ligand SMILES (from ``physics.yaml``) or SDF  
+Inputs: ``structure_model_id`` + ligand SMILES (from ``physics.yaml``) or SDF
 Outputs: ``data/physics/rif/.../rif_scores.tsv``
 
 Modules: ``rif_jobs.py``, ``wrappers/run_rf3_dock.py``, ``score_parser.py``
 
 ### 2C. 20-AA scan engine
 
-For every allowed canonical position × amino acid, generate a mutation
+For every allowed canonical position x amino acid, generate a mutation
 specification and score through RF3 ligand docking.
 
 Long-format table:
@@ -70,14 +74,14 @@ $$
 $$
 
 **Always retain raw terms.** Score direction is frozen in
-``thresholds.yaml`` → ``physics.score_direction``
+``thresholds.yaml`` -> ``physics.score_direction``
 (``more_negative_is_better``).
 
 Module: ``mutation_scan.py``
 
 ### 2D. Physics-uncertainty propagation
 
-Multiple structural models ⇒ distributional summaries per mutation:
+Multiple structural models => distributional summaries per mutation:
 
 ```text
 Q324R
@@ -119,7 +123,7 @@ python -m biosensor_priors.stage2_physics.run --require-gate
    Gaussian16 is provided by CHPC (``gaussian16/SSE4.C01``).
 2. Install Foundry RF3: ``pip install 'rc-foundry[rf3]'`` and
    ``foundry install base-models`` (same as Stage 1).
-3. Optional: set ``configs/rf3_physics.yaml`` → ``conda_activate`` and/or
+3. Optional: set ``configs/rf3_physics.yaml`` -> ``conda_activate`` and/or
    per-ligand SDF ``path`` under ``ligands.*.path``.
 4. In ``configs/physics.yaml``: drop ``--scaffold`` from the ``rif``
    command template; set ``backend: external``; keep jobs on

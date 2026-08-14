@@ -1,4 +1,4 @@
-# Fitness definition — preregistered before any modeling or search.
+# Fitness definition - preregistered before any modeling or search.
 # Changing weights after seeing results is not allowed for a given analysis round.
 
 formulation: weighted_scalar
@@ -18,11 +18,11 @@ min_components: 2
 observations:
   affinity:
     exact: use_as_is                    # -log10(Kd_uM); higher is better
-    left_censored: use_bound_conservative  # <x → use x (conservative)
+    left_censored: use_bound_conservative  # <x -> use x (conservative)
     right_censored: omit                # >x would be optimistic for tighter binding
   fc:
     exact: use_as_is                    # log10(FC); higher is better
-    right_censored: use_bound_conservative  # >x → use x
+    right_censored: use_bound_conservative  # >x -> use x
     left_censored: omit
   selectivity:
     # Use positive lower bound of Kd(Prop)/Kd(Ac) interval (conservative).

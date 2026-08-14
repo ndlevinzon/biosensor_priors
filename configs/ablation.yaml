@@ -1,13 +1,13 @@
 # Stage 6 ablation matrix
 # Every row shares Stage-0 splits and pipeline.random_seed.
 
-random_seed: null  # null → use pipeline.random_seed
+random_seed: null  # null -> use pipeline.random_seed
 n_bootstrap: 1000
 alpha: 0.05
-encoding: null  # null → use thresholds.gp.encoding
+encoding: null  # null -> use thresholds.gp.encoding
 reference_config_id: physics_gp_conf_consensus
 
-# Structure confidence tables (optional; missing → unit confidence with flag).
+# Structure confidence tables (optional; missing -> unit confidence with flag).
 structure_confidence_dir: "data/processed"
 structure_confidence_pattern: "structural_confidence_{source}.parquet"
 

@@ -1,7 +1,7 @@
 # biosensor-priors documentation
 
 Physics-informed Gaussian process pipeline for biosensor design, structural
-uncertainty, Rosetta physics landscapes, and active learning.
+uncertainty, RF3 docking landscapes, and active learning.
 
 ```{toctree}
 :maxdepth: 2
@@ -57,6 +57,7 @@ Hosted docs are built by [Read the Docs](https://readthedocs.org/) from
 ## Design principle
 
 Each stage is **independently runnable**. Changing the GP kernel must not force
-a re-run of AlphaFold; changing the BO acquisition function must not force a
-re-run of RIF. Stages communicate through versioned tables, manifests, and
-stable identifiers—not through shared in-memory state.
+a re-run of Boltz2 / AF3 / RF3; changing the BO or Thompson acquisition
+function must not force a re-run of RF3 docking. Stages communicate through
+versioned tables, manifests, and stable identifiers - not through shared
+in-memory state.

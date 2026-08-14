@@ -1,7 +1,7 @@
-# Stage 0 — Ground truth and success criteria
+# Stage 0 - Ground truth and success criteria
 
 Wet-lab measurements are the **only** ground truth. This stage is almost
-entirely Python data-engineering and validation—not ML.
+entirely Python data-engineering and validation - not ML.
 
 No modeling starts until Stage-0 tests pass.
 
@@ -12,7 +12,7 @@ No modeling starts until Stage-0 tests pass.
 Reads construct-level experimental fields (examples):
 
 - Construct, Version, Parent, mutations
-- FC AcCoA, Kd AcCoA, FC PropCoA, Kd PropCoA, Brightness, …
+- FC AcCoA, Kd AcCoA, FC PropCoA, Kd PropCoA, Brightness, ...
 
 Combines with:
 
@@ -27,10 +27,12 @@ Module: ``biosensor_priors.stage0_ground_truth.load_experiments``
 
 ```text
 experimental measurements
-           ↓
+           |
+           v
     fitness_transform()
-           ↓
- normalized fitness ∈ [0, 1]
+           |
+           v
+ normalized fitness in [0, 1]
 ```
 
 Default: preregistered scalar weights (see {doc}`../configuration`).

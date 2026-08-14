@@ -27,7 +27,7 @@ extensions = [
     "sphinx_copybutton",
 ]
 
-# --- Autodoc / Napoleon (NumPy docstrings → RTD) ---
+# --- Autodoc / Napoleon (NumPy docstrings -> RTD) ---
 autodoc_typehints = "description"
 autodoc_typehints_description_target = "documented_params"
 autodoc_member_order = "bysource"

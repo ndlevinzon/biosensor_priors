@@ -7,9 +7,11 @@ constants in Python.
 | --- | --- |
 | ``configs/pipeline.yaml`` | Paths, seeds, round, gate policy, canonical/active versions |
 | ``configs/fitness.yaml`` | Preregistered fitness formulation, weights, observation policies, design constraints |
-| ``configs/search.yaml`` | Batch size, UCB/AdaLead/MCMC, uncertainty λs, prefilter, diversification |
+| ``configs/search.yaml`` | Batch size, UCB/AdaLead/MCMC/Thompson, calibrated $\sigma$, prefilter, diversification |
 | ``configs/thresholds.yaml`` | Structure predictors/seeds/states, confidence cutoffs, physics score direction, GP defaults |
-| ``configs/physics.yaml`` | Stage 2 backend (mock/external), ligand/Rosetta tool paths, job scheduler, mock control deltas |
+| ``configs/structures.yaml`` | Stage 1 CHPC SLURM / predictor settings and ipSAE cutoffs |
+| ``configs/physics.yaml`` | Stage 2 backend (mock/external), ligand/QM tool paths, job scheduler, mock control deltas |
+| ``configs/rf3_physics.yaml`` | Foundry RF3 docking (ipSAE metric keys, templates, GPU jobs) |
 | ``configs/ablation.yaml`` | Stage 6 ablation matrix |
 
 ## Fitness preregistration
@@ -24,8 +26,10 @@ $$
 with components normalized to $[0,1]$. Changing weights after seeing results is
 not allowed within an analysis round; open a new round instead.
 
-Pareto / multi-objective formulations remain future options but are not the
-default.
+Stage 3 can still fit **multi-output phenotype heads** ($S,A,\mathrm{FC},B$)
+and combine them with these weights. Affinity / brightness constraints in
+Thompson sampling use those heads; they are not a Pareto / multi-objective
+search. Pareto formulations remain a future option, not the default.
 
 ## Observation policies
 
@@ -44,7 +48,7 @@ Explicit policies are required for:
 **Frozen convention** (``configs/thresholds.yaml``):
 
 > More negative physics score = better interaction
-> (RF3 docking writes −confidence into ``rif_ac`` / ``rif_prop``).
+> (RF3 docking writes -ipSAE, or -ipTM fallback, into ``rif_ac`` / ``rif_prop``).
 
 Downstream code must not guess sign convention. Derived selectivity is:
 
@@ -53,3 +57,18 @@ $$
 $$
 
 Raw terms are always retained alongside derived scores.
+
+## Source encoding
+
+All documentation, YAML, and Sphinx sources must be **UTF-8** (no BOM) and
+**ASCII-only** in the source text:
+
+- Punctuation: hyphen ``-``, ASCII quotes ``"`` ``'``, ``...`` not em-dashes
+  or smart quotes.
+- Math: MyST dollarmath / LaTeX (``$\mu$``, ``$\sigma$``, ``$\Delta$``), not
+  raw Greek or Unicode minus (U+2212).
+- ASCII diagrams: ``->``, ``v``, ``|``, ``+--``.
+
+Python identifiers and YAML keys stay ASCII. Ligand SMILES are ASCII. Tests
+under ``tests/test_docs_encoding.py`` enforce this for ``docs/`` (including
+figures), ``configs/``, ``README.md``, and ``CHANGELOG.md``.

@@ -1,4 +1,4 @@
-# Stage 2 ligand inputs (durable — not wiped by clean_pipeline_artifacts).
+# Stage 2 ligand inputs (durable - not wiped by clean_pipeline_artifacts).
 #
 # Layout (per ligand):
 #   data/ligands/AcCoA/ligand.smi      # one SMILES string (first non-comment line)

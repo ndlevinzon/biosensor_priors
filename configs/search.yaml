@@ -4,11 +4,11 @@
 batch_size: 8
 candidate_m: 256
 
-# Enumerative BO UCB: μ + κ σ
+# Enumerative BO UCB: mu + kappa * sigma
 ucb:
   kappa: 1.5
 
-# AdaLead — paper parent rule: F >= (1-κ)·F_max
+# AdaLead - paper parent rule: F >= (1-kappa)*F_max
 adalead:
   parent_mode: relative_kappa
   kappa: 0.05
@@ -16,13 +16,13 @@ adalead:
   # parent_mode: absolute_epsilon
   # epsilon: 0.05
 
-# MCMC — maximization form π ∝ exp(μ/T)
+# MCMC - maximization form pi proportional to exp(mu/T)
 mcmc:
   temperature: 0.10
   n_steps: 300
   n_chains: 8
 
-# Optional σ_eff + conformal calibration (Stage 3 writes λ and q)
+# Optional sigma_eff + conformal calibration (Stage 3 writes lambda and q)
 uncertainty:
   use_effective: true
   lambda_structure: 1.0

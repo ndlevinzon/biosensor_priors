@@ -5,10 +5,10 @@
 #   foundry install base-models
 #
 # Protocol (fixed-backbone / ligand docking style):
-#   mutate sequence → rf3 fold(protein ± template + ligand) → confidence metrics
+#   mutate sequence -> rf3 fold(protein +/- template + ligand) -> confidence metrics
 #   mapped onto Stage-3 columns (negated so more_negative_is_better holds):
-#     rif_ac / rif_prop  → −ipSAE (Dunbrack; fallback native ipTM)
-#     delta_rif_sel      → rif_ac − rif_prop
+#     rif_ac / rif_prop  -> -ipSAE (Dunbrack; fallback native ipTM)
+#     delta_rif_sel      -> rif_ac - rif_prop
 #
 # Docs: https://github.com/RosettaCommons/foundry/blob/production/models/rf3/README.md
 
@@ -51,7 +51,7 @@ rf3:
   negate_confidence: true
 
   # Per-ligand sources (prefer SDF/CIF path; else CCD; else SMILES).
-  # SMILES fallback: rf3.ligands.*.smiles → physics.yaml → data/ligands/<name>/ligand.smi
+  # SMILES fallback: rf3.ligands.*.smiles -> physics.yaml -> data/ligands/<name>/ligand.smi
   # After Stage 2A, set path to an approved SDF for best docking quality.
   ligands:
     AcCoA:

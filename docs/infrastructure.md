@@ -13,10 +13,10 @@ constants. Typical contents:
 - fitness weights
 - allowed mutable positions and amino acids
 - maximum mutations per construct
-- structure confidence thresholds
-- Rosetta physics thresholds and score-direction convention
-- GP settings
-- UCB κ, AdaLead ε, MCMC temperature
+- structure confidence and ipSAE thresholds
+- RF3 physics thresholds and score-direction convention
+- GP settings (kernel, shrinkage, multi-output)
+- UCB $\kappa$, AdaLead $\varepsilon$, MCMC temperature, Thompson constraints
 - random seed and analysis round
 
 Load via ``biosensor_priors.common.config``.
@@ -36,9 +36,16 @@ hashes, parameters, software versions, seeds, outputs, and gate pass/fail.
 
 ``biosensor_priors.common.gates`` evaluates and records gate status. Failed
 required gates must block silent use of that stage's outputs (e.g. Gate 2 fail
-→ Stage 3 must not use physics at full weight without recording the failure).
+-> Stage 3 must not use physics at full weight without recording the failure).
 
 ## Canonical numbering
 
-``biosensor_priors.common.canonical`` maps version positions ↔ canonical
+``biosensor_priors.common.canonical`` maps version positions <-> canonical
 positions so structural and physics features align across backgrounds.
+
+## Encoding
+
+Documentation, YAML, and Sphinx sources are UTF-8 with **ASCII-only**
+punctuation and identifiers. Math uses MyST / LaTeX (``$...$``, ``$$...$$``)
+rather than raw Greek letters, Unicode minus, em-dashes, or smart quotes.
+See {doc}`configuration`.

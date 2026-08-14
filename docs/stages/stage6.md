@@ -1,4 +1,4 @@
-# Stage 6 — Ablation and scientific reporting
+# Stage 6 - Ablation and scientific reporting
 
 Experiment-matrix orchestration, statistics, and figure generation. Runs
 **across** the pipeline using the same Stage-0 splits and seeds.
@@ -9,11 +9,11 @@ Configured in ``configs/ablation.yaml``:
 
 | Physics | GP | Confidence weighting | Structure source | Prefilter |
 | --- | --- | --- | --- | --- |
-| yes | no | — | consensus | no |
-| no | yes | — | — | no |
+| yes | no | n/a | consensus | no |
+| no | yes | n/a | n/a | no |
 | yes | yes | no | consensus | no |
 | yes | yes | yes | consensus | no |
-| yes | yes | yes | AF2 | yes |
+| yes | yes | yes | Boltz2 | yes |
 | yes | yes | yes | AF3 | yes |
 
 Every configuration uses identical splits and ``random_seed``.
@@ -55,10 +55,10 @@ Modules: ``figures.py``, ``report.py``
 
 ## Relation to gates
 
-Stage 6 does not replace Gates 0–5; it provides the scientific evidence matrix
+Stage 6 does not replace Gates 0-5; it provides the scientific evidence matrix
 (including confidence-weighting and structure-source ablations) that those
 gates summarize for operational decisions.
 
-Until Stage-1 AF2/AF3 confidence tables exist, those structure-source slots
+Until Stage-1 Boltz2/AF3 confidence tables exist, those structure-source slots
 use a documented deterministic proxy (``structure_available=false``) so the
 matrix remains runnable.

@@ -1,11 +1,11 @@
-# Stage 2 physics landscape — external tool paths and job settings.
+# Stage 2 physics landscape - external tool paths and job settings.
 # Score *direction* lives in thresholds.yaml (frozen; do not re-derive here).
 #
 # External binaries are optional until HPC deployment. Use backend: mock for
 # local dry-runs that exercise the full Python orchestration + Gate 2 path.
 #
 # CHPC notes:
-# - No OpenEye OMEGA → built-in RDKit ETKDG conformer generator (builtin:rdkit).
+# - No OpenEye OMEGA -> built-in RDKit ETKDG conformer generator (builtin:rdkit).
 # - QM via Gaussian16: module load gaussian16/SSE4.C01 (ember/lonepeak SSE4).
 
 backend: mock  # mock | external
@@ -15,13 +15,13 @@ ligands:
     - AcCoA
     - PropCoA
   # Optional overrides. Prefer dropping files under data/ligands/<name>/:
-  #   ligand.smi          → SMILES (first non-comment line)
-  #   starting.mol2|.sdf  → 3D start (used if present)
+  #   ligand.smi          -> SMILES (first non-comment line)
+  #   starting.mol2|.sdf  -> 3D start (used if present)
   # Paths below win when the file exists; otherwise the data/ligands/ convention is used.
   starting_structures:
     AcCoA: "data/ligands/AcCoA/starting.mol2"
     PropCoA: "data/ligands/PropCoA/starting.mol2"
-  # null → read data/ligands/<name>/ligand.smi (seeded defaults live there).
+  # null -> read data/ligands/<name>/ligand.smi (seeded defaults live there).
   # Set explicitly only to override the file without editing ligand.smi.
   smiles:
     AcCoA: null
@@ -52,7 +52,7 @@ ligands:
   qm:
     module: "gaussian16/SSE4.C01"
     executable: g16
-    # CoA-like ligands with 3× phosphate (−4) in SMILES above
+    # CoA-like ligands with 3x phosphate (-4) in SMILES above
     charge: -4
     multiplicity: 1
     route: "#p B3LYP/6-31G(d) Opt"

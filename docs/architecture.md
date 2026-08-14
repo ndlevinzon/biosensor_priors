@@ -8,32 +8,34 @@ an active-learning loop.
 
 ```text
 Wet-lab database
-      │
-      ├──────────────► canonical sequence / physchem database
-      │
-      ▼
+      |
+      +--------------> canonical sequence / physchem database
+      |
+      v
 Stage 0: Ground truth + fitness definition
-      │
-      ▼
-Stage 1: Structure ensemble + confidence
-      │
-      ▼
-Stage 2: Rosetta physics landscape
-      │
-      ▼
-Stage 3: Physics-informed GP
-      │
-      ▼
+      |
+      v
+Stage 1: Structure ensemble + confidence + ipSAE
+         (Boltz2 / AF3 / ESMFold / RF3)
+      |
+      v
+Stage 2: RF3 docking physics landscape
+      |
+      v
+Stage 3: Physics-informed GP (shrinkage mean + Hamming residual)
+      |
+      v
 Stage 4: Search / active learning
-      │
-      ▼
-Candidate batch ─────► Wet lab
-                         │
-                         ▼
+         (Random / AdaLead / MCMC / UCB / Thompson)
+      |
+      v
+Candidate batch -----> Wet lab
+                         |
+                         v
                     Stage 5
                   prospective update
-                         │
-                         └──────────► next round
+                         |
+                         +----------> next round
 
 Across everything:
       Stage 6 = ablation + validation + reporting
@@ -41,12 +43,12 @@ Across everything:
 
 ## Independence contract
 
-| Change… | Must not force re-running… |
+| Change... | Must not force re-running... |
 | --- | --- |
 | GP kernel / residual model | Stage 1 structure prediction |
-| BO / AdaLead / MCMC acquisition | Stage 2 Rosetta physics jobs |
+| BO / AdaLead / MCMC / Thompson acquisition | Stage 2 RF3 docking jobs |
 | Fitness weights (new *analysis round* only) | Historical manifests (freeze prior rounds) |
-| Search batch size | Stages 0–3 artifacts |
+| Search batch size | Stages 0-3 artifacts |
 
 Stages consume **files** (parquet / JSON / PDB/mmCIF) plus a **manifest** that
 records hashes, parameters, tool versions, seeds, and gate status.
@@ -60,7 +62,7 @@ records hashes, parameters, tool versions, seeds, and gate status.
 | 2 | Python orchestration + external physics executables + score parsing | Compute-heavy |
 | 3 | Python numerical / ML | Moderate |
 | 4 | Python search / optimization | Moderate, potentially combinatorial |
-| 5 | Python data ingestion / model lifecycle | Lightweight–moderate |
+| 5 | Python data ingestion / model lifecycle | Lightweight-moderate |
 | 6 | Python statistics / plotting | Moderate |
 
 This is intentionally **not** one giant script. Shared infrastructure is built

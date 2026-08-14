@@ -1,10 +1,11 @@
-# Stage 1 — Structural modeling and uncertainty
+# Stage 1 - Structural modeling and uncertainty
 
 Primarily an **HPC / workflow orchestration** problem plus structural analysis.
-Multiple predictors, seeds, per-residue confidence, PAE, and cross-model RMSD.
+Multiple predictors, seeds, per-residue confidence, PAE, Dunbrack ipSAE, and
+cross-model RMSD.
 
-Downstream stages never parse raw Boltz2/AF3/ESMFold/RF3 layouts—they read the
-standardized tables this stage emits.
+Downstream stages never parse raw Boltz2/AF3/ESMFold/RF3 layouts - they read
+the standardized tables this stage emits.
 
 ## CHPC (University of Utah) predictors
 
@@ -13,7 +14,7 @@ Stage 1 writes SLURM scripts matching CHPC documentation:
 | Predictor | Module / tool | Job shape |
 | --- | --- | --- |
 | **Boltz2** | ``boltz2/2.2.1`` | Single GPU FASTA (CHPC-style) + ColabFold MSA; ``--ntasks-per-node=1``; seeds share one MSA |
-| **AF3** | ``alphafold/3.0.0`` | Two-step: CPU MSA → GPU infer (``--ntasks-per-node=1`` on GPU step) |
+| **AF3** | ``alphafold/3.0.0`` | Two-step: CPU MSA -> GPU infer (``--ntasks-per-node=1`` on GPU step) |
 | **ESMFold** | ``esmfold/1.0.3`` | Single GPU: fair-esm Python API; ``--ntasks-per-node=1`` |
 | **RF3** | Foundry ``rf3 fold`` (not a CHPC module yet) | Single GPU; ``--ntasks-per-node=1`` (Lightning Fabric); install ``rc-foundry[rf3]`` |
 
@@ -26,7 +27,7 @@ AlphaFold2 and RoseTTAFold2 were **removed** (replaced by Boltz2 and RF3).
 ```bash
 pip install 'rc-foundry[rf3]'
 foundry install base-models
-# optional: set configs/structures.yaml → rosettafold3.conda_activate
+# optional: set configs/structures.yaml -> rosettafold3.conda_activate
 ```
 
 ```bash
@@ -71,15 +72,16 @@ Module: ``biosensor_priors.stage1_structures.make_jobs``
 
 ### 1B. Adapters
 
-``parse_Boltz2``, ``parse_AF3``, ``parse_ESMFold``, ``parse_RF3`` → common schema
-(``structure_model_id``, pLDDT, …).
+``parse_Boltz2``, ``parse_AF3``, ``parse_ESMFold``, ``parse_RF3`` -> common schema
+(``structure_model_id``, pLDDT, ...).
 
-### 1C–1D. Comparison + confidence
+### 1C-1D. Comparison + confidence
 
-Same as before → ``structural_confidence.parquet``.
+Writes ``structural_confidence.parquet`` from pLDDT, cross-model RMSD, and
+pocket PAE.
 
 **ipSAE (not ipTM) for cross-model interfaces.** Holo AF3 / Boltz2 / RF3 jobs
-with PAE are scored with Dunbrack ipSAE (same PAE formula, d0 from
+with PAE are scored with Dunbrack ipSAE (same PAE formula, $d_0$ from
 PAE-filtered residues). Apo jobs are skipped. Tables:
 
 * ``data/structures/ipsae_by_model.parquet``
@@ -87,6 +89,10 @@ PAE-filtered residues). Apo jobs are skipped. Tables:
 
 ipSAE std is the disagreement measure across predictors. Native ipTM is not
 comparable across models. ESMFold typically has no ligand PAE and is omitted.
+
+Module: ``biosensor_priors.stage1_structures.ipsae_compare``
+(core: ``biosensor_priors.common.ipsae``). Cutoffs:
+``configs/structures.yaml`` -> ``ipsae``.
 
 ## Gate 1
 

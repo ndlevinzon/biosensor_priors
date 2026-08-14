@@ -1,21 +1,23 @@
 # Build order
 
-Do **not** begin with AlphaFold or RIF code.
+Do **not** begin with structure-prediction or RF3 docking code. Shared
+contracts, experimental ground truth, and the surrogate / search loop come
+first so HPC outputs can drop in later without rewriting Stages 3-4.
 
 ## First implementation block
 
-1. **Shared infrastructure** — config, identifiers, provenance/manifests, gates, canonical numbering
-2. **Stage 0** — experimental loader, fitness transform, frozen splits, validation tests
-3. **Stage 3 skeleton** — features + GP-only residual path (physics mean optional / zero)
-4. **Stage 4 benchmark** — Random / AdaLead / MCMC / BO on the same interface
+1. **Shared infrastructure** - config, identifiers, provenance/manifests, gates, canonical numbering
+2. **Stage 0** - experimental loader, fitness transform, frozen splits, validation tests
+3. **Stage 3 skeleton** - features + GP-only residual path (physics mean optional / zero)
+4. **Stage 4 benchmark** - Random / AdaLead / MCMC / BO on the same interface
 
 There is already enough experimental and sequence data to make these portions
 robust.
 
 ## Second block (plug-in when ready)
 
-5. **Stage 1** — job generation, predictor adapters, confidence tables
-6. **Stage 2** — ligand ensembles, Rosetta wrappers, mutation scans, Gate 2 controls
+5. **Stage 1** - job generation, predictor adapters, confidence + ipSAE tables
+6. **Stage 2** - ligand ensembles, RF3 docking wrappers, mutation scans, Gate 2 controls
    (implemented with ``backend: mock``; point ``configs/physics.yaml`` at HPC
    binaries when deployed)
 
@@ -24,29 +26,33 @@ search.
 
 ## Third block
 
-7. **Stage 5** — freeze predictions, import results, prospective validation, update
+7. **Stage 5** - freeze predictions, import results, prospective validation, update
    (implemented: ``biosensor-stage5`` / ``python -m biosensor_priors.stage5_prospective.run``)
-8. **Stage 6** — ablation matrix, statistics, figures, report
+8. **Stage 6** - ablation matrix, statistics, figures, report
    (implemented: ``biosensor-stage6`` / ``python -m biosensor_priors.stage6_ablation.run``)
 
-## Capability today vs later
+## Capability today vs HPC add-on
 
-**Runnable now (target):**
+**Runnable now without cluster jobs:**
 
 ```text
 experimental data + canonical sequence + physchem
-        ↓
-     GP-only
-        ↓
-Random / AdaLead / MCMC / BO
+        |
+        v
+     GP-only or fused surrogate (mock physics)
+        |
+        v
+Random / AdaLead / MCMC / UCB / Thompson
 ```
 
-**Later addition (same machinery):**
+**Same machinery with Stage 1/2 artifacts:**
 
 ```text
-structure confidence + Rosetta physics
-        ↓
-   physics prior (μ₀)
-        ↓
-same GP residual + same search policies
+structure confidence + ipSAE + RF3 docking
+        |
+        v
+   physics prior (RidgeCV mu_0, alpha shrink, version intercept)
+        |
+        v
+Hamming residual GP + same search policies
 ```

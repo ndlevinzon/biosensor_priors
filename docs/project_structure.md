@@ -7,10 +7,15 @@ biosensor_priors/
         fitness.yaml
         search.yaml
         thresholds.yaml
+        structures.yaml
+        physics.yaml
+        rf3_physics.yaml
+        ablation.yaml
 
     data/
         experimental/
         constructs/
+        ligands/
         structures/
         physics/
         rounds/
@@ -28,6 +33,7 @@ biosensor_priors/
             canonical.py
             gates.py
             config.py
+            ipsae.py
 
         stage0_ground_truth/
             load_experiments.py
@@ -40,6 +46,7 @@ biosensor_priors/
             adapters/
             confidence.py
             structural_compare.py
+            ipsae_compare.py
             gate1.py
 
         stage2_physics/
@@ -49,12 +56,18 @@ biosensor_priors/
             score_parser.py
             physics_uncertainty.py
             gate2.py
+            wrappers/run_rf3_dock.py
 
         stage3_surrogate/
             features.py
             physics_mean.py
+            construct_intercept.py
             confidence_weighting.py
+            kernels.py
             gp_residual.py
+            phenotypes.py
+            calibration.py
+            surrogate.py
             cross_validate.py
             gate3.py
 
@@ -66,6 +79,7 @@ biosensor_priors/
             adalead.py
             mcmc.py
             bo.py
+            thompson.py
             bo_evo.py
             acquisition.py
             batch_design.py
@@ -89,6 +103,7 @@ biosensor_priors/
         test_A355R.py
         test_no_data_leakage.py
         test_reproducibility.py
+        test_ml_upgrades.py
 
     manifests/
     outputs/

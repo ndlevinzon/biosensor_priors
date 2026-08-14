@@ -12,9 +12,9 @@ measurements are treated as the only ground truth. Structural models (e.g.
 Boltz2 / AF3 / ESMFold / RF3) and physics scores (RoseTTAFold3 docking)
 enter as **priors and uncertainty
 channels**, not as substitutes for fitness. The pipeline supports
-leave-one-construct-out evaluation, BO-EVO–style search policies (Random,
-AdaLead, MCMC, enumerative UCB), prospective prediction freezes before
-synthesis, and a full ablation / statistics reporting layer.
+leave-one-construct-out evaluation, BO-EVO-style search policies (Random,
+AdaLead, MCMC, enumerative UCB, Thompson), prospective prediction freezes
+before synthesis, and a full ablation / statistics reporting layer.
 
 Documentation (methodology, stage contracts, and full API):  
 **https://biosensor-priors.readthedocs.io**
@@ -25,13 +25,13 @@ Documentation (methodology, stage contracts, and full API):
 
 The intended workflow is:
 
-1. **Stage 0** — clean experimental data; preregister scalar fitness; freeze splits  
-2. **Stage 1** — multi-predictor structure ensembles and confidence (HPC)  
-3. **Stage 2** — ligand ensembles, RF3 docking scans, $\Delta\mathrm{RIF}_{\mathrm{sel}}$, Gate 2  
-4. **Stage 3** — physics mean $\mu_0$ + GP residual; Gate 3 vs baselines  
-5. **Stage 4** — constrained design space + Random / AdaLead / MCMC / BO  
-6. **Stage 5** — immutable prediction freeze → plate import → prospective validation → refit  
-7. **Stage 6** — ablation matrix on shared splits; bootstrap / Wilcoxon / Holm  
+1. **Stage 0** - clean experimental data; preregister scalar fitness; freeze splits
+2. **Stage 1** - multi-predictor structure ensembles, confidence, and ipSAE (HPC)
+3. **Stage 2** - ligand ensembles, RF3 docking scans, $\Delta\mathrm{RIF}_{\mathrm{sel}}$, Gate 2
+4. **Stage 3** - physics mean $\mu_0$ + Hamming GP residual; Gate 3 vs baselines
+5. **Stage 4** - constrained design space + Random / AdaLead / MCMC / UCB / Thompson
+6. **Stage 5** - immutable prediction freeze -> plate import -> prospective validation -> refit
+7. **Stage 6** - ablation matrix on shared splits; bootstrap / Wilcoxon / Holm  
 
 Each stage is independently runnable and communicates through versioned tables
 plus `manifest.json` provenance (hashes, parameters, seeds, gate status).
@@ -45,9 +45,10 @@ For equations, gates, and the architecture diagram, see
 ## Features
 
 - Preregistered fitness $F = 0.40S + 0.25A + 0.20\mathrm{FC} + 0.15B$ with explicit censoring policies  
-- Canonical numbering across biosensor versions (e.g. V1.0 → V2.4)  
-- Physics-informed GP with confidence-weighted Rosetta energy features  
-- Paper-faithful search policies and multi-round campaign benchmarks  
+- Canonical numbering across biosensor versions (e.g. V1.0 -> V2.4)
+- Physics-informed GP: RidgeCV $\mu_0$, version intercept, Hamming mutation-set residual
+- Dunbrack ipSAE for cross-model holo interfaces (preferred RF3 dock metric)
+- Paper-faithful search policies plus Thompson sampling and multi-round campaigns  
 - Prospective anti-leakage freezes (`round_NN_predictions.parquet` + SHA-256)  
 - Ablation statistics (paired bootstrap, Wilcoxon, Holm, effect sizes)  
 - Mock Stage-2 backend so orchestration and Gate 2 run before HPC tools are deployed  
@@ -79,7 +80,7 @@ Optional extras:
 ### Fresh HPC redeploy (wipe generated artifacts)
 
 Keeps ``data/experimental/``, ``data/constructs/``, ``configs/``, and
-``weights/`` (RF3 checkpoints). Removes Stage 0–6 outputs under
+``weights/`` (RF3 checkpoints). Removes Stage 0-6 outputs under
 ``data/processed``, ``data/structures``, ``data/physics``, ``data/rounds``,
 ``outputs/``, and ``manifests/*.json``.
 
@@ -118,7 +119,7 @@ biosensor-stage3
 # Propose design batches
 biosensor-stage4
 
-# Campaign benchmark (Random / AdaLead / MCMC / BO)
+# Campaign benchmark (Random / AdaLead / MCMC / BO / Thompson)
 biosensor-stage4-campaign
 
 # Prospective freeze / ingest
@@ -143,8 +144,8 @@ python -m biosensor_priors.stage6_ablation.run
 ```
 
 Configuration lives under [`configs/`](configs/) (`pipeline`, `fitness`,
-`search`, `thresholds`, `structures`, `physics`, `ablation`). Do not hard-code
-analysis constants in Python.
+`search`, `thresholds`, `structures`, `physics`, `rf3_physics`, `ablation`).
+Do not hard-code analysis constants in Python.
 
 ---
 
@@ -155,12 +156,12 @@ configs/                 YAML analysis contracts (preregistered)
 data/                    experimental, constructs, ligands (inputs), structures, physics, rounds
 scripts/                 HPC helpers (e.g. clean_pipeline_artifacts)
 src/biosensor_priors/
-  common/                config, IDs, manifests, gates
+  common/                config, IDs, manifests, gates, ipSAE
   stage0_ground_truth/   cleaning, fitness, splits, Gate 0
-  stage1_structures/     CHPC Boltz2/AF3/ESMFold/RF3 jobs, adapters, Gate 1
+  stage1_structures/     CHPC Boltz2/AF3/ESMFold/RF3 jobs, adapters, ipSAE, Gate 1
   stage2_physics/        ligands, RF3 docking scores, scans, Gate 2
-  stage3_surrogate/      features, μ₀, GP residual, Gate 3
-  stage4_search/         design space, policies, campaigns
+  stage3_surrogate/      features, physics mean, Hamming GP, Gate 3
+  stage4_search/         design space, policies, Thompson, campaigns
   stage5_prospective/    freeze, import, validate, update
   stage6_ablation/       matrix, statistics, figures, report
 tests/                   regression + gate controls (Q324R / A355R)
@@ -224,10 +225,13 @@ documentation. A formal paper citation will be added here when available.
 
 Issues and pull requests are welcome. Please:
 
-1. Keep analysis constants in YAML, not in source.  
-2. Preserve stage independence (file + manifest contracts).  
-3. Add or update tests for gate-sensitive behavior.  
-4. Prefer NumPy-style docstrings so the API reference on Read the Docs stays complete.  
+1. Keep analysis constants in YAML, not in source.
+2. Preserve stage independence (file + manifest contracts).
+3. Add or update tests for gate-sensitive behavior.
+4. Prefer NumPy-style docstrings so the API reference on Read the Docs stays complete.
+5. Keep docs, YAML, and Sphinx sources UTF-8 with ASCII-only punctuation;
+   write math as LaTeX (``$...$``), not raw Greek, Unicode minus, or em-dashes
+   (see [`docs/configuration.md`](docs/configuration.md)).  
 
 ---
 
@@ -241,7 +245,7 @@ This project is released under the [MIT License](LICENSE).
 
 Pipeline design follows a physics-informed GP + active-learning framing for
 AcCoA-selective biosensor engineering, with search policies aligned to the
-BO-EVO style interface (Random, AdaLead, MCMC, enumerative UCB). External
+BO-EVO style interface (Random, AdaLead, MCMC, enumerative UCB, Thompson). External
 structure and RF3 (Foundry) remain user-deployed; the Python layer
 provides orchestration, provenance, and gates.
 

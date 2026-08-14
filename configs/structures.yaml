@@ -1,4 +1,4 @@
-# Stage 1 structure prediction — CHPC (University of Utah) SLURM defaults.
+# Stage 1 structure prediction - CHPC (University of Utah) SLURM defaults.
 # Granite allocation: account=cheatham; CPU=granite, GPU=granite-gpu (+ matching qos).
 
 provider: chpc_utah
@@ -75,7 +75,7 @@ af3:
     gres: "gpu:1"
 
 esmfold:
-  # Must be 1.0.3+ on granite (1.0.0 PyTorch is too old → CUDA unknown error)
+  # Must be 1.0.3+ on granite (1.0.0 PyTorch is too old -> CUDA unknown error)
   module: "esmfold/1.0.3"
   python: python
   device: cuda
@@ -94,7 +94,7 @@ esmfold:
     gres: "gpu:l40s:1"
 
 # RoseTTAFold3 via RosettaCommons Foundry (`rf3 fold`). Replaces RoseTTAFold2.
-# CHPC does not currently ship an RF3 module — install in your env:
+# CHPC does not currently ship an RF3 module - install in your env:
 #   pip install 'rc-foundry[rf3]'
 #   foundry install base-models   # or set ckpt_path below
 # Docs: https://github.com/RosettaCommons/foundry/blob/production/models/rf3/README.md
@@ -135,8 +135,8 @@ confidence:
   w_rmsd: 0.3
   w_pae: 0.2
 
-# Dunbrack ipSAE from PAE — cross-model interface score (replaces ipTM compare).
-# Apo jobs are skipped. Holo protein–ligand uses ligand tokens as the partner chain.
+# Dunbrack ipSAE from PAE - cross-model interface score (replaces ipTM compare).
+# Apo jobs are skipped. Holo protein-ligand uses ligand tokens as the partner chain.
 ipsae:
   pae_cutoff: 10.0
   dist_cutoff: 10.0

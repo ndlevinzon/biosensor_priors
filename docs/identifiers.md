@@ -12,8 +12,8 @@ models, and search.
 | ``version_position`` | Position in a specific version's sequence |
 | ``mutation`` | Mutation string (e.g. ``Q324R``) using canonical numbering unless stated |
 | ``experimental_round`` | Wet-lab campaign round |
-| ``structure_model_id`` | One predicted structure (method × seed × state × version) |
-| ``physics_scan_id`` | One Rosetta physics scan run / batch |
+| ``structure_model_id`` | One predicted structure (method x seed x state x version) |
+| ``physics_scan_id`` | One RF3 docking physics scan run / batch |
 | ``conformer_id`` | Permanent ligand conformer identity |
 | ``model_run_id`` | One Stage-3 surrogate fit |
 | ``candidate_id`` | One Stage-4 design-space member |
