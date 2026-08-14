@@ -22,11 +22,23 @@ mcmc:
   n_steps: 300
   n_chains: 8
 
-# Optional σ_eff extension (off by default for paper-faithful BO)
+# Optional σ_eff + conformal calibration (Stage 3 writes λ and q)
 uncertainty:
-  use_effective: false
+  use_effective: true
   lambda_structure: 1.0
   lambda_physics: 1.0
+
+# Thompson sampling (primary phenotype + optional constraints)
+thompson:
+  primary: selectivity
+  min_feasibility: 0.0
+  constraints:
+    affinity:
+      min: 0.30
+      min_prob: 0.25
+    brightness:
+      min: 0.20
+      min_prob: 0.25
 
 prefilter:
   hard_fail_exclude: true
@@ -53,3 +65,4 @@ strategies:
   - adalead
   - mcmc
   - bo
+  - thompson

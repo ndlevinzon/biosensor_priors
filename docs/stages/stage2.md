@@ -39,8 +39,8 @@ Modules: ``ligand_ensemble.py``, ``conformer_generator.py``, ``gaussian_qm.py``
 Programmatic wrapper around **RoseTTAFold3** (Foundry ``rf3 fold``):
 
 - mutate sequence → optional backbone template from Stage-1 structure
-- protein + AcCoA / PropCoA docking confidence → ``rif_ac`` / ``rif_prop``
-  (negated for the frozen score direction)
+- protein + AcCoA / PropCoA docking → Dunbrack **ipSAE** from PAE (fallback
+  native ipTM) → ``rif_ac`` / ``rif_prop`` (negated for the frozen score direction)
 - write shell/sbatch scripts, capture logs, parse scores, store ``job.json``
 
 Config: ``configs/rf3_physics.yaml`` (ligand SMILES/SDF, template flags,

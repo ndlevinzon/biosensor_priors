@@ -9,13 +9,16 @@ import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
 from biosensor_priors.common.provenance import write_manifest
-from biosensor_priors.stage3_surrogate.surrogate import FusedSurrogate
-from biosensor_priors.stage4_search.adalead import AdaLeadPolicy
-from biosensor_priors.stage4_search.bo import BOPolicy
+from biosensor_priors.stage3_surrogate.surrogate import (
+    FusedSurrogate,
+    surrogate_kwargs_from_cfg,
+)
 from biosensor_priors.stage4_search.design_space import design_space_from_config
-from biosensor_priors.stage4_search.mcmc import MCMCPolicy
-from biosensor_priors.stage4_search.prefilter import physics_prefilter, select_search_pools
-from biosensor_priors.stage4_search.random_search import RandomSearchPolicy
+from biosensor_priors.stage4_search.policy import build_search_policies
+from biosensor_priors.stage4_search.prefilter import (
+    physics_prefilter,
+    select_search_pools,
+)
 
 
 def _load_master(root: Path) -> pd.DataFrame:
@@ -38,47 +41,8 @@ def _load_master(root: Path) -> pd.DataFrame:
 
 
 def _build_policies(search_cfg: dict[str, Any], seed: int) -> dict[str, Any]:
-    """Instantiate all configured Stage-4 search policies.
-
-    Parameters
-    ----------
-    search_cfg : dict
-        Parsed ``search.yaml`` configuration.
-    seed : int
-        Random seed passed to stochastic policies.
-
-    Returns
-    -------
-    dict of str to SearchPolicy
-        Mapping from strategy name to policy instance.
-    """
-    adalead_cfg = search_cfg.get("adalead", {})
-    return {
-        "random": RandomSearchPolicy(
-            candidate_m=int(search_cfg.get("candidate_m", 256)),
-            random_seed=seed,
-        ),
-        "adalead": AdaLeadPolicy(
-            kappa=float(adalead_cfg.get("kappa", 0.05)),
-            epsilon=adalead_cfg.get("epsilon"),
-            parent_mode=str(adalead_cfg.get("parent_mode", "relative_kappa")),
-        ),
-        "mcmc": MCMCPolicy(
-            temperature=float(search_cfg.get("mcmc", {}).get("temperature", 0.10)),
-            n_steps=int(search_cfg.get("mcmc", {}).get("n_steps", 300)),
-            n_chains=int(search_cfg.get("mcmc", {}).get("n_chains", 8)),
-            candidate_m=int(search_cfg.get("candidate_m", 256)),
-            random_seed=seed,
-        ),
-        "bo": BOPolicy(
-            kappa=float(search_cfg.get("ucb", {}).get("kappa", 1.5)),
-            use_effective_uncertainty=bool(
-                search_cfg.get("uncertainty", {}).get("use_effective", False)
-            ),
-            lambda_structure=float(search_cfg.get("uncertainty", {}).get("lambda_structure", 1.0)),
-            lambda_physics=float(search_cfg.get("uncertainty", {}).get("lambda_physics", 1.0)),
-        ),
-    }
+    """Instantiate all configured Stage-4 search policies."""
+    return build_search_policies(search_cfg, seed)
 
 
 def run_stage4(
@@ -131,11 +95,32 @@ def run_stage4(
     if observed.empty:
         raise RuntimeError("No constructs with fitness available for Stage 4.")
 
-    surrogate = FusedSurrogate(kind="physics_gp", random_state=seed)
+    surrogate = FusedSurrogate(
+        kind="physics_gp",
+        random_state=seed,
+        **surrogate_kwargs_from_cfg(thresholds.get("gp", {}), fitness_cfg),
+    )
     surrogate.fit(observed, observed["fitness"].to_numpy(dtype=float))
+    cal_path = (
+        resolve_path(pipeline["paths"]["outputs"], root)
+        / "stage3"
+        / "uncertainty_calibration.json"
+    )
+    if cal_path.exists():
+        import json
+
+        from biosensor_priors.stage3_surrogate.calibration import UncertaintyCalibrator
+
+        payload = json.loads(cal_path.read_text(encoding="utf-8"))
+        fields = UncertaintyCalibrator.__dataclass_fields__
+        surrogate.calibrator_ = UncertaintyCalibrator(
+            **{k: v for k, v in payload.items() if k in fields}
+        )
 
     policies = _build_policies(search_cfg, seed)
-    strategy_names = list(search_cfg.get("strategies", ["random", "adalead", "mcmc", "bo"]))
+    strategy_names = list(
+        search_cfg.get("strategies", ["random", "adalead", "mcmc", "bo", "thompson"])
+    )
 
     out_dir = resolve_path(pipeline["paths"]["outputs"], root) / "stage4"
     out_dir.mkdir(parents=True, exist_ok=True)

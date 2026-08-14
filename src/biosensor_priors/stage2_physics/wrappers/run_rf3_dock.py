@@ -28,6 +28,7 @@ import pandas as pd
 import yaml
 
 from biosensor_priors.common.config import REPO_ROOT, resolve_path
+from biosensor_priors.common.ipsae import ipsae_from_directory
 from biosensor_priors.stage2_physics.ligand_ensemble import read_smiles_file
 from biosensor_priors.stage2_physics.wrappers._io import (
     load_mutations_json,
@@ -435,6 +436,7 @@ def parse_rf3_confidence(out_dir: Path) -> dict[str, float]:
 
     # Normalize common aliases to short keys
     aliases = {
+        "ipsae": ["ipsae", "ipSAE", "interface_ipsae"],
         "iptm": ["iptm", "ipTM", "interface_ptm", "interface_iptm"],
         "ptm": ["ptm", "pTM"],
         "ranking_score": ["ranking_score", "ranking_confidence", "score"],
@@ -467,6 +469,57 @@ def pick_metric(metrics: dict[str, float], keys: list[str]) -> float:
             if mk.lower().endswith("." + key.lower()) or mk.lower() == key.lower():
                 return float(mv)
     return math.nan
+
+
+def interface_confidence_from_fold(
+    out_dir: Path,
+    metrics: dict[str, float],
+    cfg: dict[str, Any],
+) -> tuple[float, dict[str, Any]]:
+    """Prefer Dunbrack ipSAE from PAE; fall back to native ipTM / ranking keys.
+
+    Parameters
+    ----------
+    out_dir : pathlib.Path
+        RF3 fold output directory.
+    metrics : dict
+        Flattened confidence map from :func:`parse_rf3_confidence`.
+    cfg : dict
+        ``rf3`` block from ``rf3_physics.yaml``.
+
+    Returns
+    -------
+    raw : float
+        Higher-is-better interface confidence in roughly ``[0, 1]``.
+    detail : dict
+        Provenance of the chosen metric.
+    """
+    iface_keys = list(
+        cfg.get("interface_metric_keys")
+        or ["ipsae", "iptm", "interface_ptm", "ranking_score", "ptm"]
+    )
+    ipsae_cfg = dict(cfg.get("ipsae") or {})
+    prefer = bool(cfg.get("prefer_ipsae", True))
+    if prefer or "ipsae" in {k.lower() for k in iface_keys}:
+        scored = ipsae_from_directory(
+            out_dir,
+            protein_chain=str(cfg.get("protein_chain_id", "A")),
+            ligand_chain=str(cfg.get("ligand_chain_id", "B")),
+            pae_cutoff=float(ipsae_cfg.get("pae_cutoff", 10.0)),
+            dist_cutoff=(
+                None
+                if ipsae_cfg.get("dist_cutoff") is None
+                else float(ipsae_cfg.get("dist_cutoff", 10.0))
+            ),
+        )
+        if scored is not None and math.isfinite(scored.ipsae):
+            metrics["ipsae"] = float(scored.ipsae)
+            return float(scored.ipsae), {
+                "source": "ipsae",
+                "ipsae": scored.as_dict(),
+            }
+    raw = pick_metric(metrics, iface_keys)
+    return raw, {"source": "rf3_metric", "keys": iface_keys}
 
 
 def confidence_to_score(value: float, *, negate: bool) -> float:
@@ -574,10 +627,6 @@ def score_mutation_rf3(
     )
 
     negate = bool(cfg.get("negate_confidence", True))
-    iface_keys = list(
-        cfg.get("interface_metric_keys")
-        or ["iptm", "interface_ptm", "ranking_score", "ptm"]
-    )
 
     rif_ac = math.nan
     rif_prop = math.nan
@@ -601,7 +650,7 @@ def score_mutation_rf3(
         (lig_dir / "rf3_stdout.txt").write_text(proc.stdout or "", encoding="utf-8")
         (lig_dir / "rf3_stderr.txt").write_text(proc.stderr or "", encoding="utf-8")
         metrics = parse_rf3_confidence(lig_dir)
-        raw = pick_metric(metrics, iface_keys)
+        raw, metric_detail = interface_confidence_from_fold(lig_dir, metrics, cfg)
         score = confidence_to_score(raw, negate=negate)
         if col == "rif_ac":
             rif_ac = score
@@ -612,6 +661,7 @@ def score_mutation_rf3(
             "raw": raw,
             "metrics": metrics,
             "ligand": lig_comp,
+            **metric_detail,
         }
 
     (work / "score_detail.json").write_text(

@@ -10,13 +10,17 @@ import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
 from biosensor_priors.common.provenance import sha256_file, write_manifest
+from biosensor_priors.stage3_surrogate.calibration import fit_uncertainty_calibration
 from biosensor_priors.stage3_surrogate.cross_validate import (
     ensure_splits_for_fitness,
     run_split_evaluation,
     save_cv_predictions,
 )
 from biosensor_priors.stage3_surrogate.gate3 import evaluate_gate3, summarize_by_model
-from biosensor_priors.stage3_surrogate.surrogate import FusedSurrogate
+from biosensor_priors.stage3_surrogate.surrogate import (
+    FusedSurrogate,
+    surrogate_kwargs_from_cfg,
+)
 
 
 def _load_master(root: Path) -> pd.DataFrame:
@@ -79,8 +83,11 @@ def run_stage3(
     root = repo_root or REPO_ROOT
     pipeline = load_yaml(root / "configs" / "pipeline.yaml")
     thresholds = load_yaml(root / "configs" / "thresholds.yaml")
+    fitness_cfg = load_yaml(root / "configs" / "fitness.yaml")
     seed = int(pipeline.get("random_seed", 42))
-    encoding = str(thresholds.get("gp", {}).get("encoding", "hybrid"))
+    gp_cfg = thresholds.get("gp", {})
+    encoding = str(gp_cfg.get("encoding", "mutation_bag"))
+    skw = surrogate_kwargs_from_cfg(gp_cfg, fitness_cfg)
 
     master = _load_master(root)
     splits_dir = resolve_path(pipeline["paths"]["splits"], root)
@@ -112,6 +119,7 @@ def run_stage3(
         use_confidence_weighting=use_confidence_weighting,
         random_seed=seed,
         encoding=encoding,
+        surrogate_kwargs=skw,
     )
     if predictions.empty:
         raise RuntimeError("Stage 3 produced no CV predictions.")
@@ -136,9 +144,16 @@ def run_stage3(
         kind=fused_kind,  # type: ignore[arg-type]
         use_confidence_weighting=use_confidence_weighting,
         random_state=seed,
-        encoding=encoding,
+        **skw,
     )
     fused.fit(fit_df, fit_df["fitness"].to_numpy(dtype=float))
+    fused_rows = predictions[predictions["model_kind"] == fused_kind]
+    if not fused_rows.empty:
+        fused.calibrator_ = fit_uncertainty_calibration(fused_rows)
+        cal_path = out_dir / "uncertainty_calibration.json"
+        cal_path.write_text(
+            json.dumps(fused.calibrator_.as_dict(), indent=2), encoding="utf-8"
+        )
     model_meta = fused.metadata()
     model_meta["physics_weight_allowed"] = physics_weight_allowed
     meta_path = out_dir / "fused_model_metadata.json"

@@ -23,14 +23,24 @@ def test_feature_builder_fit_inside_split(stage0_result) -> None:
     X_test = fb.transform(test)
     assert X_train.shape[1] == X_test.shape[1]
     assert fb.means_ is not None
-    # Standardization uses train stats only.
-    assert np.allclose(np.nanmean(X_train, axis=0), 0.0, atol=1e-5)
+    # Standardization uses train stats only (binary mutation/one-hot cols stay 0/1).
+    binary = set(fb.binary_names_)
+    cont = [i for i, n in enumerate(fb.feature_names_) if n not in binary]
+    if cont:
+        assert np.allclose(np.nanmean(X_train[:, cont], axis=0), 0.0, atol=1e-5)
 
 
 def test_fused_surrogate_decomposition(stage0_result) -> None:
     master, _ = stage0_result
     df = master[master["fitness"].notna()].copy()
-    model = FusedSurrogate(kind="physics_gp", random_state=0, encoding="hybrid")
+    model = FusedSurrogate(
+        kind="physics_gp",
+        random_state=0,
+        encoding="hybrid",
+        kernel="matern52",
+        multi_output=False,
+        version_intercept=True,
+    )
     model.fit(df, df["fitness"].to_numpy(dtype=float))
     pred = model.predict(df.head(5))
     assert np.allclose(pred.fitness_mean, pred.physics_mean + pred.gp_residual_mean)
@@ -43,7 +53,18 @@ def test_cv_and_gate3_smoke(stage0_result) -> None:
     ids = df["construct_id"].astype(str).tolist()
     # Keep runtime small: a few LOCO splits
     splits = generate_leave_one_out_splits(ids, random_seed=0)[:5]
-    preds = run_split_evaluation(df, splits, random_seed=0, encoding="hybrid")
+    preds = run_split_evaluation(
+        df,
+        splits,
+        random_seed=0,
+        encoding="hybrid",
+        surrogate_kwargs={
+            "kernel": "matern52",
+            "multi_output": False,
+            "version_intercept": False,
+            "fit_physics_alpha": False,
+        },
+    )
     assert set(preds["model_kind"]) == {"physics_only", "gp_zero_mean", "physics_gp"}
     summary = summarize_by_model(preds)
     assert len(summary) == 3

@@ -7,8 +7,20 @@ $$
 $$
 
 $$
-F(x) = \mu_0(x) + f_{\mathrm{residual}}(x),\quad f_{\mathrm{residual}} \sim \mathrm{GP}(0, k)
+F(x) = \alpha\,\mu_0(x) + \alpha_{\mathrm{version}} + f_{\mathrm{residual}}(x),\quad \alpha\in[0,1]
 $$
+
+Physics weights use RidgeCV (optional horseshoe). Physics features are **mean
+only** — they are not extra ARD kernel dimensions. The residual kernel is a
+Hamming mutation-set kernel on ``{pos,AA}`` bags plus a small physicochemical
+Matérn.
+
+Optional **multi-output** heads model percentile scores for $S, A, FC, B$
+and combine with preregistered weights ($0.40/0.25/0.20/0.15$). Acquisition
+can treat affinity / brightness as constraints.
+
+LOCO residuals calibrate $\lambda_s, \lambda_p$ and a CV+ conformal quantile
+so Stage 4 uses $\sigma_{\mathrm{cal}} = q\,\sigma_{\mathrm{eff}}$.
 
 Implemented as an **equivalent residual pipeline** that is easier to validate:
 
@@ -96,10 +108,10 @@ py -3.12 -m biosensor_priors.stage3_surrogate.run
 
 Encodings (``configs/thresholds.yaml`` → ``gp.encoding``):
 
+* ``mutation_bag`` — mutation physchem deltas + mutation-code one-hots (default with Hamming kernel)
 * ``onehot`` — per variable site, classical 20-AA one-hot ($N \\times 20$)
 * ``georgiev`` — per-site 19-D physicochemical vector (AAIndex-style stand-in)
-* ``hybrid`` — onehot + georgiev (default)
-* ``mutation_bag`` — mutation physchem deltas + mutation-code one-hots
+* ``hybrid`` — onehot + georgiev
 
 Artifacts under ``outputs/stage3/`` and ``manifests/stage3_manifest.json``.
 

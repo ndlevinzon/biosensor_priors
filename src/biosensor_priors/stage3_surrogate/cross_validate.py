@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from biosensor_priors.stage0_ground_truth.splits import (
@@ -102,7 +104,9 @@ def ensure_splits_for_fitness(
     ids = eligible.tolist()
     if prefer_loco:
         return generate_leave_one_out_splits(ids, random_seed=random_seed)
-    from biosensor_priors.stage0_ground_truth.splits import generate_random_holdout_splits
+    from biosensor_priors.stage0_ground_truth.splits import (
+        generate_random_holdout_splits,
+    )
 
     return generate_random_holdout_splits(
         ids, n_splits=min(10, max(1, len(ids) // 5)), random_seed=random_seed
@@ -116,7 +120,8 @@ def run_split_evaluation(
     kinds: list[ModelKind] | None = None,
     use_confidence_weighting: bool = True,
     random_seed: int = 42,
-    encoding: str = "hybrid",
+    encoding: str = "mutation_bag",
+    surrogate_kwargs: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Fit and evaluate each model kind across all CV splits.
 
@@ -133,7 +138,9 @@ def run_split_evaluation(
     random_seed : int, optional
         Random seed for GP fitting (default 42).
     encoding : str, optional
-        Feature encoding mode (default ``hybrid``).
+        Feature encoding mode (default ``mutation_bag``).
+    surrogate_kwargs : dict, optional
+        Extra :class:`FusedSurrogate` constructor kwargs (kernel, shrinkage, …).
 
     Returns
     -------
@@ -141,6 +148,8 @@ def run_split_evaluation(
         Long-format prediction rows with errors and metadata.
     """
     kinds = kinds or ["physics_only", "gp_zero_mean", "physics_gp"]
+    extra = dict(surrogate_kwargs or {})
+    extra.setdefault("encoding", encoding)
     work = df[df["fitness"].notna()].copy()
     rows: list[dict[str, Any]] = []
 
@@ -156,24 +165,42 @@ def run_split_evaluation(
                 kind=kind,
                 use_confidence_weighting=use_confidence_weighting,
                 random_state=random_seed,
-                encoding=encoding,
+                **extra,
             )
             model.fit(train_df, y_train)
             pred = model.predict(test_df)
             for i, cid in enumerate(pred.construct_ids):
-                y_true = float(test_df.loc[test_df["construct_id"].astype(str) == cid, "fitness"].iloc[0])
+                row_t = test_df.loc[test_df["construct_id"].astype(str) == cid].iloc[0]
+                y_true = float(row_t["fitness"])
+                if "structural_confidence" in test_df.columns:
+                    conf = pd.to_numeric(
+                        row_t.get("structural_confidence"), errors="coerce"
+                    )
+                    sigma_s = 0.0 if pd.isna(conf) else float(1.0 - conf)
+                else:
+                    sigma_s = 0.0
+                if "physics_score_std" in test_df.columns:
+                    raw_p = pd.to_numeric(
+                        row_t.get("physics_score_std"), errors="coerce"
+                    )
+                    sigma_p = float(raw_p) if pd.notna(raw_p) else 0.0
+                else:
+                    sigma_p = 0.0
                 rows.append(
                     {
                         "split_id": split["split_id"],
                         "strategy": split.get("strategy"),
                         "model_kind": kind,
-                        "encoding": encoding,
+                        "encoding": extra.get("encoding", encoding),
                         "construct_id": cid,
                         "y_true": y_true,
                         "fitness_mean": float(pred.fitness_mean[i]),
                         "fitness_std": float(pred.fitness_std[i]),
                         "physics_mean": float(pred.physics_mean[i]),
                         "gp_residual_mean": float(pred.gp_residual_mean[i]),
+                        "sigma_structure": sigma_s,
+                        "sigma_physics": sigma_p,
+                        "physics_alpha": float(pred.physics_alpha),
                         "abs_error": abs(y_true - float(pred.fitness_mean[i])),
                         "sq_error": (y_true - float(pred.fitness_mean[i])) ** 2,
                         **{

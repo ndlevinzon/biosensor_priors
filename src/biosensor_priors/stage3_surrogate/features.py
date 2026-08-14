@@ -9,7 +9,10 @@ import numpy as np
 import pandas as pd
 
 from biosensor_priors.stage0_ground_truth.physicochemical import load_aa_properties
-from biosensor_priors.stage4_search.landscape import build_landscape_view, parse_mutation_list
+from biosensor_priors.stage4_search.landscape import (
+    build_landscape_view,
+    parse_mutation_list,
+)
 
 EncodingMode = Literal["mutation_bag", "onehot", "georgiev", "hybrid"]
 
@@ -142,6 +145,7 @@ class FeatureBuilder:
     feature_names_: list[str] = field(default_factory=list)
     has_physics_: bool = False
     aa_props: dict[str, dict] = field(default_factory=dict)
+    binary_names_: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Load amino acid properties when not provided at construction.
@@ -373,6 +377,9 @@ class FeatureBuilder:
 
         X, names = self._raw_matrix(df)
         self.feature_names_ = names
+        self.binary_names_ = [
+            n for n in names if n.startswith("mut_") or n.startswith("oh_")
+        ]
         if X.size == 0:
             self.means_ = np.zeros(0)
             self.stds_ = np.zeros(0)
@@ -411,7 +418,12 @@ class FeatureBuilder:
             cols = min(X.shape[1], len(self.means_))
             out[:, :cols] = X[:, :cols]
             X = out
-        return (X - self.means_) / self.stds_
+        binary = set(self.binary_names_)
+        scaled = (X - self.means_) / self.stds_
+        for i, name in enumerate(self.feature_names_):
+            if name in binary:
+                scaled[:, i] = X[:, i]
+        return scaled
 
     def fit_transform(self, df: pd.DataFrame) -> np.ndarray:
         """Fit on ``df`` and return standardized features.
@@ -447,6 +459,45 @@ class FeatureBuilder:
         if not idx:
             return np.zeros((len(X), 0), dtype=float)
         return X[:, idx]
+
+    def gp_exclude_names(self) -> set[str]:
+        """Feature names that belong in μ₀ / σ_eff, not the residual kernel."""
+        return set(PHYSICS_FEATURE_COLUMNS) | {STRUCT_CONF_COLUMN}
+
+    def gp_block(self, X: np.ndarray) -> tuple[np.ndarray, int]:
+        """Residual-GP features: Hamming binaries first, then physchem.
+
+        Physics and structural confidence are excluded (mean / σ_eff only).
+
+        Parameters
+        ----------
+        X : numpy.ndarray
+            Standardized feature matrix from :meth:`transform`.
+
+        Returns
+        -------
+        X_gp : numpy.ndarray
+            Reordered residual features.
+        n_hamming : int
+            Number of leading Hamming (mutation / one-hot) columns.
+        """
+        if not self.feature_names_:
+            return np.zeros((len(X), 0), dtype=float), 0
+        exclude = self.gp_exclude_names()
+        hamming_idx = [
+            i
+            for i, n in enumerate(self.feature_names_)
+            if n in self.binary_names_ and n not in exclude
+        ]
+        other_idx = [
+            i
+            for i, n in enumerate(self.feature_names_)
+            if n not in exclude and i not in set(hamming_idx)
+        ]
+        idx = hamming_idx + other_idx
+        if not idx:
+            return np.zeros((len(X), 0), dtype=float), 0
+        return X[:, idx], len(hamming_idx)
 
     def confidence_vector(self, X: np.ndarray) -> np.ndarray:
         """Recover per-row structural confidence from standardized features.

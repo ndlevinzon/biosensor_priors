@@ -5,4 +5,5 @@ __all__ = [
     "BOPolicy",
     "MCMCPolicy",
     "RandomSearchPolicy",
+    "ThompsonPolicy",
 ]

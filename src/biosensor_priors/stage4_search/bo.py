@@ -87,7 +87,16 @@ class BOPolicy:
         pred = predict_pool(surrogate, candidate_pool)
         scored = attach_predictions(candidate_pool, pred)
 
-        if self.use_effective_uncertainty:
+        cal = getattr(surrogate, "calibrator_", None)
+        if cal is not None:
+            from biosensor_priors.stage3_surrogate.calibration import (
+                structural_and_physics_sigma,
+            )
+
+            ss, sp = structural_and_physics_sigma(scored)
+            sig = cal.sigma_calibrated(pred.fitness_std, ss, sp)
+            scored["acquisition"] = pred.fitness_mean + float(self.kappa) * sig
+        elif self.use_effective_uncertainty:
             if "structural_confidence" in scored.columns:
                 conf = pd.to_numeric(scored["structural_confidence"], errors="coerce").fillna(1.0)
             else:

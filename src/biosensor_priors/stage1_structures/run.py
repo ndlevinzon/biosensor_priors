@@ -16,6 +16,11 @@ from biosensor_priors.stage1_structures.confidence import (
     write_structural_confidence,
 )
 from biosensor_priors.stage1_structures.gate1 import evaluate_gate1
+from biosensor_priors.stage1_structures.ipsae_compare import (
+    compute_model_ipsae_table,
+    summarize_ipsae_across_models,
+    write_ipsae_tables,
+)
 from biosensor_priors.stage1_structures.make_jobs import make_structure_jobs
 
 
@@ -101,6 +106,22 @@ def run_stage1(
             models, residues, repo_root=root
         )
         write_structural_confidence(confidence, repo_root=root)
+        ipsae_models = compute_model_ipsae_table(registry, repo_root=root)
+        ipsae_summary = summarize_ipsae_across_models(ipsae_models)
+        write_ipsae_tables(ipsae_models, ipsae_summary, repo_root=root)
+        if not ipsae_models.empty and "structure_model_id" in models.columns:
+            models = models.merge(
+                ipsae_models[
+                    [
+                        c
+                        for c in ("structure_model_id", "ipsae", "ipsae_ab", "ipsae_ba")
+                        if c in ipsae_models.columns
+                    ]
+                ],
+                on="structure_model_id",
+                how="left",
+            )
+            models.to_parquet(models_path, index=False)
 
     # Job scripting without HPC outputs is expected on a laptop → do not fail Gate 1.
     # Ingest-only with zero models should fail so missing AF outputs are visible.

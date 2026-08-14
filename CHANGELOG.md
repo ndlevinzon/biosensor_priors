@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Dunbrack **ipSAE** (PAE-derived) for cross-model holo interface comparison
+  (Stage 1) and as the preferred Stage 2 RF3 dock metric instead of native
+  ipTM; fallback to ipTM when PAE is missing.
+- Stage 3 multi-output phenotype heads (S, A, FC, B) combined with
+  preregistered fitness weights; RidgeCV/horseshoe shrinkage μ₀ with
+  α∈[0,1]; version intercept; Hamming mutation-set residual kernel;
+  LOCO conformal / λ calibration of σ_eff.
+- Stage 4 Thompson sampling with optional affinity/brightness constraints.
+
 ### Changed
 
 - Stage 2 physics priors use **RoseTTAFold3 docking** (Foundry ``rf3 fold``)
@@ -38,6 +49,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Boltz names MSA files ``{stem}_{entity}.csv``, not ``A.csv``.
 
 ### Added
+
+- Dunbrack **ipSAE** (PAE-derived) for cross-model holo interface comparison
+  (Stage 1) and as the preferred Stage 2 RF3 dock metric instead of native
+  ipTM; fallback to ipTM when PAE is missing.
+- Stage 3 multi-output phenotype heads (S, A, FC, B) combined with
+  preregistered fitness weights; RidgeCV/horseshoe shrinkage μ₀ with
+  α∈[0,1]; version intercept; Hamming mutation-set residual kernel;
+  LOCO conformal / λ calibration of σ_eff.
+- Stage 4 Thompson sampling with optional affinity/brightness constraints.
+
+### Changed
 
 - ``scripts/clean_pipeline_artifacts.py`` (+ ``.sh`` wrapper) to wipe
   generated Stage 0–6 artifacts for a fresh HPC redeploy while keeping

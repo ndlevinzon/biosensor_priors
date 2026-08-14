@@ -13,11 +13,8 @@ from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
 from biosensor_priors.common.provenance import write_manifest
 from biosensor_priors.stage3_surrogate.features import FeatureBuilder
 from biosensor_priors.stage3_surrogate.surrogate import FusedSurrogate
-from biosensor_priors.stage4_search.adalead import AdaLeadPolicy
-from biosensor_priors.stage4_search.bo import BOPolicy
 from biosensor_priors.stage4_search.landscape import build_landscape_view, hamming
-from biosensor_priors.stage4_search.mcmc import MCMCPolicy
-from biosensor_priors.stage4_search.random_search import RandomSearchPolicy
+from biosensor_priors.stage4_search.policy import build_search_policies
 
 
 def _load_master(root: Path) -> pd.DataFrame:
@@ -40,45 +37,8 @@ def _load_master(root: Path) -> pd.DataFrame:
 
 
 def _policies(search_cfg: dict[str, Any], seed: int) -> dict[str, Any]:
-    """Instantiate search policies for retrospective campaign benchmarks.
-
-    Parameters
-    ----------
-    search_cfg : dict
-        Parsed ``search.yaml`` configuration.
-    seed : int
-        Random seed passed to stochastic policies.
-
-    Returns
-    -------
-    dict of str to SearchPolicy
-        Mapping from strategy name to policy instance.
-    """
-    adalead_cfg = search_cfg.get("adalead", {})
-    return {
-        "random": RandomSearchPolicy(
-            candidate_m=int(search_cfg.get("candidate_m", 256)),
-            random_seed=seed,
-        ),
-        "adalead": AdaLeadPolicy(
-            kappa=float(adalead_cfg.get("kappa", 0.05)),
-            epsilon=adalead_cfg.get("epsilon"),
-            parent_mode=str(adalead_cfg.get("parent_mode", "relative_kappa")),
-        ),
-        "mcmc": MCMCPolicy(
-            temperature=float(search_cfg.get("mcmc", {}).get("temperature", 0.10)),
-            n_steps=int(search_cfg.get("mcmc", {}).get("n_steps", 300)),
-            n_chains=int(search_cfg.get("mcmc", {}).get("n_chains", 8)),
-            candidate_m=int(search_cfg.get("candidate_m", 256)),
-            random_seed=seed,
-        ),
-        "bo": BOPolicy(
-            kappa=float(search_cfg.get("ucb", {}).get("kappa", 1.5)),
-            use_effective_uncertainty=bool(
-                search_cfg.get("uncertainty", {}).get("use_effective", False)
-            ),
-        ),
-    }
+    """Instantiate search policies for retrospective campaign benchmarks."""
+    return build_search_policies(search_cfg, seed)
 
 
 def choose_starting_indices(
@@ -262,6 +222,10 @@ def run_single_campaign(
             use_confidence_weighting=False,
             random_state=random_seed + round_no,
             feature_builder=FeatureBuilder(encoding=encoding, include_physics=False),  # type: ignore[arg-type]
+            multi_output=False,
+            kernel="matern52",
+            version_intercept=False,
+            fit_physics_alpha=False,
         )
         surrogate.fit(train, train["fitness"].to_numpy(dtype=float))
         batch_df = policy.propose(train, pool, surrogate, batch_size)

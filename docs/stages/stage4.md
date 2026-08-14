@@ -45,11 +45,11 @@ All methods implement:
 propose(observed, candidate_pool, surrogate, batch_size) -> batch
 ```
 
-Plug-ins: Random, AdaLead, MCMC, BO, (later) BO-EVO—without changing
+Plug-ins: Random, AdaLead, MCMC, BO (UCB), Thompson sampling—without changing
 downstream consumers.
 
 Modules: ``policy.py``, ``random_search.py``, ``adalead.py``, ``mcmc.py``,
-``bo.py``, ``bo_evo.py``
+``bo.py``, ``thompson.py``, ``bo_evo.py``
 
 ### 4D. Uncertainty-aware acquisition
 
@@ -89,7 +89,8 @@ Paper-faithful solvers (BO-EVO SI) are implemented:
 * **AdaLead** — parents with $F \\ge (1-\\kappa)F_{\\max}$, local/recombinant
   children beating the corresponding parent, top-B by $\\mu$
 * **MCMC** — parallel MH with $\\pi \\propto \\exp(\\mu/T)$, collect M, rank by $\\mu$, top B
-* **BO** — enumerative UCB $\\mu + \\kappa\\sigma$, top B
+* **BO** — enumerative UCB $\\mu + \\kappa\\sigma$, top B (uses calibrated $\\sigma$ when Stage 3 wrote $\\lambda, q$)
+* **Thompson** — one posterior draw per candidate, top B; optional affinity / brightness constraints (`search.yaml` → `thompson`)
 
 Encodings: ``onehot``, ``georgiev`` (19-D AAIndex-style stand-in), ``hybrid``,
 ``mutation_bag``.

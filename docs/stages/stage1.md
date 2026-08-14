@@ -78,6 +78,16 @@ Module: ``biosensor_priors.stage1_structures.make_jobs``
 
 Same as before → ``structural_confidence.parquet``.
 
+**ipSAE (not ipTM) for cross-model interfaces.** Holo AF3 / Boltz2 / RF3 jobs
+with PAE are scored with Dunbrack ipSAE (same PAE formula, d0 from
+PAE-filtered residues). Apo jobs are skipped. Tables:
+
+* ``data/structures/ipsae_by_model.parquet``
+* ``data/structures/ipsae_across_models.parquet`` (mean / std / range)
+
+ipSAE std is the disagreement measure across predictors. Native ipTM is not
+comparable across models. ESMFold typically has no ligand PAE and is omitted.
+
 ## Gate 1
 
 Advisory vs required in ``pipeline.yaml`` (``gates.stage1``).

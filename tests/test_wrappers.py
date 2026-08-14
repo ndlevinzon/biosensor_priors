@@ -76,3 +76,4 @@ def test_rf3_dock_json_and_score_mapping(tmp_path: Path) -> None:
     assert payload["template_selection"] == ["A"]
     assert confidence_to_score(0.8, negate=True) == -0.8
     assert pick_metric({"iptm": 0.9, "ptm": 0.7}, ["iptm", "ptm"]) == 0.9
+    assert pick_metric({"ipsae": 0.72, "iptm": 0.4}, ["ipsae", "iptm"]) == 0.72

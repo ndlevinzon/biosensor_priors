@@ -14,11 +14,11 @@ from biosensor_priors.stage3_surrogate.cross_validate import (
 )
 from biosensor_priors.stage3_surrogate.features import PHYSICS_FEATURE_COLUMNS
 from biosensor_priors.stage3_surrogate.gate3 import evaluate_gate3
-from biosensor_priors.stage3_surrogate.surrogate import FusedSurrogate
-from biosensor_priors.stage4_search.adalead import AdaLeadPolicy
-from biosensor_priors.stage4_search.bo import BOPolicy
-from biosensor_priors.stage4_search.mcmc import MCMCPolicy
-from biosensor_priors.stage4_search.random_search import RandomSearchPolicy
+from biosensor_priors.stage3_surrogate.surrogate import (
+    FusedSurrogate,
+    surrogate_kwargs_from_cfg,
+)
+from biosensor_priors.stage4_search.policy import build_search_policies
 
 # Round history columns (w_ΔRIF is the selectivity ΔRIF weight).
 WEIGHT_HISTORY_COLUMNS = ("Round", "w_RIF_Ac", "w_RIF_Prop", "w_ΔRIF", "intercept", "mode")
@@ -113,6 +113,11 @@ def refit_surrogate(
         use_confidence_weighting=use_confidence_weighting,
         random_state=random_seed,
         encoding=encoding,
+        **{
+            k: v
+            for k, v in surrogate_kwargs_from_cfg({"encoding": encoding}).items()
+            if k != "encoding"
+        },
     )
     model.fit(fit_df, fit_df["fitness"].to_numpy(dtype=float))
     return model, model.metadata()
@@ -179,45 +184,8 @@ def rerun_calibration_gates(
 
 
 def _build_policies(search_cfg: dict[str, Any], seed: int) -> dict[str, Any]:
-    """Instantiate search policies for next-batch generation after model update.
-
-    Parameters
-    ----------
-    search_cfg : dict
-        Parsed ``search.yaml`` configuration.
-    seed : int
-        Random seed passed to stochastic policies.
-
-    Returns
-    -------
-    dict of str to SearchPolicy
-        Mapping from strategy name to policy instance.
-    """
-    adalead_cfg = search_cfg.get("adalead", {})
-    return {
-        "random": RandomSearchPolicy(
-            candidate_m=int(search_cfg.get("candidate_m", 256)),
-            random_seed=seed,
-        ),
-        "adalead": AdaLeadPolicy(
-            kappa=float(adalead_cfg.get("kappa", 0.05)),
-            epsilon=adalead_cfg.get("epsilon"),
-            parent_mode=str(adalead_cfg.get("parent_mode", "relative_kappa")),
-        ),
-        "mcmc": MCMCPolicy(
-            temperature=float(search_cfg.get("mcmc", {}).get("temperature", 0.10)),
-            n_steps=int(search_cfg.get("mcmc", {}).get("n_steps", 300)),
-            n_chains=int(search_cfg.get("mcmc", {}).get("n_chains", 8)),
-            candidate_m=int(search_cfg.get("candidate_m", 256)),
-            random_seed=seed,
-        ),
-        "bo": BOPolicy(
-            kappa=float(search_cfg.get("ucb", {}).get("kappa", 1.5)),
-            use_effective_uncertainty=bool(
-                search_cfg.get("uncertainty", {}).get("use_effective", False)
-            ),
-        ),
-    }
+    """Instantiate search policies for next-batch generation after model update."""
+    return build_search_policies(search_cfg, seed)
 
 
 def generate_next_batch(

@@ -14,6 +14,7 @@ from biosensor_priors.stage4_search.design_space import design_space_from_config
 from biosensor_priors.stage4_search.mcmc import MCMCPolicy
 from biosensor_priors.stage4_search.prefilter import PrefilterCategory, physics_prefilter
 from biosensor_priors.stage4_search.random_search import RandomSearchPolicy
+from biosensor_priors.stage4_search.thompson import ThompsonPolicy
 
 
 def test_design_space_canonical_mapping() -> None:
@@ -71,6 +72,7 @@ def test_search_policies_propose(stage0_result) -> None:
         AdaLeadPolicy(kappa=0.1),
         MCMCPolicy(n_steps=20, n_chains=2, candidate_m=32, random_seed=0),
         BOPolicy(kappa=1.5),
+        ThompsonPolicy(random_seed=0, primary="fitness"),
     ]
     for policy in policies:
         batch = policy.propose(train, pool, surrogate, batch_size=3)
@@ -89,4 +91,10 @@ def test_campaign_benchmark_smoke(stage0_result) -> None:
     )
     assert not result["summary"].empty
     assert {"Success_ratio", "Final_cumulative_best_mean"}.issubset(result["summary"].columns)
-    assert set(result["round_table"]["Algorithm"]) >= {"random", "adalead", "mcmc", "bo"}
+    assert set(result["round_table"]["Algorithm"]) >= {
+        "random",
+        "adalead",
+        "mcmc",
+        "bo",
+        "thompson",
+    }

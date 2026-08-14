@@ -7,7 +7,10 @@ from typing import Any, Protocol
 import numpy as np
 import pandas as pd
 
-from biosensor_priors.stage3_surrogate.surrogate import FusedSurrogate, SurrogatePrediction
+from biosensor_priors.stage3_surrogate.surrogate import (
+    FusedSurrogate,
+    SurrogatePrediction,
+)
 
 
 class SearchPolicy(Protocol):
@@ -123,4 +126,67 @@ def attach_predictions(pool: pd.DataFrame, pred: SurrogatePrediction) -> pd.Data
     out["pred_fitness_std"] = pred.fitness_std
     out["pred_physics_mean"] = pred.physics_mean
     out["pred_gp_residual_mean"] = pred.gp_residual_mean
+    for name, vals in (pred.phenotype_mean or {}).items():
+        out[f"pred_{name}_mean"] = vals
+        if name in pred.phenotype_std:
+            out[f"pred_{name}_std"] = pred.phenotype_std[name]
     return out
+
+
+def build_search_policies(
+    search_cfg: dict[str, Any],
+    seed: int,
+) -> dict[str, Any]:
+    """Instantiate Stage-4 search policies from ``search.yaml``.
+
+    Parameters
+    ----------
+    search_cfg : dict
+        Parsed search configuration.
+    seed : int
+        Random seed for stochastic policies.
+
+    Returns
+    -------
+    dict of str to SearchPolicy
+        Mapping from strategy name to policy instance.
+    """
+    from biosensor_priors.stage4_search.adalead import AdaLeadPolicy
+    from biosensor_priors.stage4_search.bo import BOPolicy
+    from biosensor_priors.stage4_search.mcmc import MCMCPolicy
+    from biosensor_priors.stage4_search.random_search import RandomSearchPolicy
+    from biosensor_priors.stage4_search.thompson import ThompsonPolicy
+
+    adalead_cfg = search_cfg.get("adalead", {})
+    unc = search_cfg.get("uncertainty", {})
+    th = search_cfg.get("thompson", {})
+    return {
+        "random": RandomSearchPolicy(
+            candidate_m=int(search_cfg.get("candidate_m", 256)),
+            random_seed=seed,
+        ),
+        "adalead": AdaLeadPolicy(
+            kappa=float(adalead_cfg.get("kappa", 0.05)),
+            epsilon=adalead_cfg.get("epsilon"),
+            parent_mode=str(adalead_cfg.get("parent_mode", "relative_kappa")),
+        ),
+        "mcmc": MCMCPolicy(
+            temperature=float(search_cfg.get("mcmc", {}).get("temperature", 0.10)),
+            n_steps=int(search_cfg.get("mcmc", {}).get("n_steps", 300)),
+            n_chains=int(search_cfg.get("mcmc", {}).get("n_chains", 8)),
+            candidate_m=int(search_cfg.get("candidate_m", 256)),
+            random_seed=seed,
+        ),
+        "bo": BOPolicy(
+            kappa=float(search_cfg.get("ucb", {}).get("kappa", 1.5)),
+            use_effective_uncertainty=bool(unc.get("use_effective", True)),
+            lambda_structure=float(unc.get("lambda_structure", 1.0)),
+            lambda_physics=float(unc.get("lambda_physics", 1.0)),
+        ),
+        "thompson": ThompsonPolicy(
+            random_seed=seed,
+            primary=str(th.get("primary", "fitness")),
+            constraints=th.get("constraints") or {},
+            min_feasibility=float(th.get("min_feasibility", 0.0)),
+        ),
+    }

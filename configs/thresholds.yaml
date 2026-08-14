@@ -33,10 +33,17 @@ physics:
 
 # GP / surrogate (Stage 3)
 gp:
-  kernel: matern52
-  encoding: hybrid   # onehot | georgiev | hybrid | mutation_bag
+  kernel: hamming   # hamming | matern52
+  encoding: mutation_bag   # mutation_bag | onehot | georgiev | hybrid
+  shrinkage: ridge_cv      # ridge_cv | horseshoe | bayesian_ridge | ridge | ols
+  physics_in_gp: false     # physics is μ₀ only
+  fit_physics_alpha: true  # F̂ = α μ₀ + intercept + GP, α ∈ [0, 1]
+  version_intercept: true  # scaffold / version random intercept
+  group_col: version
+  multi_output: true       # model S, A, FC, B then combine with fitness.yaml weights
+  leave_one_construct_out: true
+  coverage_target: 0.90
   physics_mean_weights:
     w_rif_ac: null
     w_rif_prop: null
     w_delta_rif_sel: null
-  leave_one_construct_out: true

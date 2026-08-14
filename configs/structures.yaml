@@ -134,3 +134,13 @@ confidence:
   w_plddt: 0.5
   w_rmsd: 0.3
   w_pae: 0.2
+
+# Dunbrack ipSAE from PAE — cross-model interface score (replaces ipTM compare).
+# Apo jobs are skipped. Holo protein–ligand uses ligand tokens as the partner chain.
+ipsae:
+  pae_cutoff: 10.0
+  dist_cutoff: 10.0
+  protein_chain: A
+  ligand_chain: B
+  apo_states:
+    - apo
