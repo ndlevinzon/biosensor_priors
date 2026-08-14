@@ -94,7 +94,7 @@ def generate_design_space(
     -------
     pd.DataFrame
         Design-space table with mutation codes, physicochemical deltas, and
-        placeholder physics columns.
+        placeholder physics columns (NaN until Stage 2/1 priors are joined).
 
     Raises
     ------
@@ -153,10 +153,10 @@ def generate_design_space(
                         "canonical_positions": canonical_positions,
                         "version_positions": list(pos_combo),
                         "n_mutations": n_mut,
-                        "rif_ac": 0.0,
-                        "rif_prop": 0.0,
-                        "delta_rif_sel": 0.0,
-                        "structural_confidence": 1.0,
+                        "rif_ac": float("nan"),
+                        "rif_prop": float("nan"),
+                        "delta_rif_sel": float("nan"),
+                        "structural_confidence": float("nan"),
                         **deltas,
                     }
                 )

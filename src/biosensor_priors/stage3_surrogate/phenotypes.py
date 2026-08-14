@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 PHENOTYPES = ("selectivity", "affinity", "fc", "brightness")
+AUX_PHENOTYPES = ("fc_prop",)
 
 DEFAULT_WEIGHTS: dict[str, float] = {
     "selectivity": 0.40,
@@ -21,6 +22,7 @@ SCORE_COLUMNS: dict[str, str] = {
     "affinity": "_fitness_affinity_score",
     "fc": "_fitness_fc_score",
     "brightness": "_fitness_brightness_score",
+    "fc_prop": "_fitness_fc_prop_score",
 }
 
 

@@ -47,3 +47,7 @@ gp:
     w_rif_ac: null
     w_rif_prop: null
     w_delta_rif_sel: null
+
+# Join Stage 1/2 priors onto constructs and design candidates.
+priors:
+  multi_mutant: sum   # sum | max_abs

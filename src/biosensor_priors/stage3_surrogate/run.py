@@ -10,6 +10,11 @@ import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
 from biosensor_priors.common.provenance import sha256_file, write_manifest
+from biosensor_priors.stage0_ground_truth.fitness import FoldFitnessScaler
+from biosensor_priors.stage3_surrogate.attach_priors import (
+    attach_physics_and_confidence,
+    resolve_multi_mutant,
+)
 from biosensor_priors.stage3_surrogate.calibration import fit_uncertainty_calibration
 from biosensor_priors.stage3_surrogate.cross_validate import (
     ensure_splits_for_fitness,
@@ -88,8 +93,14 @@ def run_stage3(
     gp_cfg = thresholds.get("gp", {})
     encoding = str(gp_cfg.get("encoding", "mutation_bag"))
     skw = surrogate_kwargs_from_cfg(gp_cfg, fitness_cfg)
+    priors_cfg = thresholds.get("priors", {})
+    multi_mutant = resolve_multi_mutant(priors_cfg.get("multi_mutant"))
 
-    master = _load_master(root)
+    master = attach_physics_and_confidence(
+        _load_master(root),
+        repo_root=root,
+        multi_mutant=multi_mutant,
+    )
     splits_dir = resolve_path(pipeline["paths"]["splits"], root)
     splits = ensure_splits_for_fitness(
         master,
@@ -138,8 +149,13 @@ def run_stage3(
     gate["physics_weight_allowed"] = physics_weight_allowed
     gate["fused_kind"] = fused_kind
 
-    # Fit final fused model on all fitness rows for Stage 4.
+    # Fit final fused model on all fitness rows for Stage 4 (train-only label scale).
     fit_df = master[master["fitness"].notna()].copy()
+    fit_df = FoldFitnessScaler(
+        weights=fitness_cfg.get("weights"),
+        min_components=int(fitness_cfg.get("min_components", 2)),
+    ).fit_transform(fit_df)
+    fit_df = fit_df[fit_df["fitness"].notna()].copy()
     fused = FusedSurrogate(
         kind=fused_kind,  # type: ignore[arg-type]
         use_confidence_weighting=use_confidence_weighting,
@@ -195,8 +211,8 @@ def run_stage3(
         random_seed=seed,
         gate=gate,
         notes=(
-            "Physics columns optional; without Stage 2, physics_only is intercept/mean "
-            "and fused = mean + GP residual. Gate 2 FAIL forces gp_zero_mean."
+            "Physics joined when Stage 2 tables exist; missing confidence is 0 not 1. "
+            "CV labels use train-fold percentiles. Gate 2 FAIL forces gp_zero_mean."
         ),
     )
 

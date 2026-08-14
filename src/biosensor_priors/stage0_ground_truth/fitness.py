@@ -94,6 +94,21 @@ def measured_component_values(
         df.get("Brightness__ordinal", np.nan),
         errors="coerce",
     )
+
+    # Off-target FC PropCoA: higher is better = less PropCoA response.
+    fc_prop: list[float] = []
+    has_fc_prop = "FC PropCoA__value" in df.columns
+    for _, row in df.iterrows():
+        if not has_fc_prop:
+            fc_prop.append(np.nan)
+            continue
+        value = row.get("FC PropCoA__value")
+        censor = row.get("FC PropCoA__censor_direction")
+        if finite_positive(value) and censor != "below":
+            fc_prop.append(-np.log10(float(value)))
+        else:
+            fc_prop.append(np.nan)
+    df["_fitness_fc_prop_raw"] = fc_prop
     return df
 
 
@@ -186,6 +201,7 @@ def fitness_transform(
 
     df = measured_component_values(clean, policies=policies)
 
+    mismatch = _mismatch_mask(df)
     raw_cols = {
         "selectivity": "_fitness_selectivity_raw",
         "affinity": "_fitness_affinity_raw",
@@ -195,8 +211,14 @@ def fitness_transform(
     score_cols: dict[str, str] = {}
     for name, col in raw_cols.items():
         score_col = f"_fitness_{name}_score"
-        df[score_col] = percentile_score(df[col])
+        series = pd.to_numeric(df[col], errors="coerce").copy()
+        series.loc[mismatch] = np.nan
+        df[score_col] = percentile_score(series)
         score_cols[name] = score_col
+    if "_fitness_fc_prop_raw" in df.columns:
+        aux = pd.to_numeric(df["_fitness_fc_prop_raw"], errors="coerce").copy()
+        aux.loc[mismatch] = np.nan
+        df["_fitness_fc_prop_score"] = percentile_score(aux)
 
     fitness: list[float] = []
     n_components: list[int] = []
@@ -244,4 +266,159 @@ def fitness_transform(
     else:
         df["fitness"] = np.nan
 
+    df.loc[mismatch, "fitness"] = np.nan
+    df.loc[mismatch, "Fitness_raw_weighted"] = np.nan
     return df
+
+
+def _mismatch_mask(df: pd.DataFrame) -> pd.Series:
+    """True for rows whose mutation identity failed Construct vs Description audit."""
+    if "mutation_audit" not in df.columns:
+        return pd.Series(False, index=df.index)
+    return df["mutation_audit"].astype(str) == "MISMATCH"
+
+
+def percentile_against_reference(
+    values: pd.Series | np.ndarray,
+    reference: pd.Series | np.ndarray,
+) -> np.ndarray:
+    """Map values onto the empirical percentile scale of a train-only reference.
+
+    Uses the same average-rank convention as :func:`percentile_score`. Scores
+    outside the train range are clipped to ``[0, 1]``.
+    """
+    vals = pd.to_numeric(pd.Series(values), errors="coerce").to_numpy(dtype=float)
+    ref = pd.to_numeric(pd.Series(reference), errors="coerce").to_numpy(dtype=float)
+    ref = ref[np.isfinite(ref)]
+    out = np.full(len(vals), np.nan, dtype=float)
+    n = int(len(ref))
+    if n == 0:
+        return out
+    if n == 1:
+        out[np.isfinite(vals)] = 0.5
+        return out
+    for i, x in enumerate(vals):
+        if not np.isfinite(x):
+            continue
+        n_lt = float(np.sum(ref < x))
+        n_eq = float(np.sum(ref == x))
+        rank = n_lt + (n_eq + 1.0) / 2.0
+        out[i] = float(np.clip((rank - 1.0) / (n - 1.0), 0.0, 1.0))
+    return out
+
+
+class FoldFitnessScaler:
+    """Train-only phenotype percentiles and fitness minmax for CV / Stage 3-4.
+
+    Stage 0 may still write a global catalog ``fitness`` column. Modeling must
+    call :meth:`fit` on the training fold and :meth:`transform` on train and
+    test so held-out raw values never enter the label scale.
+    """
+
+    FITNESS_PHENOTYPES = ("selectivity", "affinity", "fc", "brightness")
+    AUX_PHENOTYPES = ("fc_prop",)
+
+    def __init__(
+        self,
+        *,
+        weights: dict[str, float] | None = None,
+        min_components: int = 2,
+    ) -> None:
+        self.weights = weights or {
+            "selectivity": 0.40,
+            "affinity": 0.25,
+            "fc": 0.20,
+            "brightness": 0.15,
+        }
+        self.min_components = int(min_components)
+        self.reference_: dict[str, np.ndarray] = {}
+        self.raw_lo_: float = 0.0
+        self.raw_hi_: float = 1.0
+        self.fitted_: bool = False
+
+    def _raw_col(self, name: str) -> str:
+        return f"_fitness_{name}_raw"
+
+    def _score_col(self, name: str) -> str:
+        return f"_fitness_{name}_score"
+
+    def fit(self, df: pd.DataFrame) -> FoldFitnessScaler:
+        """Store train raw references and combined min/max."""
+        work = df
+        if "_fitness_fc_raw" not in work.columns:
+            work = measured_component_values(work)
+        mismatch = _mismatch_mask(work)
+        tmp = work.copy()
+        for name in (*self.FITNESS_PHENOTYPES, *self.AUX_PHENOTYPES):
+            col = self._raw_col(name)
+            if col not in tmp.columns:
+                self.reference_[name] = np.zeros(0, dtype=float)
+                continue
+            series = pd.to_numeric(tmp[col], errors="coerce").copy()
+            series.loc[mismatch] = np.nan
+            vals = series.to_numpy(dtype=float)
+            self.reference_[name] = vals[np.isfinite(vals)]
+            tmp[self._score_col(name)] = percentile_score(series)
+        scored = self._combine(tmp, mismatch)
+        finite = scored[np.isfinite(scored)]
+        if len(finite) >= 2:
+            self.raw_lo_ = float(np.min(finite))
+            self.raw_hi_ = float(np.max(finite))
+        else:
+            self.raw_lo_, self.raw_hi_ = 0.0, 1.0
+        self.fitted_ = True
+        return self
+
+    def _combine(self, df: pd.DataFrame, mismatch: pd.Series) -> np.ndarray:
+        n = len(df)
+        combined = np.full(n, np.nan, dtype=float)
+        for i in range(n):
+            if bool(mismatch.iloc[i]):
+                continue
+            numer = 0.0
+            denom = 0.0
+            count = 0
+            for name in self.FITNESS_PHENOTYPES:
+                col = self._score_col(name)
+                if col not in df.columns:
+                    continue
+                value = df.iloc[i][col]
+                if pd.notna(value):
+                    numer += self.weights[name] * float(value)
+                    denom += self.weights[name]
+                    count += 1
+            if count >= self.min_components and denom > 0:
+                combined[i] = numer / denom
+        return combined
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Write fold scores, ``Fitness_raw_weighted``, and ``fitness``."""
+        if not self.fitted_:
+            raise RuntimeError("FoldFitnessScaler must be fit before transform.")
+        out = df.copy()
+        if "_fitness_fc_raw" not in out.columns:
+            out = measured_component_values(out)
+        mismatch = _mismatch_mask(out)
+        for name in (*self.FITNESS_PHENOTYPES, *self.AUX_PHENOTYPES):
+            raw_col = self._raw_col(name)
+            if raw_col not in out.columns:
+                continue
+            series = pd.to_numeric(out[raw_col], errors="coerce").copy()
+            series.loc[mismatch] = np.nan
+            out[self._score_col(name)] = percentile_against_reference(
+                series, self.reference_.get(name, np.zeros(0))
+            )
+        combined = self._combine(out, mismatch)
+        out["Fitness_raw_weighted"] = combined
+        span = self.raw_hi_ - self.raw_lo_
+        if not np.isfinite(span) or abs(span) < 1e-12:
+            out["fitness"] = combined
+        else:
+            fitness = (combined - self.raw_lo_) / span
+            out["fitness"] = fitness
+        out.loc[mismatch, ["fitness", "Fitness_raw_weighted"]] = np.nan
+        return out
+
+    def fit_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Fit on ``df`` and return labeled copy."""
+        return self.fit(df).transform(df)

@@ -13,9 +13,10 @@ from biosensor_priors.stage0_ground_truth.version_resolve import get_row_mutatio
 def parse_mutation_list(row: pd.Series) -> list[tuple[str, int, str]]:
     """Extract normalized mutation triples from a construct row.
 
-    Tries :func:`~biosensor_priors.stage0_ground_truth.version_resolve.get_row_mutations`
-    first, then falls back to parsing ``mutation_codes``-style strings of the
-    form ``A123B``.
+    ``mutation_audit == MISMATCH`` returns an empty list (no fallback to
+    ``mut_codes_construct``). Otherwise prefers trusted
+    :func:`~biosensor_priors.stage0_ground_truth.version_resolve.get_row_mutations`,
+    then ``mutation_codes``-style strings of the form ``A123B`` (design rows).
 
     Parameters
     ----------
@@ -27,8 +28,12 @@ def parse_mutation_list(row: pd.Series) -> list[tuple[str, int, str]]:
     list of tuple of (str, int, str)
         Parsed mutations as ``(aa_from, position, aa_to)``; empty when none found.
     """
+    if str(row.get("mutation_audit", "") or "") == "MISMATCH":
+        return []
     muts = get_row_mutations(row)
-    if muts is not None:
+    if muts is None:
+        return []
+    if muts:
         return list(muts)
     for col in ("mut_codes_construct", "mut_codes_description", "mutation_codes"):
         val = row.get(col)

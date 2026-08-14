@@ -83,6 +83,15 @@ components are redistributed over available components (policy
 `missing_phenotype: redistribute_weights`), subject to a minimum number of
 components (`min_components`, default 2).
 
+The Stage-0 `fitness` column is a **catalog** score: global percentiles over
+trusted identities. Rows with `mutation_audit = MISMATCH` are omitted from
+the rank reference and receive no fitness (including Pan1.0 Q324R, previously
+the global-best label). Stage 3/4 cross-validation refits percentiles and
+minmax on the **training fold only**, then scores the held-out fold against
+those train ranks (`FoldFitnessScaler`).
+
+FC PropCoA is stored as an off-target auxiliary head and is **not** in $F$.
+
 Censoring policies (frozen in `fitness.yaml`) include, among others:
 
 - Affinity: exact used as $-\log_{10}(K_d/\mathrm{\mu M})$; left-censored
@@ -93,10 +102,10 @@ Censoring policies (frozen in `fitness.yaml`) include, among others:
 #### 2.3 Splits and Gate 0
 
 Frozen train/held-out splits (`split_*.json`) are written once and reused by
-Stages 3 and 6. Default scientific CV preference is
-**leave-one-construct-out**. Gate 0 checks unique IDs, required control
-mutations (`Q324R`, `A355R`), fitness reproducibility, and train/test
-non-overlap.
+Stages 3 and 6. The default strategy is **leave-one-construct-out**
+(`configs/pipeline.yaml` -> `splits.strategy`). Gate 0 checks unique IDs,
+required control mutations (`Q324R`, `A355R`), fitness reproducibility, and
+train/test non-overlap.
 
 **Primary artifact:** `data/processed/experiment_master.{pkl,parquet}`.
 
@@ -238,7 +247,15 @@ For construct $x$, features may include:
 - structural confidence $C_{\mathrm{structure}}$
 
 Standardization statistics are fit **inside each training split only**.
-Binary mutation / one-hot columns are not standardized.
+Binary mutation / one-hot / physchem-flag columns are not standardized.
+Georgiev $z$ slots are continuous AA properties (not z-scored binary flags).
+
+Physics and Stage-1 confidence are joined onto train, pool, and design rows
+from Stage 2 mutation tables (`sum` or `max_abs` for multi-mutants;
+`configs/thresholds.yaml` -> `priors.multi_mutant`). Missing physics stays
+missing and is mean-imputed from **train** only; it is not filled with 0
+before that (so `more_negative_is_better` cannot treat "unknown" as a
+favorable score). Missing structural confidence is 0, not 1.
 
 #### 5.2 Confidence weighting of physics
 
@@ -389,8 +406,10 @@ Paper-faithful solvers share `propose(observed, pool, surrogate, B)`:
 
 **Campaigns stay paper-faithful.** `biosensor-stage4-campaign` forces
 `kind=gp_zero_mean`, scalar fitness, Matern-5/2, and no version intercept
-(BO-EVO SI). Operational `biosensor-stage4` uses the Stage-3 fused
-surrogate (Hamming, multi-output, calibrated $\sigma$).
+(BO-EVO SI) and does not require the physics join. Operational
+`biosensor-stage4` uses the Stage-3 fused surrogate (Hamming, multi-output,
+calibrated $\sigma$) after joining physics/confidence onto observed and
+design rows. Missing physics prefilters as PASS.
 
 Campaign metrics include success ratio and cumulative best fitness across
 rounds/repeats.

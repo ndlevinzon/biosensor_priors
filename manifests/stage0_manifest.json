@@ -1,6 +1,6 @@
 {
   "stage": "stage0_ground_truth",
-  "created_at": "2026-08-14T18:22:40.747092+00:00",
+  "created_at": "2026-08-14T18:46:06.240009+00:00",
   "inputs": {
     "experimental_workbook": {
       "path": "data\\experimental\\AllmutantsTested.xlsx",
@@ -52,7 +52,7 @@
       "splits": {
         "n_splits": 10,
         "test_fraction": 0.2,
-        "strategy": "random_holdout",
+        "strategy": "leave_one_construct_out",
         "test_size": null
       },
       "gates": {
@@ -149,13 +149,13 @@
   "outputs": {
     "experiment_master": {
       "path": "data\\processed\\experiment_master.parquet",
-      "sha256": "5470a95ad8dbe99063d36822c88894d027fd6b06b033b3c1cd1caa413b146709",
+      "sha256": "ce130ab26f0b6da56ab3e76bb739ec81b3432295d470ce73700da9a01f4a98d1",
       "n_rows": 68,
-      "n_with_fitness": 29
+      "n_with_fitness": 28
     },
     "experiment_master_pickle": {
       "path": "data\\processed\\experiment_master.pkl",
-      "sha256": "6685c5d2e8a9bcd2bc6b7a083d05226578bb6475246800942ddf7445009ebb1d"
+      "sha256": "28beec7b2dbf253b4c79c8fd9fc09472dfae1c5a40dfd7c880ee8a2a949282d7"
     },
     "splits": {
       "dir": "data\\processed\\splits",
@@ -169,7 +169,25 @@
         "split_007.json",
         "split_008.json",
         "split_009.json",
-        "split_010.json"
+        "split_010.json",
+        "split_011.json",
+        "split_012.json",
+        "split_013.json",
+        "split_014.json",
+        "split_015.json",
+        "split_016.json",
+        "split_017.json",
+        "split_018.json",
+        "split_019.json",
+        "split_020.json",
+        "split_021.json",
+        "split_022.json",
+        "split_023.json",
+        "split_024.json",
+        "split_025.json",
+        "split_026.json",
+        "split_027.json",
+        "split_028.json"
       ]
     }
   },
@@ -197,7 +215,7 @@
       {
         "name": "fitness_reproducible",
         "passed": true,
-        "n_with_fitness": 29,
+        "n_with_fitness": 28,
         "weights": {
           "selectivity": 0.4,
           "affinity": 0.25,
@@ -208,7 +226,7 @@
       {
         "name": "no_train_test_overlap",
         "passed": true,
-        "n_splits": 10,
+        "n_splits": 28,
         "errors": []
       },
       {

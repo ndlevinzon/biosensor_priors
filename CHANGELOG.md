@@ -71,6 +71,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Frozen Stage-0 splits default to ``leave_one_construct_out`` (LOCO).
+- Stage 3/4 join Stage-1 confidence and Stage-2 physics onto train, pool,
+  and design rows (``sum`` or ``max_abs`` for multi-mutants). Missing
+  confidence is 0, not 1.0; missing physics is not treated as a favorable 0.
+- CV / Gate 3 labels use train-fold phenotype percentiles and fitness minmax
+  (``FoldFitnessScaler``); the master ``fitness`` column remains a catalog score.
+- ``MISMATCH`` mutation audits (including Pan1.0 Q324R) are excluded from
+  fitness labels and are not parsed as mutation bags.
+- Binary physchem flags are not z-scored; Georgiev ``_z`` slots load
+  continuous AA z-scores. FC PropCoA is an off-target auxiliary head, not
+  part of scalar F.
 - Stage 2 physics priors use **RoseTTAFold3 docking** (Foundry ``rf3 fold``)
   (``configs/rf3_physics.yaml``, ``wrappers/run_rf3_dock.py``). Schema columns
   ``rif_ac`` / ``rif_prop`` / ``delta_rif_sel`` (negated RF3 confidence). The

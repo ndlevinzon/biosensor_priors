@@ -18,7 +18,9 @@ Examples: all singles; doubles among selected positions; selected triples.
 Do **not** enumerate the unconstrained full sequence space.
 
 Each candidate receives: ``candidate_id``, parent sequence, mutations, canonical
-positions, physchem features, physics terms, structural confidence.
+positions, physchem features, then Stage 1/2 physics and confidence joined
+from mutation tables (``sum`` / ``max_abs``). Missing physics is not treated
+as a favorable 0; prefilter missing scores as ``PASS``.
 
 Module: ``design_space.py``
 

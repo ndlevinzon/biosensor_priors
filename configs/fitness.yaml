@@ -3,9 +3,9 @@
 
 formulation: weighted_scalar
 
-# F = 0.40*S + 0.25*A + 0.20*FC + 0.15*B on percentile-normalized components.
-# Missing components are not imputed; weights are redistributed over available
-# phenotypes (see observations.missing_phenotype).
+# F = 0.40*S + 0.25*A + 0.20*FC + 0.15*B. Catalog scores on the master table
+# use global percentiles; Stage 3/4 CV refits percentiles and minmax on the
+# training fold only. FC PropCoA is stored as an off-target head (not in F).
 weights:
   selectivity: 0.40
   affinity: 0.25

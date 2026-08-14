@@ -29,10 +29,10 @@ def physics_prefilter(
 
     Heuristic until Stage-2 thresholds are calibrated:
 
-    * missing/zero physics → PASS (GP-only path)
-    * bad physics + high confidence → HARD_FAIL
-    * bad physics + low confidence → EXPLORATION_RESERVED
-    * marginal physics → SOFT_FAIL
+    * missing physics -> PASS (GP-only path)
+    * bad physics + high confidence -> HARD_FAIL
+    * bad physics + unknown/low confidence -> EXPLORATION_RESERVED
+    * marginal physics -> SOFT_FAIL
     * otherwise PASS
 
     Parameters
@@ -63,12 +63,17 @@ def physics_prefilter(
         out["prefilter"] = PrefilterCategory.PASS.value
         return out
 
-    score = pd.to_numeric(out[physics_score_col], errors="coerce").fillna(0.0).to_numpy()
-    conf = (
-        pd.to_numeric(out.get(confidence_col, 1.0), errors="coerce").fillna(1.0).to_numpy()
-        if confidence_col in out.columns
-        else np.ones(len(out))
-    )
+    score = pd.to_numeric(out[physics_score_col], errors="coerce").to_numpy(dtype=float)
+    missing = ~np.isfinite(score)
+    if bool(missing.all()):
+        out["prefilter"] = PrefilterCategory.PASS.value
+        return out
+
+    if confidence_col in out.columns:
+        conf = pd.to_numeric(out[confidence_col], errors="coerce").to_numpy(dtype=float)
+        conf = np.where(np.isfinite(conf), conf, 0.0)
+    else:
+        conf = np.zeros(len(out), dtype=float)
 
     # Convert to "higher is better" internal score.
     if score_direction == "more_negative_is_better":
@@ -76,21 +81,24 @@ def physics_prefilter(
     else:
         goodness = score
 
-    # Default thresholds from empirical quantiles if unset and physics varies.
-    if np.allclose(score, score[0]):
+    finite_score = score[~missing]
+    if len(finite_score) < 2 or np.allclose(finite_score, finite_score[0]):
         out["prefilter"] = PrefilterCategory.PASS.value
         return out
 
+    finite_good = goodness[np.isfinite(goodness)]
     soft_t = soft_threshold
     hard_t = hard_threshold
     if soft_t is None:
-        soft_t = float(np.quantile(goodness, 0.25))
+        soft_t = float(np.quantile(finite_good, 0.25))
     if hard_t is None:
-        hard_t = float(np.quantile(goodness, 0.10))
+        hard_t = float(np.quantile(finite_good, 0.10))
 
     cats = []
-    for g, c in zip(goodness, conf, strict=True):
-        if g >= soft_t:
+    for g, c, miss in zip(goodness, conf, missing, strict=True):
+        if miss:
+            cats.append(PrefilterCategory.PASS.value)
+        elif g >= soft_t:
             cats.append(PrefilterCategory.PASS.value)
         elif g >= hard_t:
             cats.append(PrefilterCategory.SOFT_FAIL.value)

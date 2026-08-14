@@ -6,9 +6,9 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
+from biosensor_priors.stage0_ground_truth.fitness import FoldFitnessScaler
 from biosensor_priors.stage0_ground_truth.splits import (
     generate_leave_one_out_splits,
     load_split,
@@ -86,10 +86,17 @@ def ensure_splits_for_fitness(
     """
     eligible = df.loc[df["fitness"].notna(), "construct_id"].astype(str)
     eligible_set = set(eligible)
+    want = "leave_one_construct_out" if prefer_loco else "random_holdout"
 
     if splits_dir is not None and splits_dir.exists():
         splits = []
-        for split in load_frozen_splits(splits_dir):
+        try:
+            loaded = load_frozen_splits(splits_dir)
+        except FileNotFoundError:
+            loaded = []
+        for split in loaded:
+            if split.get("strategy") != want:
+                continue
             train = [i for i in split["train_construct_ids"] if i in eligible_set]
             test = [i for i in split["held_out_construct_ids"] if i in eligible_set]
             if not train or not test:
@@ -150,12 +157,19 @@ def run_split_evaluation(
     kinds = kinds or ["physics_only", "gp_zero_mean", "physics_gp"]
     extra = dict(surrogate_kwargs or {})
     extra.setdefault("encoding", encoding)
+    min_components = int(extra.pop("min_components", 2))
+    scaler = FoldFitnessScaler(
+        weights=extra.get("phenotype_weights"),
+        min_components=min_components,
+    )
     work = df[df["fitness"].notna()].copy()
     rows: list[dict[str, Any]] = []
 
     for split in splits:
-        train_df = _subset(work, split["train_construct_ids"])
-        test_df = _subset(work, split["held_out_construct_ids"])
+        train_df = scaler.fit_transform(_subset(work, split["train_construct_ids"]))
+        test_df = scaler.transform(_subset(work, split["held_out_construct_ids"]))
+        train_df = train_df[train_df["fitness"].notna()].copy()
+        test_df = test_df[test_df["fitness"].notna()].copy()
         if train_df.empty or test_df.empty:
             continue
         y_train = train_df["fitness"].to_numpy(dtype=float)

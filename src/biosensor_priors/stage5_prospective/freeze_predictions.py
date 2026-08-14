@@ -95,7 +95,7 @@ def build_freeze_table(
     sigma = pd.to_numeric(col("predicted_std", "pred_fitness_std", "fitness_std"), errors="coerce").fillna(0.0)
     physics = pd.to_numeric(col("physics_component", "pred_physics_mean", "physics_mean"), errors="coerce")
     gp = pd.to_numeric(col("gp_component", "pred_gp_residual_mean", "gp_residual_mean"), errors="coerce")
-    conf = pd.to_numeric(col("structural_confidence"), errors="coerce").fillna(1.0)
+    conf = pd.to_numeric(col("structural_confidence"), errors="coerce").fillna(0.0)
     algo = col("selection_algorithm", "search_strategy", default="unknown").astype(str)
 
     if "selection_rank" in df.columns:

@@ -98,9 +98,11 @@ class BOPolicy:
             scored["acquisition"] = pred.fitness_mean + float(self.kappa) * sig
         elif self.use_effective_uncertainty:
             if "structural_confidence" in scored.columns:
-                conf = pd.to_numeric(scored["structural_confidence"], errors="coerce").fillna(1.0)
+                conf = pd.to_numeric(
+                    scored["structural_confidence"], errors="coerce"
+                ).fillna(0.0)
             else:
-                conf = pd.Series(1.0, index=scored.index)
+                conf = pd.Series(0.0, index=scored.index)
             struct_unc = (1.0 - conf).to_numpy(dtype=float)
             phys_unc = np.zeros(len(scored), dtype=float)
             if "physics_score_std" in scored.columns:

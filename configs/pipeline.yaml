@@ -36,8 +36,8 @@ constructs:
 splits:
   n_splits: 10
   test_fraction: 0.20
-  strategy: random_holdout
-  # Optional fixed hold-out size (overrides test_fraction when set)
+  strategy: leave_one_construct_out
+  # random_holdout still uses n_splits / test_fraction / test_size
   test_size: null
 
 # Stage gate defaults: a failed gate blocks silent use of that stage's outputs.

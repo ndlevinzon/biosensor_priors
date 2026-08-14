@@ -8,7 +8,9 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
-from biosensor_priors.stage0_ground_truth.physicochemical import load_aa_properties
+from biosensor_priors.stage0_ground_truth.physicochemical import (
+    build_aa_property_table,
+)
 from biosensor_priors.stage4_search.landscape import (
     build_landscape_view,
     parse_mutation_list,
@@ -36,7 +38,21 @@ PHYSCHEM_DELTA_KEYS = (
     "branched",
 )
 
-# Georgiev-like per-residue physicochemical vector (AAIndex-style stand-in).
+BINARY_PHYSCHEM_KEYS = frozenset(
+    {
+        "charge",
+        "polar",
+        "aromatic",
+        "hbond_donor",
+        "hbond_acceptor",
+        "positive",
+        "negative",
+        "branched",
+        "sulfur_containing",
+        "Gly",
+        "Pro",
+    }
+)
 # Paper Georgiev is 19-D PCA of AAIndex; we use a fixed 19-D property vector
 # from our curated AA table (continuous + binary descriptors). [https://doi.org/10.1089/cmb.2008.0173]
 GEORGIEV_KEYS = (
@@ -89,6 +105,28 @@ def _mutation_delta_vector(muts: list[tuple[str, int, str]], aa_props: dict) -> 
         return np.zeros(len(PHYSCHEM_DELTA_KEYS) + 1, dtype=float)
     mean_delta = np.mean(np.asarray(deltas, dtype=float), axis=0)
     return np.concatenate([mean_delta, [float(len(muts))]])
+
+
+def _aa_lookup_with_z() -> dict[str, dict]:
+    """Amino-acid properties including continuous z-scores from the AA table."""
+    table = build_aa_property_table(create_zscores=True)
+    out: dict[str, dict] = {}
+    for _, row in table.iterrows():
+        rec = row.to_dict()
+        aa = str(rec.pop("AA"))
+        out[aa] = rec
+    return out
+
+
+def is_binary_feature_name(name: str) -> bool:
+    """True for mutation/one-hot bits and 0/1 (or -1/0/1) physchem flags."""
+    if name.startswith("mut_") or name.startswith("oh_"):
+        return True
+    if name.startswith("delta_") and name[len("delta_") :] in BINARY_PHYSCHEM_KEYS:
+        return True
+    if name.startswith("geo_"):
+        return any(name.endswith(f"_{key}") for key in BINARY_PHYSCHEM_KEYS)
+    return False
 
 
 def _aa_georgiev_vector(aa: str, aa_props: dict) -> np.ndarray:
@@ -146,20 +184,12 @@ class FeatureBuilder:
     has_physics_: bool = False
     aa_props: dict[str, dict] = field(default_factory=dict)
     binary_names_: list[str] = field(default_factory=list)
+    physics_fill_: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Load amino acid properties when not provided at construction.
-
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        None
-        """
+        """Load amino acid properties when not provided at construction."""
         if not self.aa_props:
-            self.aa_props = load_aa_properties()
+            self.aa_props = _aa_lookup_with_z()
 
     def _sequences_and_sites(self, df: pd.DataFrame) -> tuple[list[str], list[int]]:
         """Extract aligned sequences and site positions from construct rows.
@@ -296,28 +326,28 @@ class FeatureBuilder:
         """
         extras = []
         extra_names = []
-        physics_present = any(c in df.columns for c in PHYSICS_FEATURE_COLUMNS)
-        self.has_physics_ = bool(physics_present)
-
+        physics_present = False
         if self.include_physics:
             for col in PHYSICS_FEATURE_COLUMNS:
                 if col in df.columns:
-                    extras.append(
-                        pd.to_numeric(df[col], errors="coerce").fillna(0.0).to_numpy(dtype=float)
-                    )
+                    series = pd.to_numeric(df[col], errors="coerce")
+                    extras.append(series.to_numpy(dtype=float))
+                    if bool(np.isfinite(series.to_numpy(dtype=float)).any()):
+                        physics_present = True
                 else:
-                    extras.append(np.zeros(len(df), dtype=float))
+                    extras.append(np.full(len(df), np.nan, dtype=float))
                 extra_names.append(col)
+        self.has_physics_ = bool(physics_present)
 
         if self.include_struct_confidence:
             if STRUCT_CONF_COLUMN in df.columns:
                 extras.append(
-                    pd.to_numeric(df[STRUCT_CONF_COLUMN], errors="coerce").fillna(1.0).to_numpy(
+                    pd.to_numeric(df[STRUCT_CONF_COLUMN], errors="coerce").to_numpy(
                         dtype=float
                     )
                 )
             else:
-                extras.append(np.ones(len(df), dtype=float))
+                extras.append(np.full(len(df), np.nan, dtype=float))
             extra_names.append(STRUCT_CONF_COLUMN)
 
         if extras:
@@ -377,18 +407,39 @@ class FeatureBuilder:
 
         X, names = self._raw_matrix(df)
         self.feature_names_ = names
-        self.binary_names_ = [
-            n for n in names if n.startswith("mut_") or n.startswith("oh_")
-        ]
+        self.binary_names_ = [n for n in names if is_binary_feature_name(n)]
+        self.physics_fill_ = {}
         if X.size == 0:
             self.means_ = np.zeros(0)
             self.stds_ = np.zeros(0)
             return self
-        self.means_ = np.nanmean(X, axis=0)
-        self.stds_ = np.nanstd(X, axis=0, ddof=0)
+        for i, name in enumerate(names):
+            if name not in PHYSICS_FEATURE_COLUMNS:
+                continue
+            col = X[:, i]
+            finite = np.isfinite(col)
+            self.physics_fill_[name] = (
+                float(np.mean(col[finite])) if finite.any() else float("nan")
+            )
+        filled = self._fill_physics_confidence(X)
+        self.means_ = np.nanmean(filled, axis=0)
+        self.stds_ = np.nanstd(filled, axis=0, ddof=0)
         self.stds_ = np.where(self.stds_ < 1e-12, 1.0, self.stds_)
         self.means_ = np.nan_to_num(self.means_, nan=0.0)
         return self
+
+    def _fill_physics_confidence(self, X: np.ndarray) -> np.ndarray:
+        """Impute physics with train means; missing confidence becomes 0 (not 1)."""
+        filled = np.array(X, dtype=float, copy=True)
+        for i, name in enumerate(self.feature_names_):
+            col = filled[:, i]
+            if name in PHYSICS_FEATURE_COLUMNS:
+                fill = self.physics_fill_.get(name, float("nan"))
+                replacement = fill if np.isfinite(fill) else 0.0
+                filled[:, i] = np.where(np.isfinite(col), col, replacement)
+            elif name == STRUCT_CONF_COLUMN:
+                filled[:, i] = np.where(np.isfinite(col), col, 0.0)
+        return np.nan_to_num(filled, nan=0.0)
 
     def transform(self, df: pd.DataFrame) -> np.ndarray:
         """Standardize features using statistics fit on training data.
@@ -411,7 +462,7 @@ class FeatureBuilder:
         if self.means_ is None or self.stds_ is None:
             raise RuntimeError("FeatureBuilder must be fit before transform.")
         X, _ = self._raw_matrix(df)
-        X = np.nan_to_num(X, nan=0.0)
+        X = self._fill_physics_confidence(X)
         if X.shape[1] != len(self.means_):
             # Pad / trim for safety if site sets differ
             out = np.zeros((len(df), len(self.means_)), dtype=float)
@@ -510,10 +561,10 @@ class FeatureBuilder:
         Returns
         -------
         numpy.ndarray
-            Confidence values clipped to ``[0, 1]``; defaults to ones.
+            Confidence values clipped to ``[0, 1]``; defaults to zeros.
         """
         if STRUCT_CONF_COLUMN not in self.feature_names_:
-            return np.ones(len(X), dtype=float)
+            return np.zeros(len(X), dtype=float)
         i = self.feature_names_.index(STRUCT_CONF_COLUMN)
         raw = X[:, i] * self.stds_[i] + self.means_[i]
         return np.clip(raw, 0.0, 1.0)

@@ -8,6 +8,11 @@ from typing import Any
 
 import pandas as pd
 
+from biosensor_priors.common.config import REPO_ROOT
+from biosensor_priors.stage0_ground_truth.fitness import FoldFitnessScaler
+from biosensor_priors.stage3_surrogate.attach_priors import (
+    attach_physics_and_confidence,
+)
 from biosensor_priors.stage3_surrogate.cross_validate import (
     ensure_splits_for_fitness,
     run_split_evaluation,
@@ -106,6 +111,9 @@ def refit_surrogate(
         If no fitness-labeled constructs are available.
     """
     fit_df = master[master["fitness"].notna()].copy()
+    fit_df = attach_physics_and_confidence(fit_df, repo_root=REPO_ROOT)
+    fit_df = FoldFitnessScaler().fit_transform(fit_df)
+    fit_df = fit_df[fit_df["fitness"].notna()].copy()
     if fit_df.empty:
         raise RuntimeError("No fitness-labeled constructs available for model update.")
     model = FusedSurrogate(
@@ -155,6 +163,7 @@ def rerun_calibration_gates(
         Gate 3 report with ``operational_passed``, ``n_cv_rows``, and ``n_splits``.
     """
     fit_df = master[master["fitness"].notna()].copy()
+    fit_df = attach_physics_and_confidence(fit_df, repo_root=REPO_ROOT)
     splits = ensure_splits_for_fitness(
         fit_df,
         splits_dir,

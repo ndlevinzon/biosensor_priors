@@ -29,7 +29,12 @@ not allowed within an analysis round; open a new round instead.
 Stage 3 can still fit **multi-output phenotype heads** ($S,A,\mathrm{FC},B$)
 and combine them with these weights. Affinity / brightness constraints in
 Thompson sampling use those heads; they are not a Pareto / multi-objective
-search. Pareto formulations remain a future option, not the default.
+search. FC PropCoA is an optional off-target auxiliary head, not a fifth
+weight in $F$. Pareto formulations remain a future option, not the default.
+
+Frozen splits default to ``leave_one_construct_out``. Modeling labels are
+refit inside each training fold; the master-table ``fitness`` column is a
+catalog score only.
 
 ## Observation policies
 

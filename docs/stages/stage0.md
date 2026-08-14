@@ -37,7 +37,9 @@ experimental measurements
 
 Default: preregistered scalar weights (see {doc}`../configuration`).
 Policies cover exact, left-/right-censored, missing, and qualitative
-observations.
+observations. Catalog ``fitness`` uses global percentiles; modeling CV
+uses train-fold ranks (``FoldFitnessScaler``). ``MISMATCH`` audits are
+unlabeled.
 
 Module: ``biosensor_priors.stage0_ground_truth.fitness``
 
@@ -59,7 +61,8 @@ Each file contains:
 - split strategy
 
 **The same splits are reused** for physics-only, GP-only, and physics+GP so
-comparisons are paired.
+comparisons are paired. Default ``splits.strategy`` is
+``leave_one_construct_out``.
 
 Module: ``biosensor_priors.stage0_ground_truth.splits``
 

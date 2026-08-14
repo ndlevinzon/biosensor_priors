@@ -9,6 +9,11 @@ import pandas as pd
 
 from biosensor_priors.common.config import REPO_ROOT, load_yaml, resolve_path
 from biosensor_priors.common.provenance import write_manifest
+from biosensor_priors.stage0_ground_truth.fitness import FoldFitnessScaler
+from biosensor_priors.stage3_surrogate.attach_priors import (
+    attach_physics_and_confidence,
+    resolve_multi_mutant,
+)
 from biosensor_priors.stage3_surrogate.surrogate import (
     FusedSurrogate,
     surrogate_kwargs_from_cfg,
@@ -89,11 +94,22 @@ def run_stage4(
     thresholds = load_yaml(root / "configs" / "thresholds.yaml")
     seed = int(pipeline.get("random_seed", 42))
     batch_size = int(search_cfg.get("batch_size", 8))
+    priors_cfg = thresholds.get("priors", {})
+    multi_mutant = resolve_multi_mutant(priors_cfg.get("multi_mutant"))
 
-    master = _load_master(root)
+    master = attach_physics_and_confidence(
+        _load_master(root),
+        repo_root=root,
+        multi_mutant=multi_mutant,
+    )
     observed = master[master["fitness"].notna()].copy()
     if observed.empty:
         raise RuntimeError("No constructs with fitness available for Stage 4.")
+    observed = FoldFitnessScaler(
+        weights=fitness_cfg.get("weights"),
+        min_components=int(fitness_cfg.get("min_components", 2)),
+    ).fit_transform(observed)
+    observed = observed[observed["fitness"].notna()].copy()
 
     surrogate = FusedSurrogate(
         kind="physics_gp",
@@ -199,6 +215,11 @@ def run_stage4(
         max_mutations=max_mut,
         residue_mapping=residue_mapping,
         positions_are_canonical=True,
+    )
+    design = attach_physics_and_confidence(
+        design,
+        repo_root=root,
+        multi_mutant=multi_mutant,
     )
     # Exclude already-observed mutation sets
     observed_sets = {

@@ -125,10 +125,14 @@ def _check_fitness_reproducible(
         "Affinity AcCoA__censor_direction",
         "FC AcCoA__value",
         "FC AcCoA__censor_direction",
+        "FC PropCoA__value",
+        "FC PropCoA__censor_direction",
         "Selectivity_Kd_Prop_over_Ac__lower",
         "Brightness__ordinal",
+        "mutation_audit",
     ]
-    base = df[cols_needed].copy()
+    present = [c for c in cols_needed if c in df.columns]
+    base = df[present].copy()
     a = fitness_transform(
         base,
         weights=fitness_cfg["weights"],

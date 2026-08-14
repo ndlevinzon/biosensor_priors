@@ -67,10 +67,10 @@ def structural_and_physics_sigma(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarr
     """Extract σ_structure and σ_physics columns from a candidate table."""
     n = len(df)
     if "structural_confidence" in df.columns:
-        conf = pd.to_numeric(df["structural_confidence"], errors="coerce").fillna(1.0)
+        conf = pd.to_numeric(df["structural_confidence"], errors="coerce").fillna(0.0)
         ss = (1.0 - conf).to_numpy(dtype=float)
     else:
-        ss = np.zeros(n, dtype=float)
+        ss = np.ones(n, dtype=float)
     if "physics_score_std" in df.columns:
         sp = (
             pd.to_numeric(df["physics_score_std"], errors="coerce")

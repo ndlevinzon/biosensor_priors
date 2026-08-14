@@ -41,9 +41,11 @@ Feature vector (illustrative): mutation-bag bits + physchem, RIF Ac/Prop,
 $\Delta$RIF, burial/SASA (later), structural confidence.
 
 **Preprocessing parameters are fitted inside each training split** - no global
-standardization before cross-validation. Binary ``mut_`` / ``oh_`` columns
-are not standardized. ``gp_block()`` excludes physics and structural
-confidence when ``physics_in_gp: false``.
+standardization before cross-validation. Binary ``mut_`` / ``oh_`` /
+physchem-flag columns are not standardized. ``gp_block()`` excludes physics
+and structural confidence when ``physics_in_gp: false``. Stage 1/2 priors
+are joined before fit (missing confidence = 0, not 1). CV labels use
+train-fold percentiles.
 
 Module: ``features.py``
 

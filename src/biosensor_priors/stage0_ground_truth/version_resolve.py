@@ -187,7 +187,7 @@ def get_row_mutations(row: pd.Series) -> list[tuple[str, int, str]] | None:
         ``None`` when audit status is ``"MISMATCH"``; empty list for baseline
         constructs; otherwise mutation tuples from construct or description.
     """
-    if row.get("mutation_audit") == "MISMATCH":
+    if str(row.get("mutation_audit", "") or "") == "MISMATCH":
         return None
     c = row.get("mut_from_construct", [])
     d = row.get("mut_from_description", [])

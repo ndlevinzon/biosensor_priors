@@ -20,6 +20,7 @@ from biosensor_priors.stage3_surrogate.features import (
 )
 from biosensor_priors.stage3_surrogate.gp_residual import GPResidualModel, KernelKind
 from biosensor_priors.stage3_surrogate.phenotypes import (
+    AUX_PHENOTYPES,
     DEFAULT_WEIGHTS,
     PHENOTYPES,
     combine_phenotype_means,
@@ -242,7 +243,7 @@ class FusedSurrogate:
         self.phenotype_heads_ = {}
         if self.multi_output:
             scores = phenotype_score_matrix(df)
-            for name in PHENOTYPES:
+            for name in (*PHENOTYPES, *AUX_PHENOTYPES):
                 mask = labeled_mask(scores[name], min_n=3)
                 if mask is None:
                     continue

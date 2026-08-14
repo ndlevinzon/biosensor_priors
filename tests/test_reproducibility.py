@@ -32,8 +32,11 @@ def test_fitness_reproducible(stage0_result) -> None:
         "Affinity AcCoA__censor_direction",
         "FC AcCoA__value",
         "FC AcCoA__censor_direction",
+        "FC PropCoA__value",
+        "FC PropCoA__censor_direction",
         "Selectivity_Kd_Prop_over_Ac__lower",
         "Brightness__ordinal",
+        "mutation_audit",
     ]
     recomputed = fitness_transform(
         master[cols].copy(),

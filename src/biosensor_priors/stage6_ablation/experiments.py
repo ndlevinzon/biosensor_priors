@@ -295,7 +295,7 @@ def attach_structure_confidence(
                 how="left",
             )
             out["structural_confidence"] = (
-                pd.to_numeric(merged["_src_conf"], errors="coerce").fillna(1.0).to_numpy()
+                pd.to_numeric(merged["_src_conf"], errors="coerce").fillna(0.0).to_numpy()
             )
             meta["structure_available"] = True
             return out, meta
@@ -304,7 +304,7 @@ def attach_structure_confidence(
     if "structural_confidence" in out.columns and structure_source.lower() == "consensus":
         out["structural_confidence"] = pd.to_numeric(
             out["structural_confidence"], errors="coerce"
-        ).fillna(1.0)
+        ).fillna(0.0)
         meta["structure_available"] = True
         meta["structure_path"] = "inline_consensus"
         return out, meta
