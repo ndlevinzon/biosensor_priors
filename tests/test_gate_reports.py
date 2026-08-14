@@ -44,7 +44,17 @@ def test_other_stage_reports_write_empty_safe(tmp_path: Path, monkeypatch) -> No
         encoding="utf-8",
     )
 
-    r1 = write_stage1_report({"passed": True, "checks": []}, repo_root=tmp_path)
+    r1 = write_stage1_report(
+        {"passed": True, "checks": []},
+        registry=pd.DataFrame({"predictor": ["Boltz2", "AF3", "ESMFold", "RF3"]}),
+        models=pd.DataFrame(
+            {
+                "predictor": ["Boltz2", "AF3", "ESMFold", "RF3"],
+                "mean_plddt": [82.0, 79.5, 71.0, 76.2],
+            }
+        ),
+        repo_root=tmp_path,
+    )
     r2 = write_stage2_report({"passed": False, "tests": []}, repo_root=tmp_path)
     pred = pd.DataFrame(
         {

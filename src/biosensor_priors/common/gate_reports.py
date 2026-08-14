@@ -591,6 +591,8 @@ def write_stage1_report(
             reliable_frac = float(pd.Series(rel).astype(bool).mean())
 
     def panel_jobs(ax) -> None:
+        from matplotlib.ticker import MaxNLocator
+
         col = next(
             (c for c in ("predictor", "method", "model") if c in registry.columns),
             None,
@@ -601,6 +603,8 @@ def write_stage1_report(
         counts = registry[col].astype(str).value_counts()
         ax.barh(counts.index.astype(str)[::-1], counts.to_numpy()[::-1], color=SLATE)
         ax.set_xlabel("jobs")
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True, min_n_ticks=1))
+        ax.set_xlim(left=0)
 
     def panel_conf(ax) -> None:
         if conf is None or not conf.notna().any():
@@ -615,19 +619,50 @@ def write_stage1_report(
         ax.set_xlabel("structural confidence")
         ax.set_ylabel("positions")
 
-    def panel_ipsae(ax) -> None:
-        ipsae = _series(models, "ipsae", "ipSAE")
-        if ipsae is None or not ipsae.notna().any():
-            _empty(ax, "No ipSAE on models")
-            return
-        ax.hist(
-            ipsae.dropna().to_numpy(dtype=float),
-            bins=12,
-            color=OCEAN,
-            edgecolor=PAPER,
+    def panel_plddt(ax) -> None:
+        pred_col = next(
+            (c for c in ("predictor", "method", "model") if c in models.columns),
+            None,
         )
-        ax.set_xlabel("ipSAE")
-        ax.set_ylabel("models")
+        plddt_m = _series(models, "mean_plddt", "plddt", "pLDDT")
+        have_model_plddt = (
+            not models.empty
+            and pred_col is not None
+            and plddt_m is not None
+            and plddt_m.notna().any()
+        )
+        if not have_model_plddt:
+            if plddt is not None and plddt.notna().any():
+                ax.hist(
+                    plddt.dropna().to_numpy(dtype=float),
+                    bins=18,
+                    color=OCEAN,
+                    edgecolor=PAPER,
+                )
+                ax.set_xlabel("residue pLDDT")
+                ax.set_ylabel("positions")
+                return
+            _empty(ax, "No pLDDT on models")
+            return
+        vals = plddt_m.astype(float).copy()
+        if float(vals.max()) <= 1.5:
+            vals = vals * 100.0
+        grouped = (
+            models.assign(_p=vals)
+            .groupby(models[pred_col].astype(str), sort=True)["_p"]
+            .agg(["mean", "std", "count"])
+        )
+        labels = list(grouped.index.astype(str))
+        means = grouped["mean"].to_numpy(dtype=float)
+        stds = grouped["std"].fillna(0.0).to_numpy(dtype=float)
+        ns = grouped["count"].to_numpy(dtype=float)
+        sem = np.where(ns > 0, stds / np.sqrt(ns), 0.0)
+        x = np.arange(len(labels))
+        ax.bar(x, means, color=OCEAN, width=0.65, yerr=sem, capsize=3, ecolor=MUTED)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=20, ha="right")
+        ax.set_ylabel("mean pLDDT")
+        ax.set_ylim(0, 105)
 
     kpis = [
         f"{int(len(registry))} jobs",
@@ -643,11 +678,26 @@ def write_stage1_report(
         panels=[
             ("Jobs by predictor", panel_jobs),
             ("Residue confidence", panel_conf),
-            ("Interface ipSAE", panel_ipsae),
+            ("Mean pLDDT by predictor", panel_plddt),
         ],
         checks=_checks(gate),
         path=out / "overview.png",
     )
+    mean_plddt_by_predictor: dict[str, float] = {}
+    pred_col = next(
+        (c for c in ("predictor", "method", "model") if c in models.columns),
+        None,
+    )
+    plddt_m = _series(models, "mean_plddt", "plddt", "pLDDT")
+    if pred_col is not None and plddt_m is not None and plddt_m.notna().any():
+        vals = plddt_m.astype(float).copy()
+        if float(vals.max()) <= 1.5:
+            vals = vals * 100.0
+        mean_plddt_by_predictor = {
+            str(k): float(v)
+            for k, v in vals.groupby(models[pred_col].astype(str)).mean().items()
+        }
+
     stats = {
         "n_jobs": int(len(registry)),
         "n_models": int(len(models)),
@@ -661,12 +711,18 @@ def write_stage1_report(
         "mean_plddt": (
             float(plddt.mean())
             if plddt is not None and plddt.notna().any()
-            else None
+            else (
+                float(np.mean(list(mean_plddt_by_predictor.values())))
+                if mean_plddt_by_predictor
+                else None
+            )
         ),
+        "mean_plddt_by_predictor": mean_plddt_by_predictor,
     }
     observations = [
         "Confidence is a composite of pLDDT, cross-model RMSD, and PAE.",
-        "Missing models before HPC is expected when only jobs were scripted.",
+        "Overview compares mean pLDDT across predictors (Boltz2/AF3/ESMFold/RF3).",
+        "ipSAE remains for holo PAE interfaces; ESMFold usually lacks ligand PAE.",
         f"Reliable-residue fraction: {_fmt(reliable_frac)}.",
     ]
     return _finish(
@@ -696,7 +752,6 @@ def write_stage2_report(
     conformers = conformers if conformers is not None else pd.DataFrame()
     delta = _series(summary, "delta_rif_sel_mean", "delta_rif_sel")
     std = _series(summary, "delta_rif_sel_std", "delta_rif_sel_sd")
-    conf = _series(summary, "structural_confidence", "confidence")
     tests = list(gate.get("tests") or [])
 
     def panel_controls(ax) -> None:
@@ -732,8 +787,7 @@ def write_stage2_report(
             _empty(ax, "No physics uncertainty")
             return
         x = delta.fillna(0.0) if delta is not None else pd.Series(np.zeros(len(std)))
-        c = conf.fillna(0.4) if conf is not None else pd.Series(np.full(len(std), 0.4))
-        ax.scatter(x, std, c=c, cmap="YlGnBu", s=18, alpha=0.85, edgecolors="none")
+        ax.scatter(x, std, c=FAIL, s=18, alpha=0.85, edgecolors="none")
         ax.set_xlabel(r"$\Delta$RIF$_{\mathrm{sel}}$")
         ax.set_ylabel("score std")
 

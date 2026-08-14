@@ -97,7 +97,9 @@ Module: ``biosensor_priors.stage1_structures.ipsae_compare``
 ## Gate 1
 
 Advisory vs required in ``pipeline.yaml`` (``gates.stage1``).
-Gate dashboard: ``outputs/gate_reports/stage1/``.
+Gate dashboard: ``outputs/gate_reports/stage1/`` (jobs, residue confidence,
+mean pLDDT by predictor with SEM; ipSAE stays in the parquet tables for holo
+PAE models).
 
 ## CLI
 
