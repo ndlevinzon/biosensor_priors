@@ -100,6 +100,36 @@ def _gpu_runtime_checks() -> list[str]:
     ]
 
 
+def _conda_activate_block(
+    conda_activate: str | None,
+    *,
+    runner: str = "rf3",
+) -> list[str]:
+    """Source a conda env so ``runner`` is on PATH (safe with ``set -u``)."""
+    if not conda_activate:
+        return [
+            f'if ! command -v {runner} >/dev/null 2>&1; then',
+            f'  echo "ERROR: {runner} not on PATH. Set rosettafold3.conda_activate" >&2',
+            "  exit 1",
+            "fi",
+            "",
+        ]
+    act = Path(str(conda_activate))
+    if act.name != "activate":
+        act = act / "bin" / "activate"
+    return [
+        # conda activate scripts reference unset vars; incompatible with set -u
+        "set +u",
+        f'source "{act.as_posix()}"',
+        "set -u",
+        f'echo "python=$(command -v python) {runner}=$(command -v {runner} || echo MISSING)"',
+        f'if ! command -v {runner} >/dev/null 2>&1; then',
+        f'  echo "ERROR: {runner} not found after sourcing {act.as_posix()}" >&2',
+        "  exit 1",
+        "fi",
+        "",
+    ]
+
 def _lightning_declutter_slurm_env() -> list[str]:
     """Stop PyTorch Lightning from treating the job as a Slurm multi-rank cluster.
 
@@ -665,14 +695,10 @@ def write_rf3_script(
     lines.extend(["set -euo pipefail", "ml purge"])
     if rf3_cfg.get("module"):
         lines.append(f"ml {rf3_cfg['module']}")
-    conda_act = rf3_cfg.get("conda_activate")
-    if conda_act:
-        lines.extend(
-            [
-                f'source "{Path(str(conda_act)).as_posix()}"',
-            ]
-        )
     runner = str(rf3_cfg.get("run", "rf3"))
+    lines.extend(
+        _conda_activate_block(rf3_cfg.get("conda_activate"), runner=runner)
+    )
     early = rf3_cfg.get("early_stopping_plddt_threshold", 0.0)
     hydra_args = [
         f"inputs='{Path(input_json).as_posix()}'",

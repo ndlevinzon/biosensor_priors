@@ -15,9 +15,8 @@
 rf3:
   run: rf3
   module: null
-  # Optional: conda activate script that puts `rf3` on PATH
-  # conda_activate: "/uufs/.../.conda/envs/biosensor_priors/bin/activate"
-  conda_activate: null
+  # Same env as Stage 1 RF3. GPU/Slurm jobs use --export=NONE.
+  conda_activate: "/uufs/chpc.utah.edu/common/home/u1116818/.conda/envs/biosensor_priors"
   # In-repo Foundry checkpoint (gitignored; not touched by clean_pipeline_artifacts).
   # Install: mkdir -p weights/rf3 && foundry install base-models --checkpoint-dir "$PWD/weights/rf3"
   ckpt_path: "weights/rf3/rf3_foundry_01_24_latest_remapped.ckpt"

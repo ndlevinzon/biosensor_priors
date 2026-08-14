@@ -30,9 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from PyTorch (ESMFold / Boltz2 / RF3 / AF3 step-2). AF3 step-1 chains step-2
   with ``sbatch --export=NONE`` so the CPU MSA job cannot pass an empty
   ``CUDA_VISIBLE_DEVICES`` into inference.
-- Boltz2 / RF3 scripts unset ``SLURM_NTASKS`` / related vars before predict so
-  PyTorch Lightning does not take the Slurm multi-rank path (fixes
-  ``CUDA unknown error`` after ``GPU available: True``).
+- Stage 1 RF3 SLURM scripts source ``biosensor_priors`` conda
+  (``configs/structures.yaml`` ``rosettafold3.conda_activate``); ``--export=NONE``
+  does not inherit a login-shell conda env.
 - Boltz2 later seeds reuse a **shared** MSA CSV at
   ``data/structures/msa/<version>/<version>_<state>.csv`` (copied from seed1).
   Boltz names MSA files ``{stem}_{entity}.csv``, not ``A.csv``.

@@ -100,9 +100,9 @@ esmfold:
 # Docs: https://github.com/RosettaCommons/foundry/blob/production/models/rf3/README.md
 rosettafold3:
   module: null
-  # Optional: path to conda activate script that has `rf3` on PATH
-  # conda_activate: "/uufs/.../.conda/envs/rf3/bin/activate"
-  conda_activate: null
+  # CHPC: activate the env that has `rf3` (rc-foundry). Required because
+  # GPU scripts use #SBATCH --export=NONE and will not inherit a login conda env.
+  conda_activate: "/uufs/chpc.utah.edu/common/home/u1116818/.conda/envs/biosensor_priors"
   run: "rf3"
   # In-repo Foundry checkpoint (gitignored; not touched by clean_pipeline_artifacts).
   # Install: mkdir -p weights/rf3 && foundry install base-models --checkpoint-dir "$PWD/weights/rf3"

@@ -345,6 +345,8 @@ gates:
     assert "#SBATCH --ntasks-per-node=1" in rf_script
     assert "#SBATCH -n " not in rf_script
     assert "unset SLURM_NTASKS" in rf_script
+    assert "biosensor_priors" in rf_script
+    assert "source " in rf_script
     js = (root / rf["input_path"]).read_text(encoding="utf-8")
     assert '"seq"' in js
 
