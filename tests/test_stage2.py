@@ -39,7 +39,12 @@ def test_delta_rif_sel_definition() -> None:
 
 
 def test_ligand_ensemble_writes_catalog() -> None:
-    result = run_ligand_ensemble(repo_root=REPO_ROOT, n_placeholder=2)
+    physics_cfg = load_yaml(REPO_ROOT / "configs" / "physics.yaml")
+    physics_cfg = dict(physics_cfg)
+    physics_cfg["backend"] = "mock"
+    result = run_ligand_ensemble(
+        repo_root=REPO_ROOT, n_placeholder=2, physics_cfg=physics_cfg
+    )
     assert result.catalog_path.exists()
     assert not result.conformers.empty
     assert set(result.conformers["ligand"]) >= {"AcCoA", "PropCoA"}

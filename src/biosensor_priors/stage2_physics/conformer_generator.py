@@ -30,6 +30,32 @@ def _require_rdkit():
         ) from exc
 
 
+def _load_mol2(path: Path):
+    """Load MOL2; many CoA files have aromatic rings RDKit cannot kekulize."""
+    Chem, _, _ = _require_rdkit()
+    mol = Chem.MolFromMol2File(str(path), removeHs=False)
+    if mol is not None:
+        return mol
+    mol = Chem.MolFromMol2File(str(path), removeHs=False, sanitize=False)
+    if mol is None:
+        return None
+    try:
+        Chem.SanitizeMol(mol)
+        return mol
+    except Exception:
+        pass
+    try:
+        # Keep aromatic flags from MOL2; skip Kekulize (fails on adenine N.ar).
+        Chem.SanitizeMol(
+            mol,
+            sanitizeOps=Chem.SanitizeFlags.SANITIZE_ALL
+            ^ Chem.SanitizeFlags.SANITIZE_KEKULIZE,
+        )
+        return mol
+    except Exception:
+        return None
+
+
 def mol_from_smiles_or_file(
     *,
     smiles: str | None = None,
@@ -49,7 +75,7 @@ def mol_from_smiles_or_file(
                 raise ValueError(f"No molecules parsed from {p}")
             return mols[0]
         if suffix == ".mol2":
-            mol = Chem.MolFromMol2File(str(p), removeHs=False)
+            mol = _load_mol2(p)
             if mol is None:
                 raise ValueError(f"Failed to parse MOL2: {p}")
             return mol
@@ -85,6 +111,10 @@ def generate_conformers(
 
     This replaces OpenEye OMEGA on CHPC. Requires RDKit.
 
+    Prefer a 3D start file when it sanitizes cleanly; otherwise fall back to
+    ``smiles`` (needed for AcCoA/PropCoA MOL2 files whose adenine rings fail
+    RDKit kekulization). ETKDG regenerates coordinates in either case.
+
     Parameters
     ----------
     smiles : str, optional
@@ -117,7 +147,25 @@ def generate_conformers(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    mol = mol_from_smiles_or_file(smiles=smiles, path=input_path)
+    mol = None
+    load_errors: list[str] = []
+    if input_path is not None:
+        try:
+            mol = mol_from_smiles_or_file(path=input_path)
+        except (ValueError, FileNotFoundError) as exc:
+            load_errors.append(str(exc))
+    if mol is None and smiles:
+        try:
+            mol = mol_from_smiles_or_file(smiles=smiles)
+        except ValueError as exc:
+            load_errors.append(str(exc))
+    if mol is None:
+        detail = "; ".join(load_errors) if load_errors else "no input"
+        raise ValueError(
+            "Could not load ligand for conformer generation "
+            f"(input_path={input_path!r}, smiles set={bool(smiles)}): {detail}"
+        )
+
     if add_hs:
         mol = Chem.AddHs(mol)
 

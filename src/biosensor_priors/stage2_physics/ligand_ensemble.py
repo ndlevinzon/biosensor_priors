@@ -254,13 +254,15 @@ def _run_builtin_stage(
         if backend != "external":
             meta["skipped"] = "mock_backend"
             return meta
-        from biosensor_priors.stage2_physics.conformer_generator import generate_conformers
+        from biosensor_priors.stage2_physics.conformer_generator import (
+            generate_conformers,
+        )
 
         gen_cfg = lig_cfg.get("conformer_generation") or {}
         start_path = resolve_ligand_start_path(ligand, lig_cfg=lig_cfg)
-        smiles = None if start_path is not None else resolve_ligand_smiles(
-            ligand, lig_cfg=lig_cfg
-        )
+        # Always resolve SMILES so ETKDG can fall back when MOL2 fails sanitize
+        # (AcCoA/PropCoA adenine N.ar rings often break RDKit kekulization).
+        smiles = resolve_ligand_smiles(ligand, lig_cfg=lig_cfg)
         paths = generate_conformers(
             smiles=smiles,
             input_path=start_path,

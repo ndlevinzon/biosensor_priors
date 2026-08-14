@@ -14,3 +14,7 @@
 #   2. data/ligands/<name>/ligand.smi
 #
 # Drop your files here, then run biosensor-stage2 (backend: external for real RDKit).
+#
+# Note: some CoA ``starting.mol2`` files fail RDKit kekulization on the adenine
+# ring. Conformer generation then falls back to ``ligand.smi`` (ETKDG still
+# rebuilds 3D coordinates). Prefer a sanitized SDF if you need a specific pose.
