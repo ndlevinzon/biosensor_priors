@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Boltz2 / RF3 scripts unset ``SLURM_NTASKS`` / related vars before predict so
   PyTorch Lightning does not take the Slurm multi-rank path (fixes
   ``CUDA unknown error`` after ``GPU available: True``).
+- Boltz2 later seeds reuse a **shared** MSA CSV at
+  ``data/structures/msa/<version>/<version>_<state>.csv`` (copied from seed1).
+  Boltz names MSA files ``{stem}_{entity}.csv``, not ``A.csv``.
 
 ### Added
 

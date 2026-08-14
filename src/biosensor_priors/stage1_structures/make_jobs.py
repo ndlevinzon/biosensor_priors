@@ -387,12 +387,18 @@ def make_structure_jobs(
                         logs_dir, structure_model_id=mid, script_stem=script.stem
                     )
                     depends_on: Path | None = None
+                    shared_msa = (
+                        structures_root
+                        / "msa"
+                        / version
+                        / f"{sanitize_af3_name(version)}_{state}.csv"
+                    )
                     if lead is not None:
                         # Later seeds: reuse MSA from the first seed (same sequence).
                         input_path = write_boltz2_yaml(
                             job_dir / f"{input_stem}.yaml",
                             sequence=sequence,
-                            msa=lead["msa_csv"],
+                            msa=shared_msa.resolve(),
                         )
                         write_boltz2_script(
                             script,
@@ -406,7 +412,8 @@ def make_structure_jobs(
                         depends_on = Path(lead["script"])
                         msa_note = (
                             f"Reuses MSA from {lead['structure_model_id']} "
-                            "(avoids hammering ColabFold MSA server)."
+                            f"({shared_msa.relative_to(root).as_posix()}); "
+                            "avoids hammering ColabFold MSA server."
                         )
                     else:
                         fmt = str(boltz_cfg.get("input_format", "fasta")).lower()
@@ -429,17 +436,12 @@ def make_structure_jobs(
                             stdout_path=stdout,
                             stderr_path=stderr,
                             use_msa_server=None,
-                        )
-                        msa_csv = (
-                            out_dir.resolve()
-                            / f"boltz_results_{input_stem}"
-                            / "msa"
-                            / "A.csv"
+                            shared_msa_dest=shared_msa.resolve() if share_msa else None,
                         )
                         if share_msa:
                             boltz_msa_lead[lead_key] = {
                                 "script": script,
-                                "msa_csv": msa_csv,
+                                "msa_csv": shared_msa.resolve(),
                                 "structure_model_id": mid,
                                 "input_stem": input_stem,
                             }

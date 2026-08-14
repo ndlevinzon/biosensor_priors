@@ -98,7 +98,10 @@ structure:
     assert str(s2["input_path"]).endswith(".yaml")
     yaml2 = (root / s2["input_path"]).read_text(encoding="utf-8")
     assert "msa:" in yaml2
-    assert "boltz_results_V2_4_Boltz2_seed1_apo" in yaml2.replace("\\", "/")
+    assert "msa/V2.4/V2_4_apo.csv" in yaml2.replace("\\", "/")
+    assert "boltz_results_" not in yaml2
+    assert "SHARED_MSA=" in script1
+    assert "msa/*.csv" in script1
     submit = (result["submit_script"]).read_text(encoding="utf-8")
     assert "sbatch --parsable" in submit
     assert "afterok:" in submit

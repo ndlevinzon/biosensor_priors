@@ -517,6 +517,7 @@ def write_boltz2_script(
     stdout_path: Path | str | None = None,
     stderr_path: Path | str | None = None,
     use_msa_server: bool | None = None,
+    shared_msa_dest: Path | str | None = None,
 ) -> Path:
     """
     Write a CHPC Boltz-2 GPU SLURM script.
@@ -524,6 +525,10 @@ def write_boltz2_script(
     Matches CHPC docs: ``boltz predict`` + ``--use_msa_server`` against the
     on-campus ColabFold MSA URL. Uses ``--ntasks-per-node=1`` (Lightning) and
     optional ``--cpus-per-task`` for the MSA client / folding process.
+
+    If ``shared_msa_dest`` is set, copy the generated ``msa/*.csv`` there so
+    later seeds can reuse it (Boltz names the CSV ``{stem}_{entity}.csv``,
+    not ``A.csv``).
     """
     step = boltz_cfg.get("job") or {}
     path = Path(path)
@@ -597,6 +602,26 @@ def write_boltz2_script(
             "",
         ]
     )
+    if shared_msa_dest is not None:
+        dest = Path(shared_msa_dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        lines.extend(
+            [
+                "# Boltz writes msa/{target_id}_{entity_id}.csv (not A.csv).",
+                "# Copy to a stable path for later seeds.",
+                f'SHARED_MSA="{dest.as_posix()}"',
+                'MSA_SRC=$(find "$OUTPUT_DIR" -path "*/msa/*.csv" -type f | head -n 1 || true)',
+                'if [[ -z "${MSA_SRC}" ]]; then',
+                '  echo "ERROR: Boltz did not write an MSA CSV under $OUTPUT_DIR" >&2',
+                '  find "$OUTPUT_DIR" -type d -name msa -o -name "*.csv" 2>/dev/null | head >&2 || true',
+                "  exit 1",
+                "fi",
+                'mkdir -p "$(dirname "$SHARED_MSA")"',
+                'cp "$MSA_SRC" "$SHARED_MSA"',
+                'echo "Copied MSA $MSA_SRC -> $SHARED_MSA"',
+                "",
+            ]
+        )
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
 
